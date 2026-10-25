@@ -1,0 +1,43 @@
+{
+  "criteria": {
+    "has_casing": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "create:andesite_casing"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_casing"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "aeronautics_innerworld:bore_station",
+      "aeronautics_innerworld:cabin_regulator",
+      "aeronautics_innerworld:coolant_cell",
+      "aeronautics_innerworld:drill_controller",
+      "aeronautics_innerworld:drill_remote",
+      "aeronautics_innerworld:echo_sounder",
+      "aeronautics_innerworld:emergency_patch",
+      "aeronautics_innerworld:expedition_manual",
+      "aeronautics_innerworld:harmonic_crystal_from_blasting",
+      "aeronautics_innerworld:harmonic_crystal_from_smelting",
+      "aeronautics_innerworld:mantle_ballast",
+      "aeronautics_innerworld:mantle_sampler",
+      "aeronautics_innerworld:mantle_viewport",
+      "aeronautics_innerworld:molten_thruster",
+      "aeronautics_innerworld:multi_axis_cutter",
+      "aeronautics_innerworld:pressure_hatch",
+      "aeronautics_innerworld:refractory_hull",
+      "aeronautics_innerworld:repair_kit",
+      "aeronautics_innerworld:repair_kit_from_harmonic",
+      "aeronautics_innerworld:stabilized_coolant_cell"
+    ]
+  }
+}

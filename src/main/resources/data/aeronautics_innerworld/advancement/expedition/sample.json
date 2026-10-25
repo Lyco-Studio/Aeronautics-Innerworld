@@ -1,0 +1,30 @@
+{
+  "display": {
+    "icon": {
+      "id": "aeronautics_innerworld:raw_harmonic"
+    },
+    "title": {
+      "translate": "advancement.aeronautics_innerworld.sample.title"
+    },
+    "description": {
+      "translate": "advancement.aeronautics_innerworld.sample.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "aeronautics_innerworld:raw_harmonic"
+          }
+        ]
+      }
+    }
+  },
+  "parent": "aeronautics_innerworld:expedition/probe"
+}

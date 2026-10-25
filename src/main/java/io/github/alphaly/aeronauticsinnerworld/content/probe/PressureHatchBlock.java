@@ -4,6 +4,8 @@ import com.mojang.serialization.MapCodec;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -52,7 +54,17 @@ public final class PressureHatchBlock extends HorizontalDirectionalBlock impleme
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            level.setBlockAndUpdate(pos, state.cycle(OPEN));
+            boolean open = !state.getValue(OPEN);
+            level.setBlockAndUpdate(pos, state.setValue(OPEN, open));
+            for (var direction : new Direction[] {Direction.UP, Direction.DOWN}) {
+                var adjacentPos = pos.relative(direction);
+                var adjacent = level.getBlockState(adjacentPos);
+                if (adjacent.is(this) && adjacent.getValue(FACING) == state.getValue(FACING)) {
+                    level.setBlockAndUpdate(adjacentPos, adjacent.setValue(OPEN, open));
+                }
+            }
+            level.playSound(null, pos, open ? SoundEvents.IRON_DOOR_OPEN : SoundEvents.IRON_DOOR_CLOSE,
+                    SoundSource.BLOCKS, .8f, 1);
         }
         return InteractionResult.SUCCESS;
     }

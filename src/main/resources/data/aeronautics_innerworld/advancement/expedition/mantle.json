@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "id": "aeronautics_innerworld:bore_station"
+    },
+    "title": {
+      "translate": "advancement.aeronautics_innerworld.mantle.title"
+    },
+    "description": {
+      "translate": "advancement.aeronautics_innerworld.mantle.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "reached": {
+      "trigger": "minecraft:changed_dimension",
+      "conditions": {
+        "to": "aeronautics_innerworld:mantle"
+      }
+    }
+  },
+  "parent": "aeronautics_innerworld:expedition/root"
+}

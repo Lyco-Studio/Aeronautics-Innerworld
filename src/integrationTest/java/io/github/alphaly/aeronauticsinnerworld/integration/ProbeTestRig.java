@@ -27,6 +27,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Unit;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
@@ -49,6 +51,11 @@ public final class ProbeTestRig {
     public static final BlockPos HATCH = new BlockPos(2, 2, 0);
     public static final BlockPos SOUNDER = new BlockPos(2, 1, 3);
     public static final BlockPos SAMPLER = new BlockPos(3, 1, 0);
+    public static final BlockPos LEFT_THROTTLE = new BlockPos(1, 2, 4);
+    public static final BlockPos RIGHT_THROTTLE = new BlockPos(3, 2, 4);
+    public static final BlockPos LEFT_REVERSE = new BlockPos(1, 2, 5);
+    public static final BlockPos RIGHT_REVERSE = new BlockPos(3, 2, 5);
+    public static final BlockPos BOARDING_HATCH = new BlockPos(0, 1, 2);
 
     public ProbeTestRig(ServerLevel level, BlockPos origin) {
         this.level = level;
@@ -101,6 +108,36 @@ public final class ProbeTestRig {
         ((EchoSounderBlockEntity) level.getBlockEntity(origin.offset(SOUNDER))).setHome(origin);
         ((MantleSamplerBlockEntity) level.getBlockEntity(origin.offset(SAMPLER))).inventory.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COPPER_INGOT, 17));
+    }
+
+    public void survivalPower() {
+        place(BOARDING_HATCH, AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST));
+        place(BOARDING_HATCH.above(), AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST));
+        engine(CABIN.north(), Direction.SOUTH);
+        engine(SAMPLER.south(), Direction.NORTH);
+        for (int x : new int[] {1, 3}) {
+            var gearbox = new BlockPos(x, -1, 2);
+            place(gearbox, AllBlocks.GEARBOX.getDefaultState().setValue(BlockStateProperties.AXIS, Direction.Axis.X));
+            engine(gearbox.south(), Direction.NORTH);
+            glue(gearbox, gearbox.south());
+            place(new BlockPos(x, 1, 5), AllBlocks.GEARSHIFT.getDefaultState()
+                    .setValue(BlockStateProperties.AXIS, Direction.Axis.Z));
+            place(new BlockPos(x, 1, 4), AllBlocks.CLUTCH.getDefaultState()
+                    .setValue(BlockStateProperties.AXIS, Direction.Axis.Z));
+            engine(new BlockPos(x, 1, 3), Direction.SOUTH);
+            place(new BlockPos(x, 2, 4), Blocks.LEVER.defaultBlockState()
+                    .setValue(LeverBlock.FACE, AttachFace.FLOOR).setValue(LeverBlock.POWERED, true));
+            place(new BlockPos(x, 2, 5), Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.FLOOR));
+        }
+    }
+
+    private void engine(BlockPos pos, Direction facing) {
+        place(pos, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
+        ((PortableEngineBlockEntity) level.getBlockEntity(origin.offset(pos))).inventory.setItem(0,
+                new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, 4));
     }
 
     public BlockPos mineralTarget() {
@@ -255,8 +292,12 @@ public final class ProbeTestRig {
     public void cleanUp() {
         var container = SubLevelContainer.getContainer(level);
         if (subLevel != null) {
-            if (level.getBlockEntity(local(SOUNDER.south())) instanceof PortableEngineBlockEntity engine) {
-                engine.inventory.clearContent();
+            var bounds = subLevel.getPlot().getBoundingBox();
+            for (var pos : BlockPos.betweenClosed(bounds.minX(), bounds.minY(), bounds.minZ(),
+                    bounds.maxX(), bounds.maxY(), bounds.maxZ())) {
+                if (level.getBlockEntity(pos) instanceof PortableEngineBlockEntity engine) {
+                    engine.inventory.clearContent();
+                }
             }
             if (level.getBlockEntity(local(SAMPLER)) instanceof MantleSamplerBlockEntity sampler) {
                 for (int slot = 0; slot < 9; slot++) {

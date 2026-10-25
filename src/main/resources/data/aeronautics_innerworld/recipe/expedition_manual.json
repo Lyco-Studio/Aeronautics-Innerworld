@@ -1,0 +1,41 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:book"
+    },
+    {
+      "item": "minecraft:copper_ingot"
+    }
+  ],
+  "result": {
+    "id": "minecraft:written_book",
+    "components": {
+      "minecraft:custom_name": "{\"translate\": \"item.aeronautics_innerworld.expedition_manual\"}",
+      "minecraft:written_book_content": {
+        "title": "Innerworld Field Guide",
+        "author": "Innerworld Survey Office",
+        "generation": 0,
+        "pages": [
+          "{\"translate\": \"book.aeronautics_innerworld.page.1\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.2\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.3\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.4\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.5\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.6\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.7\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.8\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.9\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.10\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.11\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.12\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.13\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.14\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.15\"}"
+        ],
+        "resolved": true
+      }
+    }
+  }
+}
