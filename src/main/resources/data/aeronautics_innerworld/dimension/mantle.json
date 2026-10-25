@@ -1,0 +1,26 @@
+{
+  "type": "aeronautics_innerworld:mantle",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "aeronautics_innerworld:mantle",
+      "features": true,
+      "lakes": false,
+      "structure_overrides": [],
+      "layers": [
+        {
+          "height": 1,
+          "block": "minecraft:bedrock"
+        },
+        {
+          "height": 199,
+          "block": "minecraft:lava"
+        },
+        {
+          "height": 56,
+          "block": "minecraft:deepslate"
+        }
+      ]
+    }
+  }
+}

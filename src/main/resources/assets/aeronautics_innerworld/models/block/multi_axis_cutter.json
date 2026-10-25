@@ -1,0 +1,234 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/iron_block",
+    "casing": "minecraft:block/polished_deepslate",
+    "cutting": "minecraft:block/iron_block"
+  },
+  "elements": [
+    {
+      "from": [
+        4,
+        4,
+        4
+      ],
+      "to": [
+        12,
+        12,
+        12
+      ],
+      "faces": {
+        "down": {
+          "texture": "#casing"
+        },
+        "up": {
+          "texture": "#casing"
+        },
+        "north": {
+          "texture": "#casing"
+        },
+        "south": {
+          "texture": "#casing"
+        },
+        "west": {
+          "texture": "#casing"
+        },
+        "east": {
+          "texture": "#casing"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        5,
+        5
+      ],
+      "to": [
+        4,
+        11,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#cutting"
+        },
+        "up": {
+          "texture": "#cutting"
+        },
+        "north": {
+          "texture": "#cutting"
+        },
+        "south": {
+          "texture": "#cutting"
+        },
+        "west": {
+          "texture": "#cutting"
+        },
+        "east": {
+          "texture": "#cutting"
+        }
+      }
+    },
+    {
+      "from": [
+        12,
+        5,
+        5
+      ],
+      "to": [
+        16,
+        11,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#cutting"
+        },
+        "up": {
+          "texture": "#cutting"
+        },
+        "north": {
+          "texture": "#cutting"
+        },
+        "south": {
+          "texture": "#cutting"
+        },
+        "west": {
+          "texture": "#cutting"
+        },
+        "east": {
+          "texture": "#cutting"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        0,
+        5
+      ],
+      "to": [
+        11,
+        4,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#cutting"
+        },
+        "up": {
+          "texture": "#cutting"
+        },
+        "north": {
+          "texture": "#cutting"
+        },
+        "south": {
+          "texture": "#cutting"
+        },
+        "west": {
+          "texture": "#cutting"
+        },
+        "east": {
+          "texture": "#cutting"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        12,
+        5
+      ],
+      "to": [
+        11,
+        16,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#cutting"
+        },
+        "up": {
+          "texture": "#cutting"
+        },
+        "north": {
+          "texture": "#cutting"
+        },
+        "south": {
+          "texture": "#cutting"
+        },
+        "west": {
+          "texture": "#cutting"
+        },
+        "east": {
+          "texture": "#cutting"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        0
+      ],
+      "to": [
+        11,
+        11,
+        4
+      ],
+      "faces": {
+        "down": {
+          "texture": "#cutting"
+        },
+        "up": {
+          "texture": "#cutting"
+        },
+        "north": {
+          "texture": "#cutting"
+        },
+        "south": {
+          "texture": "#cutting"
+        },
+        "west": {
+          "texture": "#cutting"
+        },
+        "east": {
+          "texture": "#cutting"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        12
+      ],
+      "to": [
+        11,
+        11,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#cutting"
+        },
+        "up": {
+          "texture": "#cutting"
+        },
+        "north": {
+          "texture": "#cutting"
+        },
+        "south": {
+          "texture": "#cutting"
+        },
+        "west": {
+          "texture": "#cutting"
+        },
+        "east": {
+          "texture": "#cutting"
+        }
+      }
+    }
+  ]
+}

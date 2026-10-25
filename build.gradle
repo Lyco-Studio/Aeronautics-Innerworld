@@ -1,0 +1,205 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version "${moddev_version}"
+    id 'idea'
+}
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+sourceSets {
+    integrationTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom implementation
+    integrationTestCompileOnly.extendsFrom compileOnly
+}
+
+def prepareIntegrationStructures = tasks.register('prepareIntegrationStructures', Copy) {
+    from 'src/integrationTest/structures'
+    into 'run/integration/gameteststructures'
+}
+
+// GameTestServer builds dimensions from the flat preset instead of datapack level stems.
+def generateIntegrationWorldPreset = tasks.register('generateIntegrationWorldPreset') {
+    def mantleDefinition = layout.projectDirectory.file('src/main/resources/data/aeronautics_innerworld/dimension/mantle.json')
+    def destination = layout.buildDirectory.dir('generated/integrationResources')
+    inputs.file mantleDefinition
+    outputs.dir destination
+    doLast {
+        def flatSettings = [biome: 'minecraft:plains', features: false, lakes: false, structure_overrides: [],
+                layers: [[height: 1, block: 'minecraft:bedrock'], [height: 2, block: 'minecraft:dirt'],
+                         [height: 1, block: 'minecraft:grass_block']]]
+        def dimensions = [
+                'minecraft:overworld': [type: 'minecraft:overworld', generator: [type: 'minecraft:flat', settings: flatSettings]],
+                'minecraft:the_nether': [type: 'minecraft:the_nether', generator: [type: 'minecraft:noise', settings: 'minecraft:nether',
+                        biome_source: [type: 'minecraft:multi_noise', preset: 'minecraft:nether']]],
+                'minecraft:the_end': [type: 'minecraft:the_end', generator: [type: 'minecraft:noise', settings: 'minecraft:end',
+                        biome_source: [type: 'minecraft:the_end']]],
+                'aeronautics_innerworld:mantle': new groovy.json.JsonSlurper().parse(mantleDefinition.asFile)]
+        def target = destination.get().file('data/minecraft/worldgen/world_preset/flat.json').asFile
+        target.parentFile.mkdirs()
+        target.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([dimensions: dimensions])) + '\n'
+    }
+}
+sourceSets.integrationTest.resources.srcDir(generateIntegrationWorldPreset.map {
+    layout.buildDirectory.dir('generated/integrationResources').get()
+})
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'Create'
+        url = 'https://maven.createmod.net'
+        content {
+            includeGroup 'com.simibubi.create'
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup 'maven.modrinth'
+        }
+    }
+}
+
+neoForge {
+    version = neo_version
+
+    runs {
+        client {
+            client()
+            gameDirectory = project.file('run/client')
+        }
+        server {
+            server()
+            gameDirectory = project.file('run/server')
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+neoForge.addModdingDependenciesTo(sourceSets.integrationTest)
+def integrationMod = neoForge.mods.create("${mod_id}_checks") {
+    sourceSet sourceSets.integrationTest
+}
+neoForge.runs.configureEach {
+    loadedMods.set([neoForge.mods.getByName(mod_id)])
+}
+neoForge.runs.create('integrationTestServer') {
+    type = 'gameTestServer'
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/integration')
+    loadedMods.add(integrationMod)
+    systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+    taskBefore prepareIntegrationStructures
+}
+def clientCheckWorld = providers.gradleProperty('checkWorld').getOrElse('RuntimeBaseline')
+neoForge.runs.create('integrationTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.clientStartupCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runIntegrationTestClient') {
+    doFirst {
+        if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
+            throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
+        }
+    }
+}
+
+configurations {
+    modDistributions {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+    implementation.extendsFrom modDistributions
+}
+
+def embeddedModDependencies = layout.buildDirectory.dir('dependencies/embedded')
+def extractEmbeddedModDependencies = tasks.register('extractEmbeddedModDependencies', Sync) {
+    from({ configurations.modDistributions.collect { zipTree(it) } }) {
+        include 'META-INF/jarjar/*.jar'
+        eachFile { path = name }
+        includeEmptyDirs = false
+    }
+    into embeddedModDependencies
+}
+
+dependencies {
+    modDistributions("com.simibubi.create:create-${minecraft_version}:${create_version}") {
+        transitive = false
+    }
+    modDistributions("maven.modrinth:sable:${sable_version}") {
+        transitive = false
+    }
+    modDistributions("maven.modrinth:create-aeronautics:${aeronautics_version}") {
+        transitive = false
+    }
+
+    // Nested modules and API libraries need separate compile classpath entries.
+    // NeoForge loads them from the original distributions at runtime.
+    compileOnly files(embeddedModDependencies.map { directory ->
+        fileTree(directory) { include '*.jar' }
+    }).builtBy(extractEmbeddedModDependencies)
+}
+
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    def properties = [
+        minecraft_version: minecraft_version,
+        neo_version: neo_version,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_version: mod_version,
+        mod_license: mod_license,
+        create_mod_version: create_mod_version,
+        aeronautics_mod_version: aeronautics_mod_version,
+        sable_mod_version: sable_mod_version,
+    ]
+    inputs.properties properties
+    expand properties
+    from 'src/main/templates'
+    into layout.buildDirectory.dir('generated/sources/modMetadata')
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+neoForge.ideSyncTask extractEmbeddedModDependencies
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+    }
+}

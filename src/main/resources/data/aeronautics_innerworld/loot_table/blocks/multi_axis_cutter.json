@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:block",
+  "pools": [{
+    "rolls": 1,
+    "entries": [{ "type": "minecraft:item", "name": "aeronautics_innerworld:multi_axis_cutter" }],
+    "conditions": [{ "condition": "minecraft:survives_explosion" }]
+  }]
+}
