@@ -58,7 +58,7 @@
   "block.aeronautics_innerworld.mantle_ballast": "Mantle Ballast",
   "block.aeronautics_innerworld.cabin_regulator": "Cabin Regulator",
   "message.aeronautics_innerworld.thruster_status": "Thrust drive: %s RPM · %3$s",
-  "message.aeronautics_innerworld.ballast_status": "Ballast: %s RPM · supports %s mass · %s",
+  "message.aeronautics_innerworld.ballast_status": "Ballast: %s RPM · supports %s mass · %s · %s",
   "message.aeronautics_innerworld.probe_in_lava": "in mantle lava",
   "message.aeronautics_innerworld.probe_dry": "outside mantle lava",
   "message.aeronautics_innerworld.cabin_status": "Cabin: %s · %s m³ · Heat %s%% · Coolant %ss",
@@ -107,7 +107,7 @@
   "book.aeronautics_innerworld.page.6": "The dry dock\n\nExcavate a dry dock. Stack two matching hatches for a walkable entrance; either handle opens both. Keep the hull sealed and dry, then assemble the probe in the mantle.",
   "book.aeronautics_innerworld.page.7": "Assembly and power\n\nGlue the hull and equipment, then use the Aeronautics Physics Assembler. Fueled Portable Engines supply rotation through shafts and gearboxes. Check stress, fuel, coolant and cabin sealing before launch.",
   "book.aeronautics_innerworld.page.8": "Thrust and turning\n\nImmersed thrusters move the probe; reverse rotation to back up. Create Clutches stop shafts and Gearshifts reverse them. Control left and right drives separately to turn. Redstone Links enable cabin controls.",
-  "book.aeronautics_innerworld.page.9": "Trim and sealing\n\nBallast holds depth at 32 RPM. Higher positive speed ascends; higher negative speed descends. Each supports 128 mass units. Face regulators inward at 16+ RPM; enclose at most 4096 cells within 16 blocks.",
+  "book.aeronautics_innerworld.page.9": "Trim and sealing\n\n32 RPM holds depth. Sneak empty-hand on ballast to cycle RPM control, ascend and descend; set both alike. Each supports 128 mass.\n\nFace regulators inward at 16+ RPM and seal the cabin.",
   "book.aeronautics_innerworld.page.10": "Scanning and berth\n\nPower the sounder at 16+ RPM for mineral scans and forward clearance. Empty-hand use lists targets and faults. It records its berth on placement; sneak-use in a dry dock to reset return distance and bearing.",
   "book.aeronautics_innerworld.page.11": "Sampling and cargo\n\nThe sampler mines deposits up to 4 blocks ahead. Clear obstructions and hold position. Its nine-slot hold pauses when full; empty-hand use unloads a stack. Seek harmonic ore near Y=164–196 and smelt the raw ore.",
   "book.aeronautics_innerworld.page.12": "Cooling supplies\n\nUse coolant cells on the regulator: 120 seconds per cell, 240 per stabilized cell, up to 600 stored. Craft ordinary cells from copper sheets, glass and water. Harmonic crystals improve coolant and repair yields.",
@@ -200,5 +200,8 @@
   "message.aeronautics_innerworld.sonar_route_dimension": "This compass has no target in this dimension.",
   "message.aeronautics_innerworld.sonar_route_home": "Waypoint cleared; navigating to the home berth.",
   "book.aeronautics_innerworld.page.24": "Route compasses\n\nUse a plain compass on a powered sounder to save its nearest site, ore or position. Use a saved compass to reload it.\n\nSneak empty-hand to cancel; the berth stays recorded.",
-  "item.aeronautics_innerworld.route_compass": "Route Compass"
+  "item.aeronautics_innerworld.route_compass": "Route Compass",
+  "message.aeronautics_innerworld.trim_hold": "RPM control",
+  "message.aeronautics_innerworld.trim_ascend": "Ascend",
+  "message.aeronautics_innerworld.trim_descend": "Descend"
 }

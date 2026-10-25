@@ -14,6 +14,8 @@ import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -49,6 +51,9 @@ public final class SurvivalClientCheck {
     private static boolean recordedRoute;
     private static boolean reloadedRoute;
     private static boolean routeScreenshot;
+    private static boolean ascending;
+    private static boolean descending;
+    private static boolean holdingDepth;
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -143,6 +148,18 @@ public final class SurvivalClientCheck {
                         message -> LogUtils.getLogger().info("Route compass screenshot: {}", message.getString()));
                 routeScreenshot = true;
             }
+            if (scene.ticks >= 252 && !ascending && client.player.getMainHandItem().isEmpty()) {
+                cycleTrim(client);
+                ascending = true;
+            }
+            if (scene.ticks >= 285 && !descending) {
+                cycleTrim(client);
+                descending = true;
+            }
+            if (scene.ticks >= 325 && !holdingDepth) {
+                cycleTrim(client);
+                holdingDepth = true;
+            }
             if (step == null) {
                 step = client.getSingleplayerServer().submit(scene::tick);
             } else if (step.isDone()) {
@@ -171,6 +188,15 @@ public final class SurvivalClientCheck {
         var pos = scene.rig.local(relative);
         client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+    }
+
+    private static void cycleTrim(Minecraft client) {
+        client.player.setShiftKeyDown(true);
+        client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY));
+        toggle(client, new BlockPos(1, 0, 2));
+        toggle(client, new BlockPos(3, 0, 2));
+        client.player.setShiftKeyDown(false);
+        client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
     }
 
     private static final class Scene {
@@ -281,7 +307,28 @@ public final class SurvivalClientCheck {
             if (ticks == 245 && (!reloadedRoute || !waypoint.equals(rig.sounder().getWaypoint()))) {
                 throw new IllegalStateException("Saved compass input did not reload its route");
             }
-            return ticks >= 250;
+            if (ticks == 250) {
+                player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+                player.containerMenu.broadcastChanges();
+            }
+            if (ticks == 280 && (!ascending || trimMode() != 1 || RigidBodyHandle.of(rig.subLevel).getLinearVelocity().y() < .1)) {
+                throw new IllegalStateException("Client ballast input did not ascend at normal fuel speed");
+            }
+            if (ticks == 320 && (!descending || trimMode() != -1 || RigidBodyHandle.of(rig.subLevel).getLinearVelocity().y() > -.1)) {
+                throw new IllegalStateException("Client ballast input did not descend at normal fuel speed");
+            }
+            if (ticks == 340 && (!holdingDepth || trimMode() != 0)) {
+                throw new IllegalStateException("Client ballast input did not restore RPM control");
+            }
+            return ticks >= 345;
+        }
+
+        private int trimMode() {
+            int left = ((ProbeDriveBlockEntity) rig.level.getBlockEntity(rig.local(new BlockPos(1, 0, 2)))).getTrimMode();
+            int right = ((ProbeDriveBlockEntity) rig.level.getBlockEntity(rig.local(new BlockPos(3, 0, 2)))).getTrimMode();
+            if (left != right) throw new IllegalStateException("Ballast mode input reached only one device");
+            return left;
         }
 
         private void cleanUp() {

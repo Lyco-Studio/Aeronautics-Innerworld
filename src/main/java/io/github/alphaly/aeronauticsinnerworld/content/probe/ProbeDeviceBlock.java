@@ -104,7 +104,8 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             if (level.getBlockEntity(pos) instanceof ProbeDriveBlockEntity drive) {
-                drive.showStatus(player);
+                if (player.isShiftKeyDown()) drive.cycleTrimMode(player);
+                else drive.showStatus(player);
             } else if (level.getBlockEntity(pos) instanceof CabinRegulatorBlockEntity cabin) {
                 cabin.showStatus(player);
             } else if (level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {

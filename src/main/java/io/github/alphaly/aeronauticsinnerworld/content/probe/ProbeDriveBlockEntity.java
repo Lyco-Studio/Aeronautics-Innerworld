@@ -24,6 +24,7 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
     private double supportedMass;
     private double verticalTrim;
     private boolean faulted;
+    private int trimMode;
 
     public ProbeDriveBlockEntity(BlockPos pos, BlockState state) {
         super(AeronauticsInnerworld.PROBE_DRIVE_ENTITY.get(), pos, state);
@@ -77,6 +78,7 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         var pose = subLevel.logicalPose();
         var gravity = DimensionPhysicsData.getGravity(level, pose.position());
         double targetSpeed = Math.copySign(Math.min(1.5, Math.max(0, Math.abs(getSpeed()) - 32) / 64.0), getSpeed());
+        if (trimMode != 0) targetSpeed = trimMode * .75 * power;
         double error = targetSpeed - body.getLinearVelocity().y();
         double capacity = gravity.length();
         // Native liquid buoyancy already supports the hull; trim only the remaining imbalance.
@@ -109,6 +111,19 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         return faulted;
     }
 
+    public int getTrimMode() {
+        return trimMode;
+    }
+
+    public void cycleTrimMode(Player player) {
+        if (ballast()) {
+            trimMode = trimMode == 0 ? 1 : trimMode == 1 ? -1 : 0;
+            verticalTrim = 0;
+            setChanged();
+        }
+        showStatus(player);
+    }
+
     public void fail() {
         faulted = true;
         setChanged();
@@ -123,18 +138,21 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         player.displayClientMessage(Component.translatable("message.aeronautics_innerworld."
                 + (ballast() ? "ballast_status" : "thruster_status"), Math.round(getSpeed()),
                 Math.round(supportedMass), Component.translatable("message.aeronautics_innerworld."
-                        + (faulted ? "probe_faulted" : immersed ? "probe_in_lava" : "probe_dry"))), true);
+                        + (faulted ? "probe_faulted" : immersed ? "probe_in_lava" : "probe_dry")),
+                Component.translatable("message.aeronautics_innerworld.trim_" + (trimMode == 0 ? "hold" : trimMode > 0 ? "ascend" : "descend"))), true);
     }
 
     @Override
     protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.write(tag, registries, clientPacket);
         tag.putBoolean("Faulted", faulted);
+        tag.putInt("TrimMode", trimMode);
     }
 
     @Override
     protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(tag, registries, clientPacket);
         faulted = tag.getBoolean("Faulted");
+        trimMode = Mth.clamp(tag.getInt("TrimMode"), -1, 1);
     }
 }

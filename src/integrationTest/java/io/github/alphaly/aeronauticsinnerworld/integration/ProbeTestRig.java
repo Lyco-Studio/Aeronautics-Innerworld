@@ -145,6 +145,16 @@ public final class ProbeTestRig {
         }
     }
 
+    public void landingSkids() {
+        for (int x : new int[] {0, 4}) {
+            for (int z = 0; z <= 6; z++) {
+                var foot = new BlockPos(x, -1, z);
+                place(foot, AeronauticsInnerworld.REFRACTORY_HULL.get().defaultBlockState());
+                glue(foot, foot.above());
+            }
+        }
+    }
+
     public void combatEquipment() {
         workEquipment();
         device(CANNON, AeronauticsInnerworld.PRESSURE_CANNON.get(), Direction.NORTH);

@@ -58,7 +58,7 @@
   "block.aeronautics_innerworld.mantle_ballast": "地幔配平舱",
   "block.aeronautics_innerworld.cabin_regulator": "舱室调节器",
   "message.aeronautics_innerworld.thruster_status": "推进器：%s RPM · %3$s",
-  "message.aeronautics_innerworld.ballast_status": "配平舱：%s RPM · 支承质量 %s · %s",
+  "message.aeronautics_innerworld.ballast_status": "配平舱：%s RPM · 支承质量 %s · %s · %s",
   "message.aeronautics_innerworld.probe_in_lava": "地幔熔岩中",
   "message.aeronautics_innerworld.probe_dry": "未浸入地幔熔岩",
   "message.aeronautics_innerworld.cabin_status": "舱室：%s · %s m³ · 热负荷 %s%% · 冷却 %s 秒",
@@ -107,7 +107,7 @@
   "book.aeronautics_innerworld.page.6": "整备船坞\n\n在岩体中开挖干燥船坞。上下叠放同朝向舱门，形成两格登船口；操作其中一扇即可联动开关。用舱壳与观察窗围好舱室，先排空积液，再在地幔内组装探测器。",
   "book.aeronautics_innerworld.page.7": "装配与供能\n\n使用强力胶连接船体与设备，再用 Aeronautics 物理装配器组装。便携式发动机燃煤供能；传动杆、齿轮箱和齿轮传递动力。出航前检查应力、燃料、冷却与密封。",
   "book.aeronautics_innerworld.page.8": "推进与转向\n\n推进器浸入熔岩后工作，反转动力即可倒车。用 Create 离合器控制启停，换向齿轮箱控制正反转。左右推进器分开控制可转弯，红石链路与无线控制器可将操作带入舱内。",
-  "book.aeronautics_innerworld.page.9": "浮沉与密封\n\n配平舱32 RPM保持深度；更高转速正转上浮、反转下潜。每台最多配平128质量单位。调节器通风面朝舱内，至少16 RPM；单台最多保护4096格，距通风口各向不超过16格。",
+  "book.aeronautics_innerworld.page.9": "配平与密封\n\n32 RPM 可定深。潜行空手右键配平舱，依次切换转速控制、上浮、下潜；两台应选择相同模式。每台支承上限为128质量单位。\n\n调节器朝向舱内并提供至少16 RPM，保持舱室完整密封。",
   "book.aeronautics_innerworld.page.10": "扫描与泊位\n\n回声探测仪至少16 RPM，扫描16格内谐振矿并测量前方净空。空手右键查看坐标与故障。放置时记下泊位；在干燥船坞潜行空手右键可重设，状态栏显示返航距离和方位。",
   "book.aeronautics_innerworld.page.11": "采样与回收\n\n采样器在船上采掘正前方4格内的矿体，先清除遮挡。九格货舱满载时停采；空手右键卸出一组，潜行查看状态。谐振矿多在熔岩上部 Y=164–196，返航后熔炼粗矿。",
   "book.aeronautics_innerworld.page.12": "冷却补给\n\n用冷却芯右键调节器。普通芯提供120秒冷却，稳定芯240秒，储备上限600秒。铜板、玻璃和水桶可制造普通芯；谐振晶体能升级冷却芯，或提高维修包产量。",
@@ -200,5 +200,8 @@
   "message.aeronautics_innerworld.sonar_route_dimension": "此罗盘在当前维度没有可用目标。",
   "message.aeronautics_innerworld.sonar_route_home": "已取消目标，恢复基地返航导航。",
   "book.aeronautics_innerworld.page.24": "航路罗盘\n\n用普通指南针右键供能的探测仪，优先记录最近遗迹，其次为矿点，无发现时记录当前位置。\n\n用已有记录的罗盘右键载入目标，显示方位、距离和高度。潜行空手右键取消目标，原基地泊位保留。",
-  "item.aeronautics_innerworld.route_compass": "航路罗盘"
+  "item.aeronautics_innerworld.route_compass": "航路罗盘",
+  "message.aeronautics_innerworld.trim_hold": "转速控制",
+  "message.aeronautics_innerworld.trim_ascend": "上浮",
+  "message.aeronautics_innerworld.trim_descend": "下潜"
 }

@@ -90,12 +90,16 @@ public final class ProbeChecks {
                                 helper.runAfterDelay(8, () -> {
                                     helper.assertTrue(!rig.cabin().isSealed(), "Unpowered regulator retained a sealed cabin");
                                     rig.motor(ProbeTestRig.CABIN, 32);
+                                    ((ProbeDriveBlockEntity) level.getBlockEntity(rig.local(new BlockPos(1, 0, 2))))
+                                            .cycleTrimMode(net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level));
                                     var uuid = rig.subLevel.getUniqueId();
                                     rig.unload();
                                     helper.runAfterDelay(2, rig::restore);
                                     helper.runAfterDelay(22, () -> {
                                         helper.assertTrue(rig.subLevel.getUniqueId().equals(uuid), "Probe identity changed on restore");
                                         helper.assertTrue(rig.cabin().isSealed(), "Restored regulator did not rebuild the seal");
+                                        helper.assertTrue(((ProbeDriveBlockEntity) level.getBlockEntity(rig.local(new BlockPos(1, 0, 2))))
+                                                .getTrimMode() == 1, "Reload lost the selected ballast mode");
                                         helper.assertTrue(RigidBodyHandle.of(rig.subLevel).isValid(), "Restored probe has no physics body");
                                         rig.cleanUp();
                                         helper.succeed();
