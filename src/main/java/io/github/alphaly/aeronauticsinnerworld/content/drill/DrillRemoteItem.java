@@ -26,6 +26,11 @@ public final class DrillRemoteItem extends Item {
     }
 
     @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        return context.getPlayer() == null ? InteractionResult.PASS : useOn(context);
+    }
+
+    @Override
     public InteractionResult useOn(UseOnContext context) {
         var level = context.getLevel();
         if (level.getBlockEntity(context.getClickedPos()) instanceof DrillControllerBlockEntity) {

@@ -31,5 +31,8 @@
   "status.aeronautics_innerworld.layer_arrived": "已抵达另一层，请选择方向后继续",
   "status.aeronautics_innerworld.layer_blocked": "跨层目的地受阻，钻头已暂停",
   "status.aeronautics_innerworld.layer_unavailable": "目标维度或钻头状态不可用，已暂停",
-  "status.aeronautics_innerworld.layer_ineligible": "跨层需空载乘员；检查组件跨度及往返记录"
+  "status.aeronautics_innerworld.layer_ineligible": "跨层需空载乘员；检查组件跨度及往返记录",
+  "message.aeronautics_innerworld.head_reconnected": "钻头已重新接入原控制器。",
+  "message.aeronautics_innerworld.head_controller_missing": "请在原位置重建钻探控制器，再重新接入钻头。",
+  "message.aeronautics_innerworld.head_controller_busy": "原控制器已连接其他钻头。"
 }

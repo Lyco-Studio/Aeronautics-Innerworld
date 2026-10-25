@@ -331,7 +331,21 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
                 return false;
             }
         }
+        movedContraption.disassemble();
+        movedContraption = null;
         disassemble();
+        return true;
+    }
+
+    public boolean reconnectHead(DrillHeadEntity head) {
+        if (!head.getControllerLocation().equals(GlobalPos.of(level.dimension(), worldPosition))
+                || (movedContraption != null && movedContraption != head)
+                || (running && remoteHeadId != null && !remoteHeadId.equals(head.getUUID()))) {
+            return false;
+        }
+        attach(head);
+        maintainRemoteHead();
+        notifyUpdate();
         return true;
     }
 
@@ -340,11 +354,8 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
         if (movedContraption != null) {
             movedContraption.setContraptionMotion(Vec3.ZERO);
             var head = movedContraption;
-            var anchor = head.blockPosition();
-            boolean outside = head.getContraption().getBlocks().keySet().stream()
-                    .anyMatch(pos -> head.level().isOutsideBuildHeight(anchor.offset(pos)));
-            // Native placement outside build height would discard unplaceable blocks and storage.
-            if (outside && head instanceof DrillHeadEntity drillHead && drillHead.isRemote()) {
+            // Controller removal must not place a head into terrain or outside build height.
+            if (head instanceof DrillHeadEntity drillHead) {
                 drillHead.setWorking(false);
                 drillHead.getContraption().stop(head.level());
             } else {

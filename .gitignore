@@ -13,6 +13,8 @@ crash-reports/
 *.hprof
 *.jfr
 *.class
+__pycache__/
+*.py[cod]
 *.jar
 *.zip
 *.tar.gz

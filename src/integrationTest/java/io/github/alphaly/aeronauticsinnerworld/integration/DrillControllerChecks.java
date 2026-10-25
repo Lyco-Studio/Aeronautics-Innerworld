@@ -1,6 +1,7 @@
 package io.github.alphaly.aeronauticsinnerworld.integration;
 
 import com.simibubi.create.AllBlocks;
+import com.simibubi.create.AllItems;
 import com.simibubi.create.content.contraptions.glue.SuperGlueEntity;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
@@ -13,6 +14,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -22,6 +24,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -100,6 +103,21 @@ public final class DrillControllerChecks {
                     helper.getLevel().setBlockAndUpdate(root, Blocks.OBSIDIAN.defaultBlockState());
                     helper.assertTrue(!rig.controller().tryPlaceHead(), "Head overwrote a blocked placement position");
                     helper.assertTrue(helper.getLevel().getBlockState(root).is(Blocks.OBSIDIAN), "Placement destroyed the obstruction");
+                    rig.assertIdentityAndCargo();
+                    helper.getLevel().removeBlock(rig.controllerPos, false);
+                })
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    var head = helper.getLevel().getEntity(rig.identity);
+                    helper.assertTrue(head instanceof DrillHeadEntity && head.isAlive(), "Controller removal lost the parked head");
+                    var root = head.blockPosition();
+                    helper.assertTrue(helper.getLevel().getBlockState(root).is(Blocks.OBSIDIAN),
+                            "Controller removal overwrote obstructed terrain");
+                    helper.getLevel().setBlockAndUpdate(rig.controllerPos, AeronauticsInnerworld.DRILL_CONTROLLER.get().defaultBlockState()
+                            .setValue(DrillControllerBlock.FACING, Direction.DOWN));
+                    var player = FakePlayerFactory.getMinecraft(helper.getLevel());
+                    player.setItemInHand(InteractionHand.MAIN_HAND, AllItems.WRENCH.asStack());
+                    head.interact(player, InteractionHand.MAIN_HAND);
                     rig.assertIdentityAndCargo();
                     helper.getLevel().removeBlock(root, false);
                     helper.assertTrue(rig.controller().tryPlaceHead(), "Paused head could not be placed");

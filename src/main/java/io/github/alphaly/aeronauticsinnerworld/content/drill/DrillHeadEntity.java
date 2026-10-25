@@ -1,5 +1,6 @@
 package io.github.alphaly.aeronauticsinnerworld.content.drill;
 
+import com.simibubi.create.AllItems;
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
 import com.simibubi.create.content.contraptions.ControlledContraptionEntity;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
@@ -8,10 +9,12 @@ import com.simibubi.create.content.contraptions.behaviour.MovementContext;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -19,6 +22,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 public final class DrillHeadEntity extends ControlledContraptionEntity implements IControlContraption {
@@ -43,6 +50,40 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     public void bindController(GlobalPos owner) {
         controllerPos = owner.pos();
         controllerDimension = owner.dimension();
+    }
+
+    public GlobalPos getControllerLocation() {
+        return GlobalPos.of(controllerDimension, controllerPos);
+    }
+
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        if (!AllItems.WRENCH.isIn(player.getItemInHand(hand))) {
+            return super.interact(player, hand);
+        }
+        if (level() instanceof ServerLevel target) {
+            var source = target.getServer().getLevel(controllerDimension);
+            String message = "head_controller_missing";
+            if (source != null) {
+                source.resetEmptyTime();
+                source.getChunkSource().addRegionTicket(DrillLayerTravel.CHUNK_TICKET, new ChunkPos(controllerPos), 2, controllerPos);
+                source.getChunkAt(controllerPos);
+                if (source.getBlockEntity(controllerPos) instanceof DrillControllerBlockEntity controller) {
+                    message = controller.reconnectHead(this) ? "head_reconnected" : "head_controller_busy";
+                }
+            }
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld." + message), true);
+        }
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public boolean handlePlayerInteraction(Player player, BlockPos localPos, Direction side, InteractionHand hand) {
+        if (AllItems.WRENCH.isIn(player.getItemInHand(hand))) {
+            interact(player, hand);
+            return true;
+        }
+        return super.handlePlayerInteraction(player, localPos, side, hand);
     }
 
     public BlockPos getReturnPosition() {
@@ -70,7 +111,8 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     @Override
     protected IControlContraption getController() {
         if (!isRemote()) {
-            return super.getController();
+            var controller = super.getController();
+            return controller == null ? this : controller;
         }
         if (level() instanceof ServerLevel serverLevel) {
             var source = serverLevel.getServer().getLevel(controllerDimension);

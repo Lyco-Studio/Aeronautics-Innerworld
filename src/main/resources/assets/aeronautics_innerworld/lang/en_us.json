@@ -31,5 +31,8 @@
   "status.aeronautics_innerworld.layer_arrived": "Layer reached; select a direction and resume",
   "status.aeronautics_innerworld.layer_blocked": "Layer destination obstructed; head paused",
   "status.aeronautics_innerworld.layer_unavailable": "Destination or head state unavailable; paused",
-  "status.aeronautics_innerworld.layer_ineligible": "Transfer requires no passengers; check head extent and return connection"
+  "status.aeronautics_innerworld.layer_ineligible": "Transfer requires no passengers; check head extent and return connection",
+  "message.aeronautics_innerworld.head_reconnected": "Drill head reconnected to its original controller.",
+  "message.aeronautics_innerworld.head_controller_missing": "Replace the drill controller at its original position before reconnecting.",
+  "message.aeronautics_innerworld.head_controller_busy": "The original controller is already assigned to another drill head."
 }

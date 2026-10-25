@@ -118,6 +118,31 @@ neoForge.runs.create('integrationTestServer') {
     systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
     taskBefore prepareIntegrationStructures
 }
+neoForge.runs.create('lifecycleTestServer') {
+    server()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/lifecycle')
+    loadedMods.add(integrationMod)
+    programArgument '--nogui'
+    systemProperty 'innerworld.lifecycleCheck', 'true'
+}
+tasks.named('runLifecycleTestServer') {
+    def result = layout.projectDirectory.file('run/lifecycle/lifecycle-check.result')
+    doFirst {
+        copy {
+            from 'src/integrationTest/lifecycle-server.properties'
+            into 'run/lifecycle'
+            rename { 'server.properties' }
+        }
+        result.asFile.delete()
+    }
+    doLast {
+        if (!result.asFile.isFile() || !(result.asFile.text in ['prepared', 'working', 'verified'])) {
+            throw new GradleException('Drill lifecycle check failed; inspect the server diagnostics.')
+        }
+        logger.lifecycle("Drill lifecycle phase completed: ${result.asFile.text}")
+    }
+}
 def clientCheckWorld = providers.gradleProperty('checkWorld').getOrElse('RuntimeBaseline')
 neoForge.runs.create('integrationTestClient') {
     client()

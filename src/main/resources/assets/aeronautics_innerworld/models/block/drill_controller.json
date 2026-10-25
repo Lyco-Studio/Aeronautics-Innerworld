@@ -1,10 +1,11 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "particle": "minecraft:block/iron_block",
-    "casing": "minecraft:block/iron_block",
-    "mount": "minecraft:block/polished_deepslate",
-    "panel": "minecraft:block/observer_front"
+    "particle": "aeronautics_innerworld:block/industrial_casing",
+    "casing": "aeronautics_innerworld:block/controller_side",
+    "front": "aeronautics_innerworld:block/controller_front",
+    "back": "aeronautics_innerworld:block/controller_back",
+    "rim": "aeronautics_innerworld:block/industrial_casing"
   },
   "elements": [
     {
@@ -28,11 +29,11 @@
           "cullface": "up"
         },
         "north": {
-          "texture": "#mount",
+          "texture": "#front",
           "cullface": "north"
         },
         "south": {
-          "texture": "#mount",
+          "texture": "#back",
           "cullface": "south"
         },
         "west": {
@@ -47,24 +48,129 @@
     },
     {
       "from": [
-        3,
-        3,
-        -0.01
+        2,
+        2,
+        -0.5
       ],
       "to": [
+        14,
+        3,
+        0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rim"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "north": {
+          "texture": "#rim"
+        },
+        "south": {
+          "texture": "#rim"
+        },
+        "west": {
+          "texture": "#rim"
+        },
+        "east": {
+          "texture": "#rim"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
         13,
+        -0.5
+      ],
+      "to": [
+        14,
+        14,
+        0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rim"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "north": {
+          "texture": "#rim"
+        },
+        "south": {
+          "texture": "#rim"
+        },
+        "west": {
+          "texture": "#rim"
+        },
+        "east": {
+          "texture": "#rim"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        3,
+        -0.5
+      ],
+      "to": [
+        3,
         13,
         0
       ],
       "faces": {
+        "down": {
+          "texture": "#rim"
+        },
+        "up": {
+          "texture": "#rim"
+        },
         "north": {
-          "texture": "#panel",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
+          "texture": "#rim"
+        },
+        "south": {
+          "texture": "#rim"
+        },
+        "west": {
+          "texture": "#rim"
+        },
+        "east": {
+          "texture": "#rim"
+        }
+      }
+    },
+    {
+      "from": [
+        13,
+        3,
+        -0.5
+      ],
+      "to": [
+        14,
+        13,
+        0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rim"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "north": {
+          "texture": "#rim"
+        },
+        "south": {
+          "texture": "#rim"
+        },
+        "west": {
+          "texture": "#rim"
+        },
+        "east": {
+          "texture": "#rim"
         }
       }
     }

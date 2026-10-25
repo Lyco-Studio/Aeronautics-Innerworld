@@ -2,6 +2,7 @@ package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
 import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
+import com.simibubi.create.AllItems;
 import com.simibubi.create.content.contraptions.glue.SuperGlueEntity;
 import com.simibubi.create.content.contraptions.render.ContraptionEntityRenderer;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity;
@@ -15,6 +16,7 @@ import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillHeadEntity;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Screenshot;
 import net.minecraft.commands.arguments.EntityAnchorArgument.Anchor;
 import net.minecraft.core.BlockPos;
@@ -26,7 +28,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -40,6 +41,9 @@ final class DrillControllerClientCheck {
     private int settledTicks;
     private int turns;
     private boolean started;
+    private boolean replacingController;
+    private boolean clickedRecovery;
+    private CompletableFuture<Boolean> recovery;
 
     DrillControllerClientCheck(Minecraft client) {
         var server = client.getSingleplayerServer();
@@ -116,9 +120,48 @@ final class DrillControllerClientCheck {
         } else if (!entity.isRemote()) {
             throw new IllegalStateException("Mantle head lost its source controller dimension");
         }
+        if (turns == 0) {
+            Screenshot.grab(client.gameDirectory, "drill-models-check.png", client.getMainRenderTarget(),
+                    message -> LogUtils.getLogger().info("Drill models screenshot: {}", message.getString()));
+        }
         if (turns == 2) {
-            Screenshot.grab(client.gameDirectory, "mantle-drill-check.png", client.getMainRenderTarget(),
-                    message -> LogUtils.getLogger().info("Mantle arrival screenshot: {}", message.getString()));
+            if (!replacingController) {
+                Screenshot.grab(client.gameDirectory, "mantle-drill-check.png", client.getMainRenderTarget(),
+                        message -> LogUtils.getLogger().info("Mantle arrival screenshot: {}", message.getString()));
+                sample = server.submit(() -> {
+                    rig.replaceController();
+                    return null;
+                });
+                replacingController = true;
+                return false;
+            }
+            if (sample != null) {
+                if (!sample.isDone()) {
+                    return false;
+                }
+                sample.join();
+                sample = null;
+                settledTicks = 0;
+            }
+            if (settledTicks < 10 || !AllItems.WRENCH.isIn(client.player.getMainHandItem())) {
+                return false;
+            }
+            if (!clickedRecovery) {
+                KeyMapping.click(client.options.keyUse.getKey());
+                clickedRecovery = true;
+                return false;
+            }
+            if (recovery == null) {
+                recovery = server.submit(() -> rig.controller.movedContraption != null);
+                return false;
+            }
+            if (!recovery.isDone()) {
+                return false;
+            }
+            if (!recovery.join()) {
+                recovery = null;
+                return false;
+            }
         }
         if (turns < 4) {
             LogUtils.getLogger().info("Client drill check stage {} passed in {}", turns, checkpoint.dimension.location());
@@ -212,8 +255,8 @@ final class DrillControllerClientCheck {
             ((CreativeMotorBlockEntity) level.getBlockEntity(controllerPos.above())).generatedSpeed.setValue(32);
             controller = (DrillControllerBlockEntity) level.getBlockEntity(controllerPos);
             player.setItemInHand(InteractionHand.MAIN_HAND, remote);
-            remote.getItem().useOn(new UseOnContext(player, InteractionHand.MAIN_HAND,
-                    new BlockHitResult(Vec3.atCenterOf(controllerPos), Direction.UP, controllerPos, false)));
+            player.gameMode.useItemOn(player, level, remote, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(controllerPos), Direction.UP, controllerPos, false));
         }
 
         private void start() {
@@ -291,11 +334,28 @@ final class DrillControllerClientCheck {
         private void descendInMantle() {
             phase = 3;
             horizontal = false;
+            player.setItemInHand(InteractionHand.MAIN_HAND, remote);
             remote.getItem().use(player.level(), player, InteractionHand.MAIN_HAND);
+        }
+
+        private void replaceController() {
+            var head = controller.movedContraption;
+            level.removeBlock(controllerPos, false);
+            level.setBlockAndUpdate(controllerPos, AeronauticsInnerworld.DRILL_CONTROLLER.get().defaultBlockState()
+                    .setValue(DrillControllerBlock.FACING, Direction.DOWN));
+            controller = (DrillControllerBlockEntity) level.getBlockEntity(controllerPos);
+            player.setItemInHand(InteractionHand.MAIN_HAND, AllItems.WRENCH.asStack());
+            player.teleportTo((ServerLevel) head.level(), head.getX() - 2, head.getY(), head.getZ() + 2, 0, 0);
         }
 
         private void cleanUp() {
             var head = controller.movedContraption;
+            if (head == null && identity != null) {
+                var mantle = level.getServer().getLevel(Mantle.LEVEL);
+                if (mantle != null && mantle.getEntity(identity) instanceof DrillHeadEntity parked) {
+                    parked.discard();
+                }
+            }
             if (head != null) {
                 var anchor = BlockPos.containing(head.position());
                 var blocks = head.getContraption().getBlocks().keySet().stream().map(anchor::offset).toList();
