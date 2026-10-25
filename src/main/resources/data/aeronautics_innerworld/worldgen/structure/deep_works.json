@@ -1,0 +1,7 @@
+{
+  "type": "aeronautics_innerworld:deep_works",
+  "biomes": "#aeronautics_innerworld:has_structure/mantle_relay",
+  "step": "underground_decoration",
+  "spawn_overrides": {},
+  "terrain_adaptation": "none"
+}

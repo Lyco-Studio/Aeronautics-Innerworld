@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "aeronautics_innerworld:core_maze",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 12,
+    "separation": 9,
+    "salt": 952301
+  }
+}

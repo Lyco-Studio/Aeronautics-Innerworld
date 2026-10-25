@@ -29,6 +29,8 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class RelayClientCheck {
+    private static final boolean DEEP = Boolean.getBoolean("innerworld.deepWorksClientCheck");
+    private static final String CHECK = DEEP ? "deep-works" : "relay";
     private static int ticks;
     private static int sceneTicks;
     private static int bookFrames;
@@ -41,7 +43,7 @@ public final class RelayClientCheck {
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
-        if (!Boolean.getBoolean("innerworld.relayClientCheck") || finished) {
+        if ((!Boolean.getBoolean("innerworld.relayClientCheck") && !DEEP) || finished) {
             return;
         }
         var client = Minecraft.getInstance();
@@ -56,7 +58,7 @@ public final class RelayClientCheck {
                     if (failure != null) {
                         throw failure;
                     }
-                    Files.writeString(client.gameDirectory.toPath().resolve("relay-check.result"), "verified");
+                    Files.writeString(client.gameDirectory.toPath().resolve(CHECK + "-check.result"), "verified");
                     LogUtils.getLogger().info("Relay client check passed: natural world generation, structure echo, dry exploration, archive reading and original models");
                     client.stop();
                 }
@@ -77,11 +79,11 @@ public final class RelayClientCheck {
             if (++sceneTicks == 25) {
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.RELAY_BEACON.get().defaultBlockState())
                         == client.getModelManager().getMissingModel()
-                        || client.getItemRenderer().getModel(new ItemStack(AeronauticsInnerworld.RELIC_ALLOY.get()),
+                        || client.getItemRenderer().getModel(new ItemStack(DEEP ? AeronauticsInnerworld.PRESSURE_MATRIX.get() : AeronauticsInnerworld.RELIC_ALLOY.get()),
                                 client.level, client.player, 0) == client.getModelManager().getMissingModel()) {
                     throw new IllegalStateException("Relay beacon or relic alloy model is missing");
                 }
-                Screenshot.grab(client.gameDirectory, "mantle-relay-interior.png", client.getMainRenderTarget(),
+                Screenshot.grab(client.gameDirectory, "mantle-" + CHECK + "-interior.png", client.getMainRenderTarget(),
                         message -> LogUtils.getLogger().info("Relay interior screenshot: {}", message.getString()));
                 client.getSingleplayerServer().execute(() -> {
                     scene.player.setItemInHand(InteractionHand.MAIN_HAND, scene.record.copy());
@@ -95,9 +97,10 @@ public final class RelayClientCheck {
             if (client.screen instanceof BookViewScreen book) {
                 if (++bookFrames == 1) {
                     BookLayoutChecks.check(client, client.player.getMainHandItem(), 2);
+                    if (DEEP) BookLayoutChecks.check(client, scene.manual, 22);
                 }
                 if (bookFrames >= 6) {
-                    Screenshot.grab(client.gameDirectory, "mantle-relay-record.png", client.getMainRenderTarget(),
+                    Screenshot.grab(client.gameDirectory, "mantle-" + CHECK + "-record.png", client.getMainRenderTarget(),
                             message -> LogUtils.getLogger().info("Relay archive screenshot: {}", message.getString()));
                     book.onClose();
                     cleanup = client.getSingleplayerServer().submit(() -> {
@@ -136,6 +139,7 @@ public final class RelayClientCheck {
         private final float oldHealth;
         private final BlockPos dry;
         private final ItemStack record;
+        private final ItemStack manual;
 
         private Scene(ServerPlayer player) {
             this.player = player;
@@ -152,13 +156,13 @@ public final class RelayClientCheck {
                 throw new IllegalStateException("Select a development world with natural structures enabled");
             }
             var tag = TagKey.create(Registries.STRUCTURE,
-                    ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, "mantle_relays"));
-            var located = level.findNearestMapStructure(tag, new BlockPos(1024, 175, 1024), 4, false);
+                    ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, DEEP ? "deep_works" : "mantle_relays"));
+            var located = level.findNearestMapStructure(tag, DEEP ? new BlockPos(4096, 40, 4096) : new BlockPos(1024, 175, 1024), 4, false);
             if (located == null) {
                 throw new IllegalStateException("Native placement did not locate a mantle relay");
             }
             Structure structure = level.registryAccess().registryOrThrow(Registries.STRUCTURE)
-                    .get(ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, "mantle_relay"));
+                    .get(ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, DEEP ? "deep_works" : "mantle_relay"));
             var start = level.getChunkAt(located).getStartForStructure(structure);
             if (start == null || !start.isValid()) {
                 throw new IllegalStateException("Naturally located relay has no structure start");
@@ -170,11 +174,13 @@ public final class RelayClientCheck {
                 }
             }
             BlockPos beacon = null;
+            var spawners = new java.util.ArrayList<BlockPos>();
             ItemStack foundRecord = ItemStack.EMPTY;
             for (var pos : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
                 if (level.getBlockState(pos).is(AeronauticsInnerworld.RELAY_BEACON.get())) {
                     beacon = pos.immutable();
                 }
+                if (level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.SPAWNER)) spawners.add(pos.immutable());
                 if (level.getBlockEntity(pos) instanceof ChestBlockEntity chest) {
                     for (int slot = 0; slot < chest.getContainerSize(); slot++) {
                         if (chest.getItem(slot).is(Items.WRITTEN_BOOK)) {
@@ -187,16 +193,19 @@ public final class RelayClientCheck {
                 throw new IllegalStateException("Natural relay generated incomplete scenery or archive");
             }
             record = foundRecord;
+            manual = level.getRecipeManager().byKey(ResourceLocation.fromNamespaceAndPath(
+                    AeronauticsInnerworld.MOD_ID, "expedition_manual")).orElseThrow().value().getResultItem(level.registryAccess()).copy();
             BlockPos standing = null;
             for (var pos : BlockPos.betweenClosed(box.minX() + 1, box.minY() + 4, box.minZ() + 1,
                     box.maxX() - 1, box.minY() + 4, box.maxZ() - 1)) {
                 double distance = pos.distSqr(beacon);
-                if (distance < 16 || distance > 50 || !level.getBlockState(pos).isAir() || !level.getBlockState(pos.above()).isAir()
-                        || !level.getBlockState(pos.below()).isSolid()) {
+                if (distance < 16 || distance > (DEEP ? 900 : 50) || !level.getBlockState(pos).isAir() || !level.getBlockState(pos.above()).isAir()
+                        || !level.getBlockState(pos.below()).isSolid() || level.getBlockState(pos.below()).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)
+                        || DEEP && spawners.stream().anyMatch(spawner -> spawner.distSqr(pos) < 17 * 17)) {
                     continue;
                 }
                 var eye = Vec3.atBottomCenterOf(pos).add(0, 1.62, 0);
-                if (level.clip(new ClipContext(eye, Vec3.atCenterOf(beacon), ClipContext.Block.OUTLINE,
+                if (DEEP || level.clip(new ClipContext(eye, Vec3.atCenterOf(beacon), ClipContext.Block.OUTLINE,
                         ClipContext.Fluid.NONE, player)).getBlockPos().equals(beacon)) {
                     standing = pos.immutable();
                     break;
@@ -226,13 +235,13 @@ public final class RelayClientCheck {
             player.onUpdateAbilities();
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.RELIC_ALLOY.get()));
             player.containerMenu.broadcastChanges();
-            LogUtils.getLogger().info("Natural mantle relay verified at {} with dry gallery {}", box.getCenter(), dry);
+            LogUtils.getLogger().info("Natural mantle site verified at {} with dry gallery {}", box.getCenter(), dry);
         }
 
         private void verify() {
             if (!player.serverLevel().getFluidState(dry).isEmpty() || player.isInLava() || player.isOnFire()
                     || player.getHealth() < oldHealth) {
-                throw new IllegalStateException("Natural dry relay exposed its explorer to lava or heat");
+                throw new IllegalStateException("Natural dry gallery exposed its explorer to lava or heat");
             }
         }
 

@@ -24,6 +24,10 @@ import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructu
 import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureBoltEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureCannonBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.core.CoreConsoleBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.core.CoreConsoleBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.core.CoreWarden;
+import io.github.alphaly.aeronauticsinnerworld.content.core.CoreSurveyorItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -134,6 +138,19 @@ public final class AeronauticsInnerworld {
     public static final DeferredItem<Item> RAW_HARMONIC = ITEMS.registerSimpleItem("raw_harmonic", new Item.Properties().fireResistant());
     public static final DeferredItem<Item> HARMONIC_CRYSTAL = ITEMS.registerSimpleItem("harmonic_crystal", new Item.Properties().fireResistant());
     public static final DeferredItem<Item> RELIC_ALLOY = ITEMS.registerSimpleItem("relic_alloy", new Item.Properties().fireResistant());
+    public static final DeferredItem<Item> PRESSURE_MATRIX = ITEMS.registerSimpleItem("pressure_matrix", new Item.Properties().fireResistant());
+    public static final DeferredBlock<Block> DEEP_BORE_COUPLER = BLOCKS.registerSimpleBlock("deep_bore_coupler",
+            BlockBehaviour.Properties.of().strength(6, 12).sound(SoundType.METAL).requiresCorrectToolForDrops());
+    public static final DeferredItem<BlockItem> DEEP_BORE_COUPLER_ITEM = ITEMS.registerSimpleBlockItem(DEEP_BORE_COUPLER);
+    public static final DeferredBlock<CoreConsoleBlock> CORE_CONSOLE = BLOCKS.register("core_console",
+            () -> new CoreConsoleBlock(BlockBehaviour.Properties.of().strength(-1, 3600000).sound(SoundType.METAL).lightLevel(state -> 8)));
+    public static final DeferredBlock<Block> CORE_SEAL = BLOCKS.registerSimpleBlock("core_seal",
+            BlockBehaviour.Properties.of().strength(-1, 3600000).sound(SoundType.METAL));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CoreConsoleBlockEntity>> CORE_CONSOLE_ENTITY =
+            BLOCK_ENTITIES.register("core_console", () -> BlockEntityType.Builder.of(CoreConsoleBlockEntity::new, CORE_CONSOLE.get()).build(null));
+    public static final DeferredItem<CoreSurveyorItem> CORE_SURVEYOR = ITEMS.register("core_surveyor",
+            () -> new CoreSurveyorItem(new Item.Properties().stacksTo(1).fireResistant()));
+    public static final DeferredItem<Item> CORE_HEART = ITEMS.registerSimpleItem("core_heart", new Item.Properties().fireResistant());
     public static final DeferredBlock<Block> RELAY_BEACON = BLOCKS.registerSimpleBlock("relay_beacon",
             BlockBehaviour.Properties.of().strength(5, 9).sound(SoundType.COPPER).requiresCorrectToolForDrops()
                     .lightLevel(state -> 10));
@@ -182,6 +199,9 @@ public final class AeronauticsInnerworld {
     public static final DeferredHolder<EntityType<?>, EntityType<PressureBoltEntity>> PRESSURE_BOLT_ENTITY =
             ENTITIES.register("pressure_bolt", () -> EntityType.Builder.<PressureBoltEntity>of(PressureBoltEntity::new, MobCategory.MISC)
                     .sized(.25f, .25f).clientTrackingRange(8).updateInterval(1).fireImmune().build(MOD_ID + ":pressure_bolt"));
+    public static final DeferredHolder<EntityType<?>, EntityType<CoreWarden>> CORE_WARDEN =
+            ENTITIES.register("core_warden", () -> EntityType.Builder.of(CoreWarden::new, MobCategory.MONSTER)
+                    .sized(1.8f, 3.2f).clientTrackingRange(12).fireImmune().build(MOD_ID + ":core_warden"));
 
     public AeronauticsInnerworld(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, InnerworldConfig.SPEC);
@@ -201,6 +221,7 @@ public final class AeronauticsInnerworld {
 
     private void attributes(EntityAttributeCreationEvent event) {
         event.put(LAVA_STALKER.get(), LavaStalker.attributes().build());
+        event.put(CORE_WARDEN.get(), CoreWarden.attributes().build());
         event.put(MANTLE_GRAZER.get(), LavaStalker.attributes().add(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH, 40)
                 .add(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR, 4).build());
     }
@@ -225,7 +246,7 @@ public final class AeronauticsInnerworld {
             BlockMovementChecks.registerNotSupportiveCheck((state, direction) ->
                     state.is(MULTI_AXIS_CUTTER) ? CheckResult.SUCCESS : CheckResult.PASS);
             BlockMovementChecks.registerMovementAllowedCheck((state, level, pos) -> {
-                if (state.is(DRILL_CONTROLLER) || (state.is(BORE_STATION)
+                if (state.is(DRILL_CONTROLLER) || state.is(CORE_CONSOLE) || state.is(CORE_SEAL) || (state.is(BORE_STATION)
                         && level.getBlockEntity(pos) instanceof BoreStationBlockEntity station && station.getPartner() != null)) {
                     return CheckResult.FAIL;
                 }
@@ -257,6 +278,10 @@ public final class AeronauticsInnerworld {
             event.accept(RAW_HARMONIC);
             event.accept(HARMONIC_CRYSTAL);
             event.accept(RELIC_ALLOY);
+            event.accept(PRESSURE_MATRIX);
+            event.accept(DEEP_BORE_COUPLER_ITEM);
+            event.accept(CORE_SURVEYOR);
+            event.accept(CORE_HEART);
             event.accept(RELAY_BEACON_ITEM);
             event.accept(DAMAGED_HULL_ITEM);
             event.accept(EMERGENCY_PATCH_ITEM);

@@ -37,6 +37,8 @@ def prepareIntegrationStructures = tasks.register('prepareIntegrationStructures'
 def generateIntegrationWorldPreset = tasks.register('generateIntegrationWorldPreset') {
     def mantleDefinition = layout.projectDirectory.file('src/main/resources/data/aeronautics_innerworld/dimension/mantle.json')
     def destination = layout.buildDirectory.dir('generated/integrationResources')
+    def coreDefinition = layout.projectDirectory.file('src/main/resources/data/aeronautics_innerworld/dimension/core.json')
+    inputs.file coreDefinition
     inputs.file mantleDefinition
     outputs.dir destination
     doLast {
@@ -49,7 +51,8 @@ def generateIntegrationWorldPreset = tasks.register('generateIntegrationWorldPre
                         biome_source: [type: 'minecraft:multi_noise', preset: 'minecraft:nether']]],
                 'minecraft:the_end': [type: 'minecraft:the_end', generator: [type: 'minecraft:noise', settings: 'minecraft:end',
                         biome_source: [type: 'minecraft:the_end']]],
-                'aeronautics_innerworld:mantle': new groovy.json.JsonSlurper().parse(mantleDefinition.asFile)]
+                'aeronautics_innerworld:mantle': new groovy.json.JsonSlurper().parse(mantleDefinition.asFile),
+                'aeronautics_innerworld:core': new groovy.json.JsonSlurper().parse(coreDefinition.asFile)]
         def target = destination.get().file('data/minecraft/worldgen/world_preset/flat.json').asFile
         target.parentFile.mkdirs()
         target.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([dimensions: dimensions])) + '\n'
@@ -196,6 +199,42 @@ tasks.named('runCombatTestClient') {
     doLast {
         if (!result.asFile.isFile() || result.asFile.text != 'verified') {
             throw new GradleException('Combat client check failed; inspect the client diagnostics.')
+        }
+    }
+}
+neoForge.runs.create('coreTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.coreClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runCoreTestClient') {
+    def result = layout.projectDirectory.file('run/client/core-check.result')
+    doFirst { result.asFile.delete() }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Core client check failed; inspect the client diagnostics.')
+        }
+    }
+}
+neoForge.runs.create('deepWorksTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.deepWorksClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runDeepWorksTestClient') {
+    def result = layout.projectDirectory.file('run/client/deep-works-check.result')
+    doFirst { result.asFile.delete() }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Deep works client check failed; inspect the client diagnostics.')
         }
     }
 }

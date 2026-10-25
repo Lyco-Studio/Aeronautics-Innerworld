@@ -16,6 +16,7 @@
     "aeronautics_innerworld:damaged_hull",
     "aeronautics_innerworld:emergency_patch",
     "aeronautics_innerworld:relay_beacon",
-    "aeronautics_innerworld:pressure_cannon"
+    "aeronautics_innerworld:pressure_cannon",
+    "aeronautics_innerworld:deep_bore_coupler"
   ]
 }

@@ -2,6 +2,7 @@ package io.github.alphaly.aeronauticsinnerworld.content.drill;
 
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import io.github.alphaly.aeronauticsinnerworld.world.Core;
 import java.util.Comparator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -48,11 +49,12 @@ public final class BoreStationBlockEntity extends BlockEntity {
     }
 
     public String bind(GlobalPos controller) {
-        if (!controller.dimension().equals(Level.OVERWORLD)
-                || (!level.dimension().equals(Level.OVERWORLD) && !level.dimension().equals(Mantle.LEVEL))) {
+        var destination = controller.dimension().equals(Level.OVERWORLD) ? Mantle.LEVEL : Core.LEVEL;
+        if ((!controller.dimension().equals(Level.OVERWORLD) && !controller.dimension().equals(Mantle.LEVEL))
+                || (!level.dimension().equals(controller.dimension()) && !level.dimension().equals(destination))) {
             return "station_wrong_layer";
         }
-        if (level.dimension().equals(Level.OVERWORLD) && worldPosition.distSqr(controller.pos()) > 32 * 32) {
+        if (level.dimension().equals(controller.dimension()) && worldPosition.distSqr(controller.pos()) > 32 * 32) {
             return "station_too_far";
         }
         if (!controller.equals(owner)) {
@@ -159,7 +161,8 @@ public final class BoreStationBlockEntity extends BlockEntity {
         } else {
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.station_destination",
                     Component.translatable("dimension.aeronautics_innerworld."
-                            + (partner.dimension().equals(Level.OVERWORLD) ? "overworld" : "mantle")),
+                            + (partner.dimension().equals(Level.OVERWORLD) ? "overworld"
+                                    : partner.dimension().equals(Mantle.LEVEL) ? "mantle" : "core")),
                     partner.pos().getX(), partner.pos().getY(), partner.pos().getZ()), true);
         }
     }

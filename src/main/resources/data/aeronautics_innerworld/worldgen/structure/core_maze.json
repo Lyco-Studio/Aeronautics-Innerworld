@@ -1,0 +1,7 @@
+{
+  "type": "aeronautics_innerworld:core_maze",
+  "biomes": "#aeronautics_innerworld:has_structure/core_maze",
+  "step": "surface_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "none"
+}

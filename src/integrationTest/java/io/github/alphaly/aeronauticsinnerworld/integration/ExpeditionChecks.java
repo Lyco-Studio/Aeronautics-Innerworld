@@ -30,7 +30,16 @@ public final class ExpeditionChecks {
         rig.workEquipment();
         var player = new FakePlayer(level, new GameProfile(UUID.fromString("bdcf9827-a66b-444c-b6de-d9f226f9e50b"), "ProbeMechanic"));
         player.getAbilities().instabuild = false;
-        helper.onEachTick(level::resetEmptyTime);
+        var dockedForSampling = new boolean[1];
+        helper.onEachTick(() -> {
+            level.resetEmptyTime();
+            if (dockedForSampling[0] && rig.subLevel != null) {
+                var body = dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle.of(rig.subLevel);
+                if (body.isValid()) body.addLinearAndAngularVelocity(
+                        body.getLinearVelocity().mul(-1, new org.joml.Vector3d()),
+                        body.getAngularVelocity().mul(-1, new org.joml.Vector3d()));
+            }
+        });
         var ore = new BlockPos[1];
         helper.startSequence().thenWaitUntil(() -> helper.assertTrue(rig.ready(), "Waiting for probe entity chunks"))
                 .thenExecute(() -> {
@@ -51,6 +60,7 @@ public final class ExpeditionChecks {
                             "Assembly lost home berth: " + rig.sounder().saveWithFullMetadata(level.registryAccess()));
                     helper.assertTrue(Math.abs(rig.sounder().getSpeed()) >= 16,
                             "Fueled Aeronautics portable engine did not power the sounder");
+                    dockedForSampling[0] = true;
                     ore[0] = rig.mineralTarget();
                 }).thenExecuteAfter(15, () -> {
                     helper.assertTrue(level.getBlockState(ore[0]).is(AeronauticsInnerworld.HARMONIC_ORE.get()),
@@ -71,6 +81,7 @@ public final class ExpeditionChecks {
                                     && rig.sampler().inventory.getStackInSlot(0).getCount() == 1,
                             "Sample output was lost or duplicated");
                     rig.motor(ProbeTestRig.SAMPLER, 0);
+                    dockedForSampling[0] = false;
                     primeHeat(rig, 100, 9);
                 }).thenExecuteAfter(25, () -> {
                     boolean faulted = false;

@@ -10,6 +10,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.utility.ServerSpeedProvider;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import io.github.alphaly.aeronauticsinnerworld.world.Core;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -217,7 +218,7 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
     }
 
     void acceptTransferredHead(DrillHeadEntity head) {
-        if (level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && head.level().dimension().equals(Mantle.LEVEL)) {
+        if (head.level().dimension().equals(destinationLayer())) {
             mantleBored = true;
         }
         movedContraption = head;
@@ -255,7 +256,8 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
 
     @Override
     protected boolean moveAndCollideContraption() {
-        if (movedContraption instanceof DrillHeadEntity head && head.level().dimension().equals(Mantle.LEVEL)
+        if (movedContraption instanceof DrillHeadEntity head
+                && (head.level().dimension().equals(Mantle.LEVEL) || head.level().dimension().equals(Core.LEVEL))
                 && head.getY() + head.getContraption().bounds.maxY + Math.max(0, getMotionVector().y)
                         >= head.level().getMaxBuildHeight() - 1.0e-4) {
             if (head.isStalled()) {
@@ -359,7 +361,7 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             return false;
         }
         attach(head);
-        if (head.isRemote() && head.level().dimension().equals(Mantle.LEVEL)) {
+        if (head.isRemote() && head.level().dimension().equals(destinationLayer())) {
             mantleBored = true;
         }
         maintainRemoteHead();
@@ -380,14 +382,14 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
                     sourceStation = station.getBlockPos();
                     setChanged();
                 }
-                if (station.getPartner() != null && station.getPartner().dimension().equals(Mantle.LEVEL)) {
+                if (station.getPartner() != null && station.getPartner().dimension().equals(destinationLayer())) {
                     if (!station.getPartner().pos().equals(mantleStation)) {
                         mantleStation = station.getPartner().pos();
                         mantleBored = true;
                         setChanged();
                     }
                 } else if (mantleStation != null) {
-                    var mantle = ((ServerLevel) level).getServer().getLevel(Mantle.LEVEL);
+                    var mantle = ((ServerLevel) level).getServer().getLevel(destinationLayer());
                     if (mantle != null && mantle.getBlockEntity(mantleStation) instanceof BoreStationBlockEntity target
                             && station.getOwner().equals(target.getOwner())) {
                         pairStations(station, target);
@@ -396,7 +398,7 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             }
             return;
         }
-        if (!mantleBored || sourceStation == null || !station.getLevel().dimension().equals(Mantle.LEVEL)
+        if (!mantleBored || sourceStation == null || !station.getLevel().dimension().equals(destinationLayer())
                 || !(level.getBlockEntity(sourceStation) instanceof BoreStationBlockEntity source)
                 || !station.getOwner().equals(source.getOwner())) {
             return;
@@ -410,12 +412,16 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
     }
 
     private void pairStations(BoreStationBlockEntity source, BoreStationBlockEntity target) {
-        source.pairWith(GlobalPos.of(Mantle.LEVEL, target.getBlockPos()));
+        source.pairWith(GlobalPos.of(target.getLevel().dimension(), target.getBlockPos()));
         target.pairWith(GlobalPos.of(level.dimension(), source.getBlockPos()));
         if (!target.getBlockPos().equals(mantleStation)) {
             mantleStation = target.getBlockPos();
             setChanged();
         }
+    }
+
+    private ResourceKey<net.minecraft.world.level.Level> destinationLayer() {
+        return level.dimension().equals(Mantle.LEVEL) ? Core.LEVEL : Mantle.LEVEL;
     }
 
     @Override

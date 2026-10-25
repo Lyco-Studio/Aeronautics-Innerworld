@@ -24,11 +24,13 @@ public final class InnerworldClient {
         event.registerEntityRenderer(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get(), ContraptionEntityRenderer::new);
         event.registerEntityRenderer(AeronauticsInnerworld.LAVA_STALKER.get(), LavaStalkerRenderer::new);
         event.registerEntityRenderer(AeronauticsInnerworld.MANTLE_GRAZER.get(), LavaStalkerRenderer::new);
+        event.registerEntityRenderer(AeronauticsInnerworld.CORE_WARDEN.get(), CoreWardenRenderer::new);
         event.registerEntityRenderer(AeronauticsInnerworld.PRESSURE_BOLT_ENTITY.get(), context -> new ThrownItemRenderer<>(context, .6f, true));
     }
 
     @SubscribeEvent
     public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(LavaStalkerModel.LAYER, LavaStalkerModel::layer);
+        event.registerLayerDefinition(CoreWardenModel.LAYER, CoreWardenModel::layer);
     }
 }

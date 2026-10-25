@@ -1,0 +1,26 @@
+{
+  "parent": "aeronautics_innerworld:expedition/mantle",
+  "display": {
+    "icon": {
+      "id": "aeronautics_innerworld:deep_bore_coupler"
+    },
+    "title": {
+      "translate": "advancement.aeronautics_innerworld.core_entry.title"
+    },
+    "description": {
+      "translate": "advancement.aeronautics_innerworld.core_entry.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "reached": {
+      "trigger": "minecraft:changed_dimension",
+      "conditions": {
+        "to": "aeronautics_innerworld:core"
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@ import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayStructure;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.DeepWorksStructure;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,6 +26,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
     private BlockPos home;
     private BlockPos mineral;
     private BlockPos relay;
+    private boolean deepWorks;
     private LavaStalker threat;
     private int clearance = 16;
     private int ticks;
@@ -144,6 +146,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
             }
         }
         relay = null;
+        deepWorks = false;
         threat = null;
         if (level instanceof ServerLevel server) {
             double threatDistance = 32 * 32;
@@ -167,11 +170,13 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                         continue;
                     }
                     for (var start : chunk.getAllStarts().values()) {
-                        if (start.isValid() && start.getStructure() instanceof MantleRelayStructure) {
+                        if (start.isValid() && (start.getStructure() instanceof MantleRelayStructure
+                                || start.getStructure() instanceof DeepWorksStructure)) {
                             var pos = start.getBoundingBox().getCenter();
                             double distance = pos.distToCenterSqr(origin);
                             if (distance <= relayDistance) {
                                 relay = pos;
+                                deepWorks = start.getStructure() instanceof DeepWorksStructure;
                                 relayDistance = distance;
                             }
                         }
@@ -213,7 +218,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
             var position = position();
             var direction = Direction.getNearest(relay.getX() + .5 - position.x, 0, relay.getZ() + .5 - position.z);
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_relay",
-                    Component.translatable("structure.aeronautics_innerworld.mantle_relay"),
+                    Component.translatable("structure.aeronautics_innerworld." + (deepWorks ? "deep_works" : "mantle_relay")),
                     relay.getX(), relay.getY(), relay.getZ(), Math.round(position.distanceTo(Vec3.atCenterOf(relay))),
                     Component.translatable("direction.aeronautics_innerworld." + direction.getName())), false);
         }

@@ -1,0 +1,28 @@
+{
+  "type": "aeronautics_innerworld:core",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "aeronautics_innerworld:core",
+      "features": false,
+      "lakes": false,
+      "structure_overrides": [
+        "aeronautics_innerworld:core_mazes"
+      ],
+      "layers": [
+        {
+          "height": 1,
+          "block": "minecraft:bedrock"
+        },
+        {
+          "height": 31,
+          "block": "minecraft:basalt"
+        },
+        {
+          "height": 96,
+          "block": "minecraft:air"
+        }
+      ]
+    }
+  }
+}

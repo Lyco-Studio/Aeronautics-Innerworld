@@ -32,6 +32,7 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     private static final EntityDataAccessor<Boolean> WORKING = SynchedEntityData.defineId(DrillHeadEntity.class, EntityDataSerializers.BOOLEAN);
     private ResourceKey<Level> controllerDimension;
     private BlockPos returnPosition;
+    private BlockPos mantleReturnPosition;
     private Vec3 interpolationTarget;
     private int interpolationTicks;
 
@@ -92,6 +93,14 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
 
     public void setReturnPosition(BlockPos pos) {
         returnPosition = pos;
+    }
+
+    public BlockPos getMantleReturnPosition() {
+        return mantleReturnPosition;
+    }
+
+    public void setMantleReturnPosition(BlockPos pos) {
+        mantleReturnPosition = pos;
     }
 
     public void setWorking(boolean working) {
@@ -170,6 +179,9 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
         if (returnPosition != null) {
             tag.putLong("LayerReturnPosition", returnPosition.asLong());
         }
+        if (mantleReturnPosition != null) {
+            tag.putLong("MantleReturnPosition", mantleReturnPosition.asLong());
+        }
     }
 
     @Override
@@ -178,6 +190,7 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
         var id = ResourceLocation.tryParse(tag.getString("ControllerDimension"));
         controllerDimension = id == null ? level().dimension() : ResourceKey.create(Registries.DIMENSION, id);
         returnPosition = tag.contains("LayerReturnPosition") ? BlockPos.of(tag.getLong("LayerReturnPosition")) : null;
+        mantleReturnPosition = tag.contains("MantleReturnPosition") ? BlockPos.of(tag.getLong("MantleReturnPosition")) : null;
     }
 
     @Override

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ARA",
+    "PMP",
+    "ARA"
+  ],
+  "key": {
+    "A": {
+      "item": "aeronautics_innerworld:relic_alloy"
+    },
+    "R": {
+      "item": "aeronautics_innerworld:harmonic_crystal"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    },
+    "M": {
+      "item": "aeronautics_innerworld:pressure_matrix"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:deep_bore_coupler"
+  }
+}

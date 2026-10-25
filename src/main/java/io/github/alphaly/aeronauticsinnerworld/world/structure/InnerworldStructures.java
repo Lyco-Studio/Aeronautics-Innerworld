@@ -17,6 +17,14 @@ public final class InnerworldStructures {
             TYPES.register("mantle_relay", () -> () -> MantleRelayStructure.CODEC);
     public static final DeferredHolder<StructurePieceType, StructurePieceType> RELAY_PIECE = PIECES.register("mantle_relay",
             () -> (StructurePieceType.ContextlessType) MantleRelayPiece::new);
+    public static final DeferredHolder<StructureType<?>, StructureType<DeepWorksStructure>> DEEP_WORKS =
+            TYPES.register("deep_works", () -> () -> DeepWorksStructure.CODEC);
+    public static final DeferredHolder<StructurePieceType, StructurePieceType> DEEP_WORKS_PIECE = PIECES.register("deep_works",
+            () -> (StructurePieceType.ContextlessType) DeepWorksPiece::new);
+    public static final DeferredHolder<StructureType<?>, StructureType<CoreMazeStructure>> CORE_MAZE =
+            TYPES.register("core_maze", () -> () -> CoreMazeStructure.CODEC);
+    public static final DeferredHolder<StructurePieceType, StructurePieceType> CORE_MAZE_PIECE = PIECES.register("core_maze",
+            () -> (StructurePieceType.ContextlessType) CoreMazePiece::new);
 
     public static void register(IEventBus bus) {
         TYPES.register(bus);

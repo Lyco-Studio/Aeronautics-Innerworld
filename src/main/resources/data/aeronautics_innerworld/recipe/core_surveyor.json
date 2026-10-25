@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:compass"
+    },
+    {
+      "item": "aeronautics_innerworld:harmonic_crystal"
+    },
+    {
+      "item": "aeronautics_innerworld:relic_alloy"
+    }
+  ],
+  "result": {
+    "id": "aeronautics_innerworld:core_surveyor"
+  }
+}

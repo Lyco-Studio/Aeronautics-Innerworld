@@ -1,7 +1,9 @@
 package io.github.alphaly.aeronauticsinnerworld.content.drill;
 
 import io.github.alphaly.aeronauticsinnerworld.InnerworldConfig;
+import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import io.github.alphaly.aeronauticsinnerworld.world.Core;
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.TranslatingContraption;
@@ -14,6 +16,7 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.TicketType;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -29,25 +32,37 @@ final class DrillLayerTravel {
         var blocks = head.getContraption().getBlocks().keySet();
         int minY = blocks.stream().mapToInt(BlockPos::getY).min().orElse(0);
         int maxY = blocks.stream().mapToInt(BlockPos::getY).max().orElse(0);
-        boolean entering = level.dimension().equals(Level.OVERWORLD) && direction == Direction.DOWN
+        boolean enteringMantle = level.dimension().equals(Level.OVERWORLD) && direction == Direction.DOWN
                 && head.getY() + minY <= InnerworldConfig.OVERWORLD_BOUNDARY.get();
-        boolean returning = level.dimension().equals(Mantle.LEVEL) && direction == Direction.UP
+        boolean enteringCore = level.dimension().equals(Mantle.LEVEL) && direction == Direction.DOWN
+                && head.getY() + minY <= 2;
+        boolean returningMantle = level.dimension().equals(Mantle.LEVEL) && direction == Direction.UP
                 && head.getY() + maxY >= level.getMaxBuildHeight();
-        if (!entering && !returning) {
+        boolean returningCore = level.dimension().equals(Core.LEVEL) && direction == Direction.UP
+                && head.getY() + maxY >= level.getMaxBuildHeight();
+        if (!enteringMantle && !enteringCore && !returningMantle && !returningCore) {
             return false;
         }
         controller.pauseForLayer("layer_blocked");
-        var target = level.getServer().getLevel(entering ? Mantle.LEVEL : Level.OVERWORLD);
+        if (enteringCore && head.getContraption().getBlocks().values().stream()
+                .noneMatch(info -> info.state().is(AeronauticsInnerworld.DEEP_BORE_COUPLER.get()))) {
+            controller.pauseForLayer("layer_needs_coupler");
+            return true;
+        }
+        boolean entering = enteringMantle || enteringCore;
+        var returnPosition = returningCore ? head.getMantleReturnPosition() : head.getReturnPosition();
+        var target = level.getServer().getLevel(enteringCore ? Core.LEVEL
+                : enteringMantle || returningCore ? Mantle.LEVEL : Level.OVERWORLD);
         if (target == null) {
             controller.pauseForLayer("layer_unavailable");
             return true;
         }
-        if (head.isVehicle() || maxY - minY >= 64 || (!entering && head.getReturnPosition() == null)) {
+        if (head.isVehicle() || maxY - minY >= 64 || (!entering && returnPosition == null)) {
             controller.pauseForLayer("layer_ineligible");
             return true;
         }
         var anchor = entering ? new BlockPos(head.getBlockX(), target.getMaxBuildHeight() - minY, head.getBlockZ())
-                : new BlockPos(head.getBlockX(), head.getReturnPosition().getY(), head.getBlockZ());
+                : new BlockPos(head.getBlockX(), returnPosition.getY(), head.getBlockZ());
         var chunks = new HashSet<ChunkPos>();
         for (var pos : blocks) {
             var destination = anchor.offset(pos);
@@ -66,7 +81,9 @@ final class DrillLayerTravel {
         }
         for (var pos : blocks) {
             var destination = anchor.offset(pos);
-            if (!target.getBlockState(destination).canBeReplaced() || !target.getFluidState(destination).isEmpty()) {
+            var fluid = target.getFluidState(destination);
+            if (!target.getBlockState(destination).canBeReplaced()
+                    || (!fluid.isEmpty() && !(returningCore && fluid.is(FluidTags.LAVA)))) {
                 return true;
             }
         }
@@ -88,8 +105,10 @@ final class DrillLayerTravel {
             return true;
         }
         transferred.bindController(GlobalPos.of(controller.getLevel().dimension(), controller.getBlockPos()));
-        if (entering) {
+        if (enteringMantle) {
             transferred.setReturnPosition(head.blockPosition());
+        } else if (enteringCore) {
+            transferred.setMantleReturnPosition(head.blockPosition());
         }
         transferred.setPos(Vec3.atLowerCornerOf(anchor));
         transferred.setContraptionMotion(Vec3.ZERO);

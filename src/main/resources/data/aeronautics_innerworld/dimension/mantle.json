@@ -7,7 +7,8 @@
       "features": true,
       "lakes": false,
       "structure_overrides": [
-        "aeronautics_innerworld:mantle_relays"
+        "aeronautics_innerworld:mantle_relays",
+        "aeronautics_innerworld:deep_works"
       ],
       "layers": [
         {

@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "aeronautics_innerworld:core_heart"
+    },
+    "title": {
+      "translate": "advancement.aeronautics_innerworld.core_victory.title"
+    },
+    "description": {
+      "translate": "advancement.aeronautics_innerworld.core_victory.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "defeat": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "defeat"
+    ]
+  ],
+  "parent": "aeronautics_innerworld:expedition/core"
+}
