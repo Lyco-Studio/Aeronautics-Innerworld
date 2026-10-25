@@ -2,6 +2,7 @@ package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
 import com.mojang.logging.LogUtils;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.neoforged.api.distmarker.Dist;
@@ -14,7 +15,7 @@ public final class ClientStartupCheck {
     private static int ticks;
     private static int worldTicks;
     private static DrillControllerClientCheck drillCheck;
-    private static java.util.concurrent.CompletableFuture<Void> cleanup;
+    private static CompletableFuture<Void> cleanup;
     private static RuntimeException failure;
 
     @SubscribeEvent
@@ -22,14 +23,30 @@ public final class ClientStartupCheck {
         if (!Boolean.getBoolean("innerworld.clientStartupCheck")) {
             return;
         }
-        if (++ticks > 1200) {
-            throw new IllegalStateException("Client did not enter the runtime check world");
-        }
         var client = Minecraft.getInstance();
+        if (++ticks > 3000 && failure == null && cleanup == null) {
+            failure = new IllegalStateException("Client check timed out: "
+                    + (drillCheck == null ? "world not entered" : drillCheck.describe()) + ", paused=" + client.isPaused());
+            cleanup = drillCheck == null ? CompletableFuture.completedFuture(null)
+                    : drillCheck.cleanUp(client);
+        }
+        if (cleanup != null) {
+            if (!cleanup.isDone()) {
+                return;
+            }
+            cleanup.join();
+            if (failure != null) {
+                throw failure;
+            }
+            LogUtils.getLogger().info("Innerworld client startup check passed: models, head renderer, layer transfer, excavation and pause synchronization");
+            client.stop();
+            return;
+        }
         if (client.level == null || client.player == null || client.getSingleplayerServer() == null) {
             return;
         }
-        if (++worldTicks == 60) {
+        worldTicks++;
+        if (worldTicks == 60) {
             var state = AeronauticsInnerworld.MULTI_AXIS_CUTTER.get().defaultBlockState();
             var model = client.getBlockRenderer().getBlockModel(state);
             if (model == client.getModelManager().getMissingModel()) {
@@ -42,17 +59,7 @@ public final class ClientStartupCheck {
             }
             drillCheck = new DrillControllerClientCheck(client);
         }
-        if (cleanup != null) {
-            if (!cleanup.isDone()) {
-                return;
-            }
-            cleanup.join();
-            if (failure != null) {
-                throw failure;
-            }
-            LogUtils.getLogger().info("Innerworld client startup check passed: models, head renderer, vertical/horizontal movement and pause synchronization");
-            client.stop();
-        } else if (drillCheck != null) {
+        if (drillCheck != null) {
             try {
                 if (drillCheck.tick(client)) {
                     Screenshot.grab(client.gameDirectory, "drill-controller-check.png", client.getMainRenderTarget(),

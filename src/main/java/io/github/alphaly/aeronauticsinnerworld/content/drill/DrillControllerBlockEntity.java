@@ -9,6 +9,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.CenteredSideValueBox
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.utility.ServerSpeedProvider;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -143,6 +144,10 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
     public void tick() {
         if (!level.isClientSide) {
             maintainRemoteHead();
+            if (movedContraption instanceof DrillHeadEntity head && head.isAlive() && head.isRemote()) {
+                // The powered source advances remote actors even before the destination has players.
+                head.tickActors();
+            }
         }
         super.tick();
         if (level.isClientSide) {
@@ -189,6 +194,12 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             return;
         }
         target.getChunkSource().addRegionTicket(DrillLayerTravel.CHUNK_TICKET, new ChunkPos(remoteHead.pos()), 2, worldPosition);
+        target.resetEmptyTime();
+        if (movedContraption != null && target.getNearestPlayer(movedContraption, 128) != null) {
+            // Chunk tickets alone do not prevent an empty dimension from suspending block-entity ticks.
+            source.resetEmptyTime();
+            source.getChunkSource().addRegionTicket(DrillLayerTravel.CHUNK_TICKET, new ChunkPos(worldPosition), 2, worldPosition);
+        }
         ticketedHead = remoteHead;
         if (movedContraption == null || !movedContraption.isAlive()) {
             target.getChunkAt(remoteHead.pos());
@@ -208,6 +219,9 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
         offset = getInitialOffset();
         clientOffsetDiff = 0;
         pauseImmediately("layer_arrived");
+        if (level instanceof ServerLevel source) {
+            source.getChunkSource().addRegionTicket(DrillLayerTravel.CHUNK_TICKET, new ChunkPos(worldPosition), 2, worldPosition);
+        }
         maintainRemoteHead();
     }
 
@@ -231,6 +245,23 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
     @Override
     protected boolean isPassive() {
         return !canWork();
+    }
+
+    @Override
+    protected boolean moveAndCollideContraption() {
+        if (movedContraption instanceof DrillHeadEntity head && head.level().dimension().equals(Mantle.LEVEL)
+                && head.getY() + head.getContraption().bounds.maxY + Math.max(0, getMotionVector().y)
+                        >= head.level().getMaxBuildHeight() - 1.0e-4) {
+            if (head.isStalled()) {
+                head.setContraptionMotion(Vec3.ZERO);
+                return false;
+            }
+            var motion = getMotionVector();
+            head.setContraptionMotion(motion);
+            head.move(motion.x, motion.y, motion.z);
+            return DrillLayerTravel.collidesAtCeiling(head, movementDirection);
+        }
+        return super.moveAndCollideContraption();
     }
 
     @Override

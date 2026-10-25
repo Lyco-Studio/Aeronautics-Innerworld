@@ -50,6 +50,7 @@ public final class DrillRemoteItem extends Item {
             if (source == null) {
                 message(player, "remote_unbound");
             } else {
+                source.resetEmptyTime();
                 source.getChunkSource().addRegionTicket(DrillLayerTravel.CHUNK_TICKET, new ChunkPos(owner.pos()), 2, owner.pos());
                 source.getChunkAt(owner.pos());
                 if (source.getBlockEntity(owner.pos()) instanceof DrillControllerBlockEntity controller) {

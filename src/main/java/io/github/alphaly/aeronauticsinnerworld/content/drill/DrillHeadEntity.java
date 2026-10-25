@@ -18,7 +18,6 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -94,18 +93,19 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     @Override
     protected void tickContraption() {
         if (isRemote()) {
-            if (level() instanceof ServerLevel serverLevel && serverLevel.getNearestPlayer(this, 128) != null) {
-                var source = serverLevel.getServer().getLevel(controllerDimension);
-                if (source != null) {
-                    source.getChunkSource().addRegionTicket(DrillLayerTravel.CHUNK_TICKET,
-                            new ChunkPos(controllerPos), 2, controllerPos);
-                }
-            }
             if (level().isClientSide && interpolationTicks > 0) {
                 setPos(position().lerp(interpolationTarget, 1.0 / interpolationTicks--));
             } else if (!level().isClientSide && getController() == this) {
                 setWorking(false);
                 setContraptionMotion(Vec3.ZERO);
+            }
+            if (!level().isClientSide) {
+                var controller = getController();
+                if (controller != this && !controller.isAttachedTo(this)) {
+                    controller.attach(this);
+                }
+                // Server actors are advanced by the source controller, once per source tick.
+                return;
             }
         }
         super.tickContraption();

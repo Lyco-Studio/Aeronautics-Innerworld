@@ -79,7 +79,10 @@ public final class DrillLayerChecks {
                 .thenExecute(rig::remoteUse)
                 .thenWaitUntil(rig::assertPaused)
                 .thenExecute(() -> {
-                    helper.assertTrue(rig.count(Items.COBBLED_DEEPSLATE) > 0, "Mantle excavation did not collect resources");
+                    helper.assertTrue(rig.count(Items.COBBLED_DEEPSLATE) > 0,
+                            "Mantle excavation did not collect resources; entity ticks " + rig.head().tickCount
+                                    + "; actors " + rig.head().getContraption().getActors().stream()
+                                    .map(actor -> actor.right.position + "/" + actor.right.relativeMotion).toList());
                     rig.reload();
                 })
                 .thenIdle(8)
@@ -93,7 +96,10 @@ public final class DrillLayerChecks {
                     rig.remoteUse();
                 })
                 .thenWaitUntil(() -> helper.assertTrue(rig.controller().getStatus().equals("layer_blocked"),
-                        "Blocked return has not stopped safely"))
+                        "Blocked return has not stopped safely: " + rig.controller().getStatus() + "; "
+                                + rig.head().position() + "; speed " + rig.controller().getSpeed()
+                                + "; stalled " + rig.head().isStalled() + "; direction " + rig.controller().getMovementDirection()
+                                + "; bounds " + rig.head().getContraption().bounds + "; entity bounds " + rig.head().getBoundingBox()))
                 .thenExecute(() -> {
                     rig.assertCargo();
                     helper.assertTrue(rig.head().level().dimension().equals(Mantle.LEVEL), "Blocked return moved the head");

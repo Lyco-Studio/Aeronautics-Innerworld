@@ -194,6 +194,10 @@ sourceSets.main.resources.srcDir generateModMetadata
 neoForge.ideSyncTask generateModMetadata
 neoForge.ideSyncTask extractEmbeddedModDependencies
 
+tasks.withType(Jar).configureEach {
+    from('LICENSE') { into 'META-INF' }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

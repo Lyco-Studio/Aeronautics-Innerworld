@@ -2,6 +2,10 @@ package io.github.alphaly.aeronauticsinnerworld.content.drill;
 
 import io.github.alphaly.aeronauticsinnerworld.InnerworldConfig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import com.simibubi.create.api.behaviour.movement.MovementBehaviour;
+import com.simibubi.create.content.contraptions.AbstractContraptionEntity;
+import com.simibubi.create.content.contraptions.TranslatingContraption;
+import com.simibubi.create.content.kinetics.base.BlockBreakingMovementBehaviour;
 import java.util.Comparator;
 import java.util.HashSet;
 import net.minecraft.core.BlockPos;
@@ -110,6 +114,35 @@ final class DrillLayerTravel {
             behaviour.startMoving(context);
         });
         head.getContraption().stalled = false;
+    }
+
+    static boolean collidesAtCeiling(DrillHeadEntity head, Direction direction) {
+        var level = head.level();
+        var contraption = (TranslatingContraption) head.getContraption();
+        var anchor = head.blockPosition();
+        if (direction.getAxisDirection() == Direction.AxisDirection.POSITIVE) {
+            anchor = anchor.relative(direction);
+        }
+        // Create treats positions above build height as unloaded; permit only this upper approach.
+        for (var local : contraption.getOrCreateColliders(level, direction)) {
+            var pos = anchor.offset(local);
+            if (pos.getY() >= level.getMaxBuildHeight()) {
+                continue;
+            }
+            if (!level.isLoaded(pos)) {
+                return true;
+            }
+            var state = level.getBlockState(pos);
+            var behaviour = MovementBehaviour.REGISTRY.get(contraption.getBlocks().get(local).state());
+            if (behaviour instanceof BlockBreakingMovementBehaviour breaker && breaker.canBreak(level, pos, state)) {
+                continue;
+            }
+            if (!state.canBeReplaced() && !state.getCollisionShape(level, pos).isEmpty()) {
+                return true;
+            }
+        }
+        return !level.getEntitiesOfClass(AbstractContraptionEntity.class, head.getBoundingBox(),
+                other -> other != head && other.isAlive()).isEmpty();
     }
 
     private DrillLayerTravel() {
