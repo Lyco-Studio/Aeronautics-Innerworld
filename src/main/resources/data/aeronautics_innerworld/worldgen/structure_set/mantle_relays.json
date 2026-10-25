@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "aeronautics_innerworld:mantle_relay",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 12,
+    "separation": 5,
+    "salt": 2424115
+  }
+}

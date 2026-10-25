@@ -6,7 +6,9 @@
       "biome": "aeronautics_innerworld:mantle",
       "features": true,
       "lakes": false,
-      "structure_overrides": [],
+      "structure_overrides": [
+        "aeronautics_innerworld:mantle_relays"
+      ],
       "layers": [
         {
           "height": 1,

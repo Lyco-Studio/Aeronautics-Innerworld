@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "aeronautics_innerworld:relic_alloy"
+    },
+    {
+      "item": "aeronautics_innerworld:coolant_cell"
+    }
+  ],
+  "result": {
+    "id": "aeronautics_innerworld:stabilized_coolant_cell",
+    "count": 2
+  }
+}

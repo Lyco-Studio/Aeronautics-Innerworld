@@ -20,6 +20,7 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeServiceItem;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructures;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -102,6 +103,11 @@ public final class AeronauticsInnerworld {
     public static final DeferredItem<BlockItem> HARMONIC_ORE_ITEM = ITEMS.registerSimpleBlockItem(HARMONIC_ORE);
     public static final DeferredItem<Item> RAW_HARMONIC = ITEMS.registerSimpleItem("raw_harmonic", new Item.Properties().fireResistant());
     public static final DeferredItem<Item> HARMONIC_CRYSTAL = ITEMS.registerSimpleItem("harmonic_crystal", new Item.Properties().fireResistant());
+    public static final DeferredItem<Item> RELIC_ALLOY = ITEMS.registerSimpleItem("relic_alloy", new Item.Properties().fireResistant());
+    public static final DeferredBlock<Block> RELAY_BEACON = BLOCKS.registerSimpleBlock("relay_beacon",
+            BlockBehaviour.Properties.of().strength(5, 9).sound(SoundType.COPPER).requiresCorrectToolForDrops()
+                    .lightLevel(state -> 10));
+    public static final DeferredItem<BlockItem> RELAY_BEACON_ITEM = ITEMS.registerSimpleBlockItem(RELAY_BEACON);
     public static final DeferredBlock<Block> DAMAGED_HULL = BLOCKS.registerSimpleBlock("damaged_hull",
             BlockBehaviour.Properties.of().strength(2, 3).sound(SoundType.NETHER_BRICKS).requiresCorrectToolForDrops());
     public static final DeferredItem<BlockItem> DAMAGED_HULL_ITEM = ITEMS.registerSimpleBlockItem(DAMAGED_HULL);
@@ -145,6 +151,7 @@ public final class AeronauticsInnerworld {
         BLOCK_ENTITIES.register(modBus);
         ENTITIES.register(modBus);
         CONTRAPTIONS.register(modBus);
+        InnerworldStructures.register(modBus);
         modBus.addListener(this::commonSetup);
         modBus.addListener(this::buildCreativeTab);
         modBus.addListener(this::capabilities);
@@ -187,6 +194,8 @@ public final class AeronauticsInnerworld {
             event.accept(HARMONIC_ORE_ITEM);
             event.accept(RAW_HARMONIC);
             event.accept(HARMONIC_CRYSTAL);
+            event.accept(RELIC_ALLOY);
+            event.accept(RELAY_BEACON_ITEM);
             event.accept(DAMAGED_HULL_ITEM);
             event.accept(EMERGENCY_PATCH_ITEM);
             event.accept(COOLANT_CELL);

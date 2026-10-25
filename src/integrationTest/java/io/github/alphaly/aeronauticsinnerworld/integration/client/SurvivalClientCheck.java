@@ -6,17 +6,13 @@ import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
-import net.minecraft.client.resources.language.ClientLanguage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.locale.Language;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -92,7 +88,7 @@ public final class SurvivalClientCheck {
                 }
                 if (client.screen instanceof BookViewScreen book) {
                     if (++guideFrames == 1) {
-                        checkPages(client, client.player.getMainHandItem());
+                        BookLayoutChecks.check(client, client.player.getMainHandItem(), 15);
                         book.setPage(7);
                     }
                     if (guideFrames >= 6) {
@@ -148,32 +144,6 @@ public final class SurvivalClientCheck {
                     scene.cleanUp();
                 }
             });
-        }
-    }
-
-    private static void checkPages(Minecraft client, ItemStack manual) {
-        var content = manual.get(DataComponents.WRITTEN_BOOK_CONTENT);
-        if (content == null || content.pages().size() != 15) {
-            throw new IllegalStateException("Crafted expedition manual has no usable pages");
-        }
-        var original = Language.getInstance();
-        var oversized = new ArrayList<String>();
-        try {
-            for (var locale : List.of("en_us", "zh_cn")) {
-                Language.inject(ClientLanguage.loadFrom(client.getResourceManager(), List.of("en_us", locale), false));
-                for (int i = 0; i < content.pages().size(); i++) {
-                    var page = content.pages().get(i).raw();
-                    int height = client.font.wordWrapHeight(page, 114);
-                    if (height > 128) {
-                        oversized.add(locale + " page " + (i + 1) + " height=" + height);
-                    }
-                }
-            }
-        } finally {
-            Language.inject(original);
-        }
-        if (!oversized.isEmpty()) {
-            throw new IllegalStateException("Manual text exceeds native book page: " + oversized);
         }
     }
 

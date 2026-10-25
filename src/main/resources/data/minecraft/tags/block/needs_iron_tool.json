@@ -14,6 +14,7 @@
     "aeronautics_innerworld:mantle_sampler",
     "aeronautics_innerworld:harmonic_ore",
     "aeronautics_innerworld:damaged_hull",
-    "aeronautics_innerworld:emergency_patch"
+    "aeronautics_innerworld:emergency_patch",
+    "aeronautics_innerworld:relay_beacon"
   ]
 }

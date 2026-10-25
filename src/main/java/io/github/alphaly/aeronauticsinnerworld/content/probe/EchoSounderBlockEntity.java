@@ -6,11 +6,13 @@ import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayStructure;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -18,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
 public final class EchoSounderBlockEntity extends KineticBlockEntity {
     private BlockPos home;
     private BlockPos mineral;
+    private BlockPos relay;
     private int clearance = 16;
     private int ticks;
 
@@ -42,6 +45,10 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
 
     public BlockPos getHome() {
         return home;
+    }
+
+    public BlockPos getRelay() {
+        return relay;
     }
 
     public int getClearance() {
@@ -119,6 +126,28 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                 nearest = distance;
             }
         }
+        relay = null;
+        if (level instanceof ServerLevel server) {
+            double relayDistance = 128 * 128;
+            for (int x = (center.getX() >> 4) - 8; x <= (center.getX() >> 4) + 8; x++) {
+                for (int z = (center.getZ() >> 4) - 8; z <= (center.getZ() >> 4) + 8; z++) {
+                    var chunk = server.getChunkSource().getChunkNow(x, z);
+                    if (chunk == null) {
+                        continue;
+                    }
+                    for (var start : chunk.getAllStarts().values()) {
+                        if (start.isValid() && start.getStructure() instanceof MantleRelayStructure) {
+                            var pos = start.getBoundingBox().getCenter();
+                            double distance = pos.distToCenterSqr(origin);
+                            if (distance <= relayDistance) {
+                                relay = pos;
+                                relayDistance = distance;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public void interact(Player player) {
@@ -146,6 +175,16 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
         if (home != null) {
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_home",
                     home.getX(), home.getY(), home.getZ()), false);
+        }
+        if (relay == null) {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_relay"), false);
+        } else {
+            var position = position();
+            var direction = Direction.getNearest(relay.getX() + .5 - position.x, 0, relay.getZ() + .5 - position.z);
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_relay",
+                    Component.translatable("structure.aeronautics_innerworld.mantle_relay"),
+                    relay.getX(), relay.getY(), relay.getZ(), Math.round(position.distanceTo(Vec3.atCenterOf(relay))),
+                    Component.translatable("direction.aeronautics_innerworld." + direction.getName())), false);
         }
         if (Sable.HELPER.getContaining(this) instanceof ServerSubLevel ship) {
             for (var actor : ship.getPlot().getBlockEntityActors()) {

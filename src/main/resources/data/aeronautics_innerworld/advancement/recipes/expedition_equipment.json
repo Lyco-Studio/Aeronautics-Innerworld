@@ -21,6 +21,7 @@
       "aeronautics_innerworld:bore_station",
       "aeronautics_innerworld:cabin_regulator",
       "aeronautics_innerworld:coolant_cell",
+      "aeronautics_innerworld:coolant_from_relic",
       "aeronautics_innerworld:drill_controller",
       "aeronautics_innerworld:drill_remote",
       "aeronautics_innerworld:echo_sounder",
@@ -37,6 +38,7 @@
       "aeronautics_innerworld:refractory_hull",
       "aeronautics_innerworld:repair_kit",
       "aeronautics_innerworld:repair_kit_from_harmonic",
+      "aeronautics_innerworld:repair_kit_from_relic",
       "aeronautics_innerworld:stabilized_coolant_cell"
     ]
   }

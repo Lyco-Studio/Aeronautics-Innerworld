@@ -1,0 +1,30 @@
+{
+  "parent": "aeronautics_innerworld:expedition/crystal",
+  "display": {
+    "icon": {
+      "id": "aeronautics_innerworld:relic_alloy"
+    },
+    "title": {
+      "translate": "advancement.aeronautics_innerworld.relay.title"
+    },
+    "description": {
+      "translate": "advancement.aeronautics_innerworld.relay.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "recovered": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "aeronautics_innerworld:relic_alloy"
+          }
+        ]
+      }
+    }
+  }
+}
