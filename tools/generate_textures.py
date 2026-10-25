@@ -125,6 +125,70 @@ def generate():
     c.grain()
     c.save('block/bore_station_front.png')
 
+    c = plate()
+    for y in (3, 7, 11):
+        c.rect(3, y, 12, y + 1, (108, 94, 83, 255))
+        c.rect(3, y, 12, y, (144, 123, 98, 255))
+    c.rect(1, 5, 2, 10, COPPER)
+    c.rect(13, 5, 14, 10, COPPER)
+    c.grain()
+    c.save('block/refractory_hull.png')
+
+    c = Canvas(16)
+    c.rect(0, 0, 15, 15, DARK)
+    c.rect(1, 1, 14, 14, COPPER)
+    c.rect(2, 2, 13, 13, BRASS)
+    c.rect(3, 3, 12, 12, (0, 0, 0, 0))
+    c.rect(3, 3, 12, 3, (98, 126, 117, 255))
+    c.rect(3, 4, 3, 12, (72, 94, 90, 255))
+    for x,y in ((1,1),(14,1),(1,14),(14,14)):
+        c.dot(x,y,EDGE)
+    for x,y in ((5,5),(6,6),(10,10),(11,11)):
+        c.dot(x,y,(158,192,173,255))
+    c.save('block/mantle_viewport.png')
+
+    c = plate()
+    c.rect(2, 2, 13, 13, COPPER)
+    c.rect(3, 3, 12, 12, DARK)
+    c.rect(4, 4, 11, 11, STEEL)
+    c.rect(5, 7, 10, 8, BRASS)
+    c.rect(7, 5, 8, 10, BRASS)
+    c.rect(7, 7, 8, 8, DARK)
+    c.grain()
+    c.save('block/pressure_hatch.png')
+
+    c = plate()
+    for y in range(16):
+        for x in range(16):
+            radius = (x - 7.5) ** 2 + (y - 7.5) ** 2
+            if radius < 44:
+                c.dot(x,y,BRASS if radius > 32 else DARK)
+    for x,y in ((7,4),(9,6),(9,9),(6,9),(4,6)):
+        c.rect(x,y,x+2,y+1,STEEL)
+    c.rect(7,7,8,8,COPPER)
+    c.grain()
+    c.save('block/molten_thruster.png')
+
+    c = plate()
+    c.rect(3, 2, 12, 13, COPPER)
+    c.rect(4, 3, 11, 12, DARK)
+    c.rect(5, 4, 10, 11, (83, 113, 102, 255))
+    for y in (5,8,10):
+        c.rect(5,y,10,y,BRASS)
+    c.rect(7,2,8,13,EDGE)
+    c.grain()
+    c.save('block/mantle_ballast.png')
+
+    c = plate()
+    c.rect(2, 2, 13, 11, COPPER)
+    c.rect(3, 3, 12, 10, DARK)
+    for y in (4,6,8):
+        c.rect(4,y,11,y,EDGE)
+    c.rect(4,12,6,13,AMBER)
+    c.rect(9,12,11,13,(105,168,132,255))
+    c.grain()
+    c.save('block/cabin_regulator.png')
+
     c = Canvas(32)
     c.rect(22, 2, 24, 9, DARK)
     c.rect(22, 1, 24, 2, BRASS)

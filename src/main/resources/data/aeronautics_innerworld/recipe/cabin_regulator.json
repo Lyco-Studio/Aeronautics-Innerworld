@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HCH",
+    "IEI",
+    " S "
+  ],
+  "key": {
+    "H": {
+      "item": "aeronautics_innerworld:refractory_hull"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "S": {
+      "item": "create:shaft"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:cabin_regulator",
+    "count": 1
+  }
+}

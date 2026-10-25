@@ -50,5 +50,19 @@
   "block.aeronautics_innerworld.bore_station": "Bore Station",
   "dimension.aeronautics_innerworld.overworld": "Overworld",
   "dimension.aeronautics_innerworld.mantle": "Mantle",
-  "item.aeronautics_innerworld.drill_remote.station_binding": "Use on stations to connect them to the same bore"
+  "item.aeronautics_innerworld.drill_remote.station_binding": "Use on stations to connect them to the same bore",
+  "block.aeronautics_innerworld.refractory_hull": "Refractory Hull",
+  "block.aeronautics_innerworld.mantle_viewport": "Mantle Viewport",
+  "block.aeronautics_innerworld.pressure_hatch": "Pressure Hatch",
+  "block.aeronautics_innerworld.molten_thruster": "Molten Thruster",
+  "block.aeronautics_innerworld.mantle_ballast": "Mantle Ballast",
+  "block.aeronautics_innerworld.cabin_regulator": "Cabin Regulator",
+  "message.aeronautics_innerworld.thruster_status": "Thrust drive: %s RPM · %3$s",
+  "message.aeronautics_innerworld.ballast_status": "Ballast: %s RPM · supports %s mass · %s",
+  "message.aeronautics_innerworld.probe_in_lava": "in mantle lava",
+  "message.aeronautics_innerworld.probe_dry": "outside mantle lava",
+  "message.aeronautics_innerworld.cabin_status": "Cabin: %s · %s m³",
+  "message.aeronautics_innerworld.cabin_sealed": "sealed",
+  "message.aeronautics_innerworld.cabin_unpowered": "requires 16 RPM",
+  "message.aeronautics_innerworld.cabin_open": "open or flooded"
 }

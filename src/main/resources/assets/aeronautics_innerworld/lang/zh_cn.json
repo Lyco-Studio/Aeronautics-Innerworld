@@ -50,5 +50,19 @@
   "block.aeronautics_innerworld.bore_station": "钻井接驳站",
   "dimension.aeronautics_innerworld.overworld": "主世界",
   "dimension.aeronautics_innerworld.mantle": "地幔",
-  "item.aeronautics_innerworld.drill_remote.station_binding": "对接驳站使用以接入同一钻井"
+  "item.aeronautics_innerworld.drill_remote.station_binding": "对接驳站使用以接入同一钻井",
+  "block.aeronautics_innerworld.refractory_hull": "耐火舱壳",
+  "block.aeronautics_innerworld.mantle_viewport": "地幔观察窗",
+  "block.aeronautics_innerworld.pressure_hatch": "耐压舱门",
+  "block.aeronautics_innerworld.molten_thruster": "熔岩推进器",
+  "block.aeronautics_innerworld.mantle_ballast": "地幔配平舱",
+  "block.aeronautics_innerworld.cabin_regulator": "舱室调节器",
+  "message.aeronautics_innerworld.thruster_status": "推进器：%s RPM · %3$s",
+  "message.aeronautics_innerworld.ballast_status": "配平舱：%s RPM · 支承质量 %s · %s",
+  "message.aeronautics_innerworld.probe_in_lava": "地幔熔岩中",
+  "message.aeronautics_innerworld.probe_dry": "未浸入地幔熔岩",
+  "message.aeronautics_innerworld.cabin_status": "舱室：%s · %s m³",
+  "message.aeronautics_innerworld.cabin_sealed": "密封",
+  "message.aeronautics_innerworld.cabin_unpowered": "需要 16 RPM",
+  "message.aeronautics_innerworld.cabin_open": "存在破口或积液"
 }

@@ -13,6 +13,10 @@ import io.github.alphaly.aeronauticsinnerworld.content.drill.MultiAxisCutterMove
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillRemoteItem;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDeviceBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -58,6 +62,34 @@ public final class AeronauticsInnerworld {
             () -> new BoreStationBlock(BlockBehaviour.Properties.of().strength(3.5f).sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()));
     public static final DeferredItem<BlockItem> BORE_STATION_ITEM = ITEMS.registerSimpleBlockItem(BORE_STATION);
+    public static final DeferredBlock<Block> REFRACTORY_HULL = BLOCKS.registerSimpleBlock("refractory_hull",
+            BlockBehaviour.Properties.of().strength(5, 9).sound(SoundType.NETHER_BRICKS).requiresCorrectToolForDrops());
+    public static final DeferredItem<BlockItem> REFRACTORY_HULL_ITEM = ITEMS.registerSimpleBlockItem(REFRACTORY_HULL);
+    public static final DeferredBlock<Block> MANTLE_VIEWPORT = BLOCKS.registerSimpleBlock("mantle_viewport",
+            BlockBehaviour.Properties.of().strength(4, 9).sound(SoundType.GLASS).requiresCorrectToolForDrops().noOcclusion());
+    public static final DeferredItem<BlockItem> MANTLE_VIEWPORT_ITEM = ITEMS.registerSimpleBlockItem(MANTLE_VIEWPORT);
+    public static final DeferredBlock<PressureHatchBlock> PRESSURE_HATCH = BLOCKS.register("pressure_hatch",
+            () -> new PressureHatchBlock(BlockBehaviour.Properties.of().strength(5, 9).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops().noOcclusion()));
+    public static final DeferredItem<BlockItem> PRESSURE_HATCH_ITEM = ITEMS.registerSimpleBlockItem(PRESSURE_HATCH);
+    public static final DeferredBlock<ProbeDeviceBlock> MOLTEN_THRUSTER = BLOCKS.register("molten_thruster",
+            () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.THRUSTER));
+    public static final DeferredItem<BlockItem> MOLTEN_THRUSTER_ITEM = ITEMS.registerSimpleBlockItem(MOLTEN_THRUSTER);
+    public static final DeferredBlock<ProbeDeviceBlock> MANTLE_BALLAST = BLOCKS.register("mantle_ballast",
+            () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.BALLAST));
+    public static final DeferredItem<BlockItem> MANTLE_BALLAST_ITEM = ITEMS.registerSimpleBlockItem(MANTLE_BALLAST);
+    public static final DeferredBlock<ProbeDeviceBlock> CABIN_REGULATOR = BLOCKS.register("cabin_regulator",
+            () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.CABIN));
+    public static final DeferredItem<BlockItem> CABIN_REGULATOR_ITEM = ITEMS.registerSimpleBlockItem(CABIN_REGULATOR);
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ProbeDriveBlockEntity>> PROBE_DRIVE_ENTITY =
+            BLOCK_ENTITIES.register("probe_drive", () -> BlockEntityType.Builder.of(ProbeDriveBlockEntity::new,
+                    MOLTEN_THRUSTER.get(), MANTLE_BALLAST.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CabinRegulatorBlockEntity>> CABIN_REGULATOR_ENTITY =
+            BLOCK_ENTITIES.register("cabin_regulator", () -> BlockEntityType.Builder.of(CabinRegulatorBlockEntity::new,
+                    CABIN_REGULATOR.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BoreStationBlockEntity>> BORE_STATION_ENTITY =
             BLOCK_ENTITIES.register("bore_station", () -> BlockEntityType.Builder.of(
                     BoreStationBlockEntity::new, BORE_STATION.get()).build(null));
@@ -102,6 +134,12 @@ public final class AeronauticsInnerworld {
             event.accept(DRILL_CONTROLLER_ITEM);
             event.accept(DRILL_REMOTE);
             event.accept(BORE_STATION_ITEM);
+            event.accept(REFRACTORY_HULL_ITEM);
+            event.accept(MANTLE_VIEWPORT_ITEM);
+            event.accept(PRESSURE_HATCH_ITEM);
+            event.accept(MOLTEN_THRUSTER_ITEM);
+            event.accept(MANTLE_BALLAST_ITEM);
+            event.accept(CABIN_REGULATOR_ITEM);
         }
     }
 }

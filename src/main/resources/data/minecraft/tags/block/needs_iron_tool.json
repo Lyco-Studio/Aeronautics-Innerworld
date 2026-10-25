@@ -3,6 +3,12 @@
   "values": [
     "aeronautics_innerworld:multi_axis_cutter",
     "aeronautics_innerworld:drill_controller",
-    "aeronautics_innerworld:bore_station"
+    "aeronautics_innerworld:bore_station",
+    "aeronautics_innerworld:refractory_hull",
+    "aeronautics_innerworld:mantle_viewport",
+    "aeronautics_innerworld:pressure_hatch",
+    "aeronautics_innerworld:molten_thruster",
+    "aeronautics_innerworld:mantle_ballast",
+    "aeronautics_innerworld:cabin_regulator"
   ]
 }

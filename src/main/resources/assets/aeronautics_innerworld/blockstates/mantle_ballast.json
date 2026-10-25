@@ -1,0 +1,27 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "aeronautics_innerworld:block/mantle_ballast"
+    },
+    "facing=east": {
+      "model": "aeronautics_innerworld:block/mantle_ballast",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "aeronautics_innerworld:block/mantle_ballast",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "aeronautics_innerworld:block/mantle_ballast",
+      "y": 270
+    },
+    "facing=up": {
+      "model": "aeronautics_innerworld:block/mantle_ballast",
+      "x": 270
+    },
+    "facing=down": {
+      "model": "aeronautics_innerworld:block/mantle_ballast",
+      "x": 90
+    }
+  }
+}

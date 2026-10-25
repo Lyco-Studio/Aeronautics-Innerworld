@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HHH",
+    "ICI",
+    "HHH"
+  ],
+  "key": {
+    "H": {
+      "item": "aeronautics_innerworld:refractory_hull"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "create:cogwheel"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:pressure_hatch",
+    "count": 2
+  }
+}

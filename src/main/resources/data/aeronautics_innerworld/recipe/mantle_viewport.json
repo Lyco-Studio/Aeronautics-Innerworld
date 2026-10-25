@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " C ",
+    "GHG",
+    " C "
+  ],
+  "key": {
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "H": {
+      "item": "aeronautics_innerworld:refractory_hull"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:mantle_viewport",
+    "count": 4
+  }
+}

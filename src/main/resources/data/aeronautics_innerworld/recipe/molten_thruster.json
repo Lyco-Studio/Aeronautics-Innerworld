@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HCH",
+    "IPI",
+    " S "
+  ],
+  "key": {
+    "H": {
+      "item": "aeronautics_innerworld:refractory_hull"
+    },
+    "C": {
+      "item": "create:propeller"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "create:andesite_casing"
+    },
+    "S": {
+      "item": "create:shaft"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:molten_thruster",
+    "count": 1
+  }
+}
