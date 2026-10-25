@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "aeronautics_innerworld:harmonic_ore",
+    "minecraft:basalt",
+    "minecraft:smooth_basalt",
+    "minecraft:deepslate",
+    "minecraft:deepslate_iron_ore"
+  ]
+}

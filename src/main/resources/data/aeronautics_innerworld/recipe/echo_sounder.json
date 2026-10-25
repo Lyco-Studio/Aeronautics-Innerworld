@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HQH",
+    "CEC",
+    " S "
+  ],
+  "key": {
+    "H": {
+      "item": "aeronautics_innerworld:refractory_hull"
+    },
+    "Q": {
+      "item": "minecraft:quartz"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "S": {
+      "item": "create:shaft"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:echo_sounder",
+    "count": 1
+  }
+}

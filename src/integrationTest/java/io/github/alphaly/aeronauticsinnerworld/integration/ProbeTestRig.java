@@ -8,11 +8,16 @@ import dev.ryanhcode.sable.api.sublevel.ticket.SubLevelLoadingTicketType;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.sublevel.storage.SubLevelRemovalReason;
 import dev.ryanhcode.sable.sublevel.storage.serialization.SubLevelSerializer;
+import dev.ryanhcode.sable.sublevel.storage.serialization.SubLevelData;
 import dev.simulated_team.simulated.util.SimAssemblyHelper;
 import dev.simulated_team.simulated.index.SimBlocks;
+import dev.simulated_team.simulated.content.blocks.portable_engine.PortableEngineBlockEntity;
+import net.minecraft.world.item.DyeColor;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDeviceBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +30,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.ChunkPos;
 
 public final class ProbeTestRig {
@@ -33,6 +39,7 @@ public final class ProbeTestRig {
     private final Map<BlockPos, BlockState> original = new HashMap<>();
     private final BlockPos origin;
     private BlockPos plotOrigin;
+    private SubLevelData saved;
     private final java.util.ArrayList<SuperGlueEntity> glue = new java.util.ArrayList<>();
     private static final TicketType<BlockPos> ENVIRONMENT = TicketType.create("innerworld_probe_check",
             java.util.Comparator.comparingLong(BlockPos::asLong), 600);
@@ -40,12 +47,15 @@ public final class ProbeTestRig {
     public static final BlockPos LEFT_DRIVE = new BlockPos(1, 1, 6);
     public static final BlockPos RIGHT_DRIVE = new BlockPos(3, 1, 6);
     public static final BlockPos HATCH = new BlockPos(2, 2, 0);
+    public static final BlockPos SOUNDER = new BlockPos(2, 1, 3);
+    public static final BlockPos SAMPLER = new BlockPos(3, 1, 0);
 
     public ProbeTestRig(ServerLevel level, BlockPos origin) {
         this.level = level;
         this.origin = origin;
         level.resetEmptyTime();
         level.getChunkSource().addRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
+        removeOldRig();
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 4; y++) {
                 for (int z = 0; z < 7; z++) {
@@ -81,9 +91,63 @@ public final class ProbeTestRig {
         glue.add(entity);
     }
 
+    public void workEquipment() {
+        device(SOUNDER, AeronauticsInnerworld.ECHO_SOUNDER.get(), Direction.NORTH);
+        device(SAMPLER, AeronauticsInnerworld.MANTLE_SAMPLER.get(), Direction.NORTH);
+        place(SOUNDER.south(), SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
+        ((PortableEngineBlockEntity) level.getBlockEntity(origin.offset(SOUNDER.south()))).inventory.setItem(0,
+                new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, 4));
+        ((EchoSounderBlockEntity) level.getBlockEntity(origin.offset(SOUNDER))).setHome(origin);
+        ((MantleSamplerBlockEntity) level.getBlockEntity(origin.offset(SAMPLER))).inventory.setStackInSlot(0,
+                new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COPPER_INGOT, 17));
+    }
+
+    public BlockPos mineralTarget() {
+        var point = subLevel == null ? Vec3.atCenterOf(origin.offset(3, 1, -2))
+                : world(SAMPLER).add(subLevel.logicalPose().transformNormal(new Vec3(0, 0, -2)));
+        var pos = BlockPos.containing(point);
+        original.putIfAbsent(pos, level.getBlockState(pos));
+        level.setBlockAndUpdate(pos, AeronauticsInnerworld.HARMONIC_ORE.get().defaultBlockState());
+        return pos;
+    }
+
+    public EchoSounderBlockEntity sounder() {
+        return (EchoSounderBlockEntity) level.getBlockEntity(local(SOUNDER));
+    }
+
+    public MantleSamplerBlockEntity sampler() {
+        return (MantleSamplerBlockEntity) level.getBlockEntity(local(SAMPLER));
+    }
+
     public boolean ready() {
+        removeOldRig();
         return level.getEntitiesOfClass(SuperGlueEntity.class,
                 SuperGlueEntity.span(origin.offset(-2, -2, -2), origin.offset(7, 6, 9))).size() == glue.size();
+    }
+
+    public int sourceCopperDrops() {
+        return level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new AABB(Vec3.atLowerCornerOf(origin.offset(-2, -2, -2)),
+                        Vec3.atLowerCornerOf(origin.offset(7, 6, 9))))
+                .stream().filter(entity -> entity.getItem().is(net.minecraft.world.item.Items.COPPER_INGOT))
+                .mapToInt(entity -> entity.getItem().getCount()).sum();
+    }
+
+    private String rigName() {
+        return "innerworld_probe_check_" + origin.getX() + "_" + origin.getZ();
+    }
+
+    private void removeOldRig() {
+        if (subLevel != null) {
+            return;
+        }
+        var container = SubLevelContainer.getContainer(level);
+        for (var old : List.copyOf(container.getAllSubLevels())) {
+            if (rigName().equals(old.getName())) {
+                container.removeSubLevel(old, SubLevelRemovalReason.REMOVED);
+            }
+        }
     }
 
     public void assemble() {
@@ -96,6 +160,7 @@ public final class ProbeTestRig {
                 throw new IllegalStateException("Native probe assembly returned no structure");
             }
             subLevel = (ServerSubLevel) result.subLevel();
+            subLevel.setName(rigName());
             plotOrigin = origin.offset(result.offset());
         } catch (com.simibubi.create.content.contraptions.AssemblyException e) {
             throw new IllegalStateException("Native probe assembly failed", e);
@@ -172,19 +237,32 @@ public final class ProbeTestRig {
         return (CabinRegulatorBlockEntity) level.getBlockEntity(local(CABIN));
     }
 
-    public void reload() {
-        var saved = SubLevelSerializer.toData(subLevel, List.of());
+    public void unload() {
+        saved = SubLevelSerializer.toData(subLevel, List.of());
         var container = SubLevelContainer.getContainer(level);
         container.removeForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
         container.removeSubLevel(subLevel, SubLevelRemovalReason.UNLOADED);
+        subLevel = null;
+    }
+
+    public void restore() {
         subLevel = SubLevelSerializer.fullyLoad(level, saved);
+        saved = null;
         locateCabin();
-        container.addForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
+        SubLevelContainer.getContainer(level).addForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
     }
 
     public void cleanUp() {
         var container = SubLevelContainer.getContainer(level);
         if (subLevel != null) {
+            if (level.getBlockEntity(local(SOUNDER.south())) instanceof PortableEngineBlockEntity engine) {
+                engine.inventory.clearContent();
+            }
+            if (level.getBlockEntity(local(SAMPLER)) instanceof MantleSamplerBlockEntity sampler) {
+                for (int slot = 0; slot < 9; slot++) {
+                    sampler.inventory.setStackInSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+                }
+            }
             container.removeForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
             container.removeSubLevel(subLevel, SubLevelRemovalReason.REMOVED);
         }

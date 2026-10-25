@@ -91,8 +91,9 @@ public final class ProbeChecks {
                                     helper.assertTrue(!rig.cabin().isSealed(), "Unpowered regulator retained a sealed cabin");
                                     rig.motor(ProbeTestRig.CABIN, 32);
                                     var uuid = rig.subLevel.getUniqueId();
-                                    rig.reload();
-                                    helper.runAfterDelay(20, () -> {
+                                    rig.unload();
+                                    helper.runAfterDelay(2, rig::restore);
+                                    helper.runAfterDelay(22, () -> {
                                         helper.assertTrue(rig.subLevel.getUniqueId().equals(uuid), "Probe identity changed on restore");
                                         helper.assertTrue(rig.cabin().isSealed(), "Restored regulator did not rebuild the seal");
                                         helper.assertTrue(RigidBodyHandle.of(rig.subLevel).isValid(), "Restored probe has no physics body");

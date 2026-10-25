@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " C ",
+    "GWG",
+    " C "
+  ],
+  "key": {
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "W": {
+      "item": "minecraft:water_bucket"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:coolant_cell",
+    "count": 2
+  }
+}

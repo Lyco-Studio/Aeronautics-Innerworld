@@ -17,6 +17,9 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDeviceBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeServiceItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -37,6 +40,8 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
 @Mod(AeronauticsInnerworld.MOD_ID)
 public final class AeronauticsInnerworld {
@@ -84,6 +89,37 @@ public final class AeronauticsInnerworld {
             () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
                     .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.CABIN));
     public static final DeferredItem<BlockItem> CABIN_REGULATOR_ITEM = ITEMS.registerSimpleBlockItem(CABIN_REGULATOR);
+    public static final DeferredBlock<ProbeDeviceBlock> ECHO_SOUNDER = BLOCKS.register("echo_sounder",
+            () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.SOUNDER));
+    public static final DeferredItem<BlockItem> ECHO_SOUNDER_ITEM = ITEMS.registerSimpleBlockItem(ECHO_SOUNDER);
+    public static final DeferredBlock<ProbeDeviceBlock> MANTLE_SAMPLER = BLOCKS.register("mantle_sampler",
+            () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.SAMPLER));
+    public static final DeferredItem<BlockItem> MANTLE_SAMPLER_ITEM = ITEMS.registerSimpleBlockItem(MANTLE_SAMPLER);
+    public static final DeferredBlock<Block> HARMONIC_ORE = BLOCKS.registerSimpleBlock("harmonic_ore",
+            BlockBehaviour.Properties.of().strength(4).sound(SoundType.DEEPSLATE).requiresCorrectToolForDrops());
+    public static final DeferredItem<BlockItem> HARMONIC_ORE_ITEM = ITEMS.registerSimpleBlockItem(HARMONIC_ORE);
+    public static final DeferredItem<Item> RAW_HARMONIC = ITEMS.registerSimpleItem("raw_harmonic", new Item.Properties().fireResistant());
+    public static final DeferredItem<Item> HARMONIC_CRYSTAL = ITEMS.registerSimpleItem("harmonic_crystal", new Item.Properties().fireResistant());
+    public static final DeferredBlock<Block> DAMAGED_HULL = BLOCKS.registerSimpleBlock("damaged_hull",
+            BlockBehaviour.Properties.of().strength(2, 3).sound(SoundType.NETHER_BRICKS).requiresCorrectToolForDrops());
+    public static final DeferredItem<BlockItem> DAMAGED_HULL_ITEM = ITEMS.registerSimpleBlockItem(DAMAGED_HULL);
+    public static final DeferredBlock<Block> EMERGENCY_PATCH = BLOCKS.registerSimpleBlock("emergency_patch",
+            BlockBehaviour.Properties.of().strength(2, 3).sound(SoundType.METAL).requiresCorrectToolForDrops());
+    public static final DeferredItem<BlockItem> EMERGENCY_PATCH_ITEM = ITEMS.registerSimpleBlockItem(EMERGENCY_PATCH);
+    public static final DeferredItem<ProbeServiceItem> COOLANT_CELL = ITEMS.register("coolant_cell",
+            () -> new ProbeServiceItem(new Item.Properties().stacksTo(16), 120));
+    public static final DeferredItem<ProbeServiceItem> STABILIZED_COOLANT_CELL = ITEMS.register("stabilized_coolant_cell",
+            () -> new ProbeServiceItem(new Item.Properties().stacksTo(16), 240));
+    public static final DeferredItem<ProbeServiceItem> REPAIR_KIT = ITEMS.register("repair_kit",
+            () -> new ProbeServiceItem(new Item.Properties().stacksTo(16), 0));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<EchoSounderBlockEntity>> ECHO_SOUNDER_ENTITY =
+            BLOCK_ENTITIES.register("echo_sounder", () -> BlockEntityType.Builder.of(EchoSounderBlockEntity::new,
+                    ECHO_SOUNDER.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<MantleSamplerBlockEntity>> MANTLE_SAMPLER_ENTITY =
+            BLOCK_ENTITIES.register("mantle_sampler", () -> BlockEntityType.Builder.of(MantleSamplerBlockEntity::new,
+                    MANTLE_SAMPLER.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ProbeDriveBlockEntity>> PROBE_DRIVE_ENTITY =
             BLOCK_ENTITIES.register("probe_drive", () -> BlockEntityType.Builder.of(ProbeDriveBlockEntity::new,
                     MOLTEN_THRUSTER.get(), MANTLE_BALLAST.get()).build(null));
@@ -111,6 +147,12 @@ public final class AeronauticsInnerworld {
         CONTRAPTIONS.register(modBus);
         modBus.addListener(this::commonSetup);
         modBus.addListener(this::buildCreativeTab);
+        modBus.addListener(this::capabilities);
+    }
+
+    private void capabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, MANTLE_SAMPLER_ENTITY.get(),
+                (entity, side) -> entity.inventory);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
@@ -140,6 +182,16 @@ public final class AeronauticsInnerworld {
             event.accept(MOLTEN_THRUSTER_ITEM);
             event.accept(MANTLE_BALLAST_ITEM);
             event.accept(CABIN_REGULATOR_ITEM);
+            event.accept(ECHO_SOUNDER_ITEM);
+            event.accept(MANTLE_SAMPLER_ITEM);
+            event.accept(HARMONIC_ORE_ITEM);
+            event.accept(RAW_HARMONIC);
+            event.accept(HARMONIC_CRYSTAL);
+            event.accept(DAMAGED_HULL_ITEM);
+            event.accept(EMERGENCY_PATCH_ITEM);
+            event.accept(COOLANT_CELL);
+            event.accept(STABILIZED_COOLANT_CELL);
+            event.accept(REPAIR_KIT);
         }
     }
 }

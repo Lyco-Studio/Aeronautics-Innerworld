@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:emergency_patch",
+    "count": 4
+  }
+}

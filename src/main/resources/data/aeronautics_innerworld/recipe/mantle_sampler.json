@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HCH",
+    "IDI",
+    " S "
+  ],
+  "key": {
+    "H": {
+      "item": "aeronautics_innerworld:refractory_hull"
+    },
+    "C": {
+      "item": "aeronautics_innerworld:multi_axis_cutter"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "D": {
+      "item": "minecraft:chest"
+    },
+    "S": {
+      "item": "create:shaft"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:mantle_sampler",
+    "count": 1
+  }
+}

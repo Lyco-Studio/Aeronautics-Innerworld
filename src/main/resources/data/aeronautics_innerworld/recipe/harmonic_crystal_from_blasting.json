@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "ingredient": {
+    "item": "aeronautics_innerworld:raw_harmonic"
+  },
+  "result": {
+    "id": "aeronautics_innerworld:harmonic_crystal"
+  },
+  "experience": 0.7,
+  "cookingtime": 100
+}

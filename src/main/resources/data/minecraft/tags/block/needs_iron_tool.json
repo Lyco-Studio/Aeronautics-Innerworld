@@ -9,6 +9,11 @@
     "aeronautics_innerworld:pressure_hatch",
     "aeronautics_innerworld:molten_thruster",
     "aeronautics_innerworld:mantle_ballast",
-    "aeronautics_innerworld:cabin_regulator"
+    "aeronautics_innerworld:cabin_regulator",
+    "aeronautics_innerworld:echo_sounder",
+    "aeronautics_innerworld:mantle_sampler",
+    "aeronautics_innerworld:harmonic_ore",
+    "aeronautics_innerworld:damaged_hull",
+    "aeronautics_innerworld:emergency_patch"
   ]
 }

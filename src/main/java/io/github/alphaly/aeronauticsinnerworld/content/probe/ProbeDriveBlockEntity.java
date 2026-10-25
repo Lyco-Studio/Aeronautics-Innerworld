@@ -9,6 +9,8 @@ import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
@@ -21,6 +23,7 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
     private boolean immersed;
     private double supportedMass;
     private double verticalTrim;
+    private boolean faulted;
 
     public ProbeDriveBlockEntity(BlockPos pos, BlockState state) {
         super(AeronauticsInnerworld.PROBE_DRIVE_ENTITY.get(), pos, state);
@@ -46,7 +49,7 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
 
     @Override
     public void sable$physicsTick(ServerSubLevel subLevel, RigidBodyHandle body, double dt) {
-        if (!immersed || getSpeed() == 0 || !body.isValid()) {
+        if (!immersed || getSpeed() == 0 || faulted || !body.isValid()) {
             supportedMass = 0;
             verticalTrim = 0;
             return;
@@ -61,7 +64,7 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         }
         int count = 0;
         for (var actor : subLevel.getPlot().getBlockEntityActors()) {
-            if (actor instanceof ProbeDriveBlockEntity drive && drive.ballast() && drive.immersed && drive.getSpeed() != 0) {
+            if (actor instanceof ProbeDriveBlockEntity drive && drive.ballast() && drive.immersed && !drive.faulted && drive.getSpeed() != 0) {
                 count++;
             }
         }
@@ -102,10 +105,36 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         return supportedMass;
     }
 
+    public boolean isFaulted() {
+        return faulted;
+    }
+
+    public void fail() {
+        faulted = true;
+        setChanged();
+    }
+
+    public void repair() {
+        faulted = false;
+        setChanged();
+    }
+
     public void showStatus(Player player) {
         player.displayClientMessage(Component.translatable("message.aeronautics_innerworld."
                 + (ballast() ? "ballast_status" : "thruster_status"), Math.round(getSpeed()),
                 Math.round(supportedMass), Component.translatable("message.aeronautics_innerworld."
-                        + (immersed ? "probe_in_lava" : "probe_dry"))), true);
+                        + (faulted ? "probe_faulted" : immersed ? "probe_in_lava" : "probe_dry"))), true);
+    }
+
+    @Override
+    protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
+        super.write(tag, registries, clientPacket);
+        tag.putBoolean("Faulted", faulted);
+    }
+
+    @Override
+    protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
+        super.read(tag, registries, clientPacket);
+        faulted = tag.getBoolean("Faulted");
     }
 }

@@ -10,12 +10,15 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.Containers;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 public final class ProbeDeviceBlock extends DirectionalKineticBlock implements IBE<KineticBlockEntity> {
-    public enum Kind { THRUSTER, BALLAST, CABIN }
+    public enum Kind { THRUSTER, BALLAST, CABIN, SOUNDER, SAMPLER }
 
     private final Kind kind;
 
@@ -45,8 +48,31 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
 
     @Override
     public BlockEntityType<? extends KineticBlockEntity> getBlockEntityType() {
-        return kind == Kind.CABIN ? AeronauticsInnerworld.CABIN_REGULATOR_ENTITY.get()
-                : AeronauticsInnerworld.PROBE_DRIVE_ENTITY.get();
+        return switch (kind) {
+            case CABIN -> AeronauticsInnerworld.CABIN_REGULATOR_ENTITY.get();
+            case SOUNDER -> AeronauticsInnerworld.ECHO_SOUNDER_ENTITY.get();
+            case SAMPLER -> AeronauticsInnerworld.MANTLE_SAMPLER_ENTITY.get();
+            default -> AeronauticsInnerworld.PROBE_DRIVE_ENTITY.get();
+        };
+    }
+
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {
+            sounder.setHome(pos);
+        }
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState replacement, boolean moving) {
+        if (!level.isClientSide && !replacement.is(this) && level.getBlockEntity(pos) instanceof MantleSamplerBlockEntity sampler) {
+            for (int i = 0; i < sampler.inventory.getSlots(); i++) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(),
+                        sampler.inventory.extractItem(i, 64, false));
+            }
+        }
+        super.onRemove(state, level, pos, replacement, moving);
     }
 
     @Override
@@ -56,6 +82,10 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
                 drive.showStatus(player);
             } else if (level.getBlockEntity(pos) instanceof CabinRegulatorBlockEntity cabin) {
                 cabin.showStatus(player);
+            } else if (level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {
+                sounder.interact(player);
+            } else if (level.getBlockEntity(pos) instanceof MantleSamplerBlockEntity sampler) {
+                sampler.interact(player);
             }
         }
         return InteractionResult.SUCCESS;

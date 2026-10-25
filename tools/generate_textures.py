@@ -189,6 +189,105 @@ def generate():
     c.grain()
     c.save('block/cabin_regulator.png')
 
+    c = plate()
+    c.rect(2, 2, 13, 13, BRASS)
+    c.rect(3, 3, 12, 12, (24, 55, 49, 255))
+    for x, y in ((7, 4), (8, 5), (9, 6), (10, 7), (11, 8)):
+        c.dot(x, y, (118, 187, 122, 255))
+    c.rect(7, 4, 7, 11, (43, 91, 71, 255))
+    c.rect(4, 7, 11, 7, (43, 91, 71, 255))
+    c.dot(7, 7, AMBER)
+    c.dot(5, 9, (86, 207, 193, 255))
+    c.grain()
+    c.save('block/echo_sounder.png')
+
+    c = plate()
+    c.rect(2, 2, 13, 13, COPPER)
+    c.rect(3, 3, 12, 12, DARK)
+    for x in (4, 7, 10):
+        c.rect(x, 4, x + 1, 11, EDGE)
+        c.rect(x, 6, x + 1, 6, STEEL)
+        c.rect(x, 9, x + 1, 9, STEEL)
+    c.grain()
+    c.save('block/mantle_sampler.png')
+
+    c = Canvas(16, (57, 61, 65, 255))
+    for y in range(16):
+        for x in range(16):
+            if (y + x // 4) % 4 == 0:
+                c.dot(x, y, (39, 42, 48, 255))
+    for x, y in ((3, 4), (10, 3), (7, 10), (13, 13)):
+        c.rect(x - 1, y - 1, x + 1, y + 1, (23, 89, 99, 255))
+        c.rect(x, y - 1, x + 1, y, (86, 207, 193, 255))
+        c.dot(x, y - 1, (179, 243, 214, 255))
+    c.grain()
+    c.save('block/harmonic_ore.png')
+
+    c = plate()
+    for x, y in ((3, 2), (4, 3), (5, 4), (5, 5), (6, 6), (7, 7), (6, 8), (5, 9), (4, 10), (3, 11), (3, 12), (2, 13)):
+        c.dot(x, y, (229, 99, 39, 255))
+        c.dot(x + 1, y, DARK)
+    c.rect(10, 5, 12, 6, (25, 25, 27, 255))
+    c.grain()
+    c.save('block/damaged_hull.png')
+
+    c = plate()
+    c.rect(2, 2, 13, 13, (114, 124, 119, 255))
+    c.rect(3, 3, 12, 12, STEEL)
+    for i in range(4, 12):
+        c.dot(i, i, COPPER)
+        c.dot(15 - i, i, COPPER)
+    c.rect(6, 6, 9, 9, BRASS)
+    c.grain()
+    c.save('block/emergency_patch.png')
+
+    c = Canvas(32)
+    c.rect(7, 11, 24, 24, (52, 59, 65, 255))
+    c.rect(10, 7, 21, 27, (52, 59, 65, 255))
+    c.rect(11, 9, 19, 22, (23, 89, 99, 255))
+    c.rect(15, 7, 20, 19, (86, 207, 193, 255))
+    c.rect(16, 8, 18, 17, (179, 243, 214, 255))
+    c.rect(8, 19, 13, 25, (118, 97, 76, 255))
+    c.rect(19, 21, 23, 25, (118, 97, 76, 255))
+    c.grain()
+    c.save('item/raw_harmonic.png')
+
+    c = Canvas(32)
+    for y in range(3, 29):
+        half = int((y - 3) / 2) if y < 15 else int((29 - y) / 2)
+        for x in range(16 - half, 17 + half):
+            c.dot(x, y, (34, 116, 133, 255) if x > 16 else (86, 207, 193, 255))
+    c.rect(14, 11, 16, 20, (179, 243, 214, 255))
+    c.save('item/harmonic_crystal.png')
+
+    for stabilized in (False, True):
+        c = Canvas(32)
+        c.rect(10, 3, 21, 28, DARK)
+        c.rect(11, 5, 20, 26, EDGE)
+        c.rect(12, 7, 19, 24, (23, 89, 99, 255))
+        c.rect(13, 8, 16, 23, (86, 207, 193, 255))
+        for y in (4, 14, 26):
+            c.rect(9, y, 22, y + 1, BRASS if stabilized else COPPER)
+        c.rect(14, 1, 17, 4, BRASS)
+        if stabilized:
+            c.rect(18, 9, 19, 12, AMBER)
+            c.rect(18, 19, 19, 22, AMBER)
+        c.grain()
+        c.save('item/' + ('stabilized_coolant_cell' if stabilized else 'coolant_cell') + '.png')
+
+    c = Canvas(32)
+    c.rect(11, 4, 20, 9, DARK)
+    c.rect(13, 5, 18, 8, EDGE)
+    c.rect(5, 9, 26, 27, DARK)
+    c.rect(6, 10, 25, 25, COPPER)
+    c.rect(7, 12, 24, 23, STEEL)
+    c.rect(6, 15, 25, 17, DARK)
+    c.rect(12, 14, 14, 18, BRASS)
+    c.rect(18, 14, 20, 18, BRASS)
+    c.rect(13, 20, 18, 21, EDGE)
+    c.grain()
+    c.save('item/repair_kit.png')
+
     c = Canvas(32)
     c.rect(22, 2, 24, 9, DARK)
     c.rect(22, 1, 24, 2, BRASS)
