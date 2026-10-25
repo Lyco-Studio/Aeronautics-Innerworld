@@ -96,8 +96,8 @@ public final class RelayClientCheck {
             }
             if (client.screen instanceof BookViewScreen book) {
                 if (++bookFrames == 1) {
-                    BookLayoutChecks.check(client, client.player.getMainHandItem(), 2);
-                    if (DEEP) BookLayoutChecks.check(client, scene.manual, 22);
+                    BookLayoutChecks.check(client, client.player.getMainHandItem());
+                    if (DEEP) BookLayoutChecks.check(client, scene.manual);
                 }
                 if (bookFrames >= 6) {
                     Screenshot.grab(client.gameDirectory, "mantle-" + CHECK + "-record.png", client.getMainRenderTarget(),

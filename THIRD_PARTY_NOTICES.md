@@ -12,5 +12,6 @@
 | [NeoForge](https://github.com/neoforged/NeoForge/blob/1.21.1/LICENSE.txt) | LGPL 2.1 | 作为独立加载器依赖使用；复制、修改或分发其代码时遵守对应义务。 |
 | [ModDevGradle](https://github.com/neoforged/ModDevGradle/blob/main/LICENSE) | LGPL 2.1 | 仅用于构建工具链。 |
 | [Gradle](https://github.com/gradle/gradle/blob/v9.2.1/LICENSE) | Apache 2.0 及其第三方声明 | 随仓库保留的 Wrapper 许可与声明见 `gradle/wrapper/LICENSE` 和 `gradle/wrapper/NOTICE`。 |
+| GitHub Actions 的 [checkout](https://github.com/actions/checkout/blob/main/LICENSE) 与 [setup-java](https://github.com/actions/setup-java/blob/main/LICENSE) | MIT | 仅用于远程构建工作流，不进入 mod 发布包。 |
 
 Minecraft 的下载和使用受 [Minecraft EULA](https://www.minecraft.net/eula) 约束。开发用 JDK 按其发行版许可证使用；Eclipse Temurin 的 OpenJDK 代码采用 GPLv2 并带 Classpath Exception，另含第三方许可声明。

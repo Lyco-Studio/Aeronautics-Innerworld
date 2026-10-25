@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " H ",
+    "ACA",
+    " H "
+  ],
+  "key": {
+    "H": {
+      "item": "aeronautics_innerworld:harmonic_crystal"
+    },
+    "A": {
+      "item": "aeronautics_innerworld:relic_alloy"
+    },
+    "C": {
+      "item": "minecraft:compass"
+    }
+  },
+  "result": {
+    "id": "minecraft:recovery_compass"
+  }
+}

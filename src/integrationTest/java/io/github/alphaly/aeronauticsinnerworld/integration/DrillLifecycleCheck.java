@@ -56,6 +56,7 @@ public final class DrillLifecycleCheck {
                 new SavedData.Factory<>(State::new, State::load), "innerworld_lifecycle_check");
         require(!state.complete, "Lifecycle check already completed; use a fresh validation world");
         stage = state.inMotion ? 20 : state.ready ? 10 : 0;
+        CoreDiskFixture.start(server, stage);
         ticks = 0;
         builtAt = -1;
         sourceLease = true;
@@ -74,6 +75,7 @@ public final class DrillLifecycleCheck {
         var mantle = server.getLevel(Mantle.LEVEL);
         require(mantle != null, "Mantle dimension is missing");
         require(++ticks < 3000, "Lifecycle timeout at stage " + stage);
+        CoreDiskFixture.tick(server);
         source.resetEmptyTime();
         mantle.resetEmptyTime();
         if (sourceLease) {
@@ -132,7 +134,7 @@ public final class DrillLifecycleCheck {
                 }
             }
             case 5 -> {
-                if (controller(source).movedContraption instanceof DrillHeadEntity head) {
+                if (CoreDiskFixture.ready() && controller(source).movedContraption instanceof DrillHeadEntity head) {
                     assertHead(head);
                     state.ready = true;
                     state.setDirty();
@@ -141,7 +143,7 @@ public final class DrillLifecycleCheck {
                 }
             }
             case 10 -> {
-                if (controller(source).movedContraption instanceof DrillHeadEntity head) {
+                if (CoreDiskFixture.ready() && controller(source).movedContraption instanceof DrillHeadEntity head) {
                     assertHead(head);
                     require(head.blockPosition().equals(state.position), "Restart changed the parked head position");
                     source.removeBlock(CONTROLLER, false);
@@ -181,7 +183,7 @@ public final class DrillLifecycleCheck {
             }
             case 20 -> {
                 var controller = controller(source);
-                if (controller.movedContraption instanceof DrillHeadEntity head && controller.canWork()) {
+                if (CoreDiskFixture.ready() && controller.movedContraption instanceof DrillHeadEntity head && controller.canWork()) {
                     assertHead(head);
                     require(head.getY() <= state.resumeY && head.getY() >= state.resumeY - 0.5,
                             "Working restart changed the drill position");

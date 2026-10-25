@@ -88,7 +88,7 @@ public final class SurvivalClientCheck {
                 }
                 if (client.screen instanceof BookViewScreen book) {
                     if (++guideFrames == 1) {
-                        BookLayoutChecks.check(client, client.player.getMainHandItem(), 22);
+                        BookLayoutChecks.check(client, client.player.getMainHandItem());
                         book.setPage(7);
                     }
                     if (guideFrames >= 6) {

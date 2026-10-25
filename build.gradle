@@ -211,6 +211,33 @@ neoForge.runs.create('coreTestClient') {
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
+neoForge.runs.create('teamHostClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.teamHostCheck', 'true'
+    systemProperty 'innerworld.teamControlDir', project.file('run/team-control').absolutePath
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+neoForge.runs.create('teamGuestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/team-guest')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.teamGuestCheck', 'true'
+    systemProperty 'innerworld.teamControlDir', project.file('run/team-control').absolutePath
+    programArgument '--username'
+    programArgument 'InnerworldGuest'
+    programArgument '--uuid'
+    programArgument '197c2b65f1cf4271bc46be568ef1ab2a'
+    programArgument '--quickPlayMultiplayer'
+    programArgument '127.0.0.1:25568'
+}
+['runTeamHostClient', 'runTeamGuestClient'].each { name ->
+    tasks.named(name) { maxHeapSize = '2G' }
+}
 tasks.named('runCoreTestClient') {
     def result = layout.projectDirectory.file('run/client/core-check.result')
     doFirst { result.asFile.delete() }

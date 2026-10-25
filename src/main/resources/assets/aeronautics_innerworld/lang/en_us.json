@@ -191,5 +191,6 @@
   "book.aeronautics_innerworld.page.21": "Core Labyrinth\n\nCraft a surveyor with a compass, crystal and relic alloy. Use it in the core to find an entrance.\n\nRestore three copper node levers, then use the console by the core gate. It reports inactive nodes.",
   "book.aeronautics_innerworld.page.22": "Warden\n\nDodge warning rings. Pull a coolant lever to expose the core for 8s.\n\nAfter victory, sneak-use the console with four crystals for a rematch.",
   "advancement.aeronautics_innerworld.core_entry.title": "Beyond Isolation",
-  "advancement.aeronautics_innerworld.core_entry.description": "Reach the core and prepare a camp for the labyrinth."
+  "advancement.aeronautics_innerworld.core_entry.description": "Reach the core and prepare a camp for the labyrinth.",
+  "book.aeronautics_innerworld.page.23": "Recovery\n\nA compass, two crystals and two relic alloy make a recovery compass. It points to your last death in this dimension.\n\nKeep a spare probe and repair supplies."
 }

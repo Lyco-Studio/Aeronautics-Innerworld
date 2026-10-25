@@ -191,5 +191,6 @@
   "book.aeronautics_innerworld.page.21": "地核维护迷宫\n\n用指南针、谐振晶体和遗迹合金合成地核测向仪，进入地核后右键定位入口。\n\n迷宫内三处铜制节点各有拉杆。逐一开启，再操作核心门前的维护台。维护台会报告尚未恢复的节点位置。\n\n普通墙体可开挖，沿铜柱辨认入口。",
   "book.aeronautics_innerworld.page.22": "守核机\n\n地面预警圈与机械动作提示攻击，及时移出危险区。场地的两座冷却阀能使核心暴露八秒，回路约十五秒恢复。最后阶段核心持续开放。\n\n击败后失控回路停机，参与者获得通关进度。潜行空手操作维护台，可用背包内四枚谐振晶体复战。",
   "advancement.aeronautics_innerworld.core_entry.title": "越过隔离层",
-  "advancement.aeronautics_innerworld.core_entry.description": "抵达地核并建立步行远征的出发点。"
+  "advancement.aeronautics_innerworld.core_entry.description": "抵达地核并建立步行远征的出发点。",
+  "book.aeronautics_innerworld.page.23": "事故恢复\n\n用指南针、两枚谐振晶体和两份遗迹合金合成追溯指针。在上次死亡所在维度使用，可定位事故地点。\n\n基地保留备用艇、冷却与维修包。先封堵破口，再修复残存设备；损毁方块需补装。死亡掉落遵循世界规则。"
 }

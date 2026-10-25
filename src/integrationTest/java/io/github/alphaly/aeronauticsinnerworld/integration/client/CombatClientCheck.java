@@ -88,7 +88,7 @@ public final class CombatClientCheck {
             }
             scene = setup.join();
             if (!checkedModels && scene.ticks >= 45) {
-                BookLayoutChecks.check(client, scene.manual, 22);
+                BookLayoutChecks.check(client, scene.manual);
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.PRESSURE_CANNON.get().defaultBlockState())
                         == client.getModelManager().getMissingModel()) {
                     throw new IllegalStateException("Pressure cannon model is missing");

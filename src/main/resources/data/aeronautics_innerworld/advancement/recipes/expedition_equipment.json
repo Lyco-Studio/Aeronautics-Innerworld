@@ -46,7 +46,8 @@
       "aeronautics_innerworld:repair_kit_from_relic",
       "aeronautics_innerworld:stabilized_coolant_cell",
       "aeronautics_innerworld:deep_bore_coupler",
-      "aeronautics_innerworld:core_surveyor"
+      "aeronautics_innerworld:core_surveyor",
+      "aeronautics_innerworld:recovery_compass"
     ]
   }
 }

@@ -70,7 +70,7 @@ public final class CoreClientCheck {
             if (observedStage != scene.stage) {observedStage = scene.stage;frames = 0;clicked = false;}
             frames++;
             if (!checkedBooks && frames > 15) {
-                BookLayoutChecks.check(client, scene.manual, 22);BookLayoutChecks.check(client, scene.record, 2);checkedBooks = true;
+                BookLayoutChecks.check(client, scene.manual);BookLayoutChecks.check(client, scene.record);checkedBooks = true;
             }
             if (observedStage == 0 && !clicked && client.player.getMainHandItem().is(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
                 client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);clicked = true;
@@ -182,7 +182,13 @@ public final class CoreClientCheck {
                 for (long packed : originalConsole.getLongArray("Nodes")) {
                     var pos = BlockPos.of(packed);level.setBlockAndUpdate(pos, level.getBlockState(pos).setValue(LeverBlock.POWERED, true));
                 }
-                if (console.getBossId() == null) console.interact(player);
+                if (console.getBossId() == null) {
+                    if (console.hasVictory()) {
+                        player.getInventory().setItem(17, new ItemStack(AeronauticsInnerworld.HARMONIC_CRYSTAL.get(), 4));
+                        player.setShiftKeyDown(true);
+                    }
+                    console.interact(player);player.setShiftKeyDown(false);
+                }
                 if (console.getBossId() == null || !(level.getEntity(console.getBossId()) instanceof CoreWarden active)) return;
                 warden = active;player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
                 player.teleportTo(level, arena.getX() + .5, arena.getY(), arena.getZ() + 7.5, 180, 0);next(1);
@@ -200,7 +206,7 @@ public final class CoreClientCheck {
                 warden.setHealth(1);warden.invulnerableTime = 0;
                 player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));player.containerMenu.broadcastChanges();
                 player.teleportTo(level, warden.getX(), warden.getY(), warden.getZ() + 2, 180, 0);next(5);
-            } else if (stage == 5 && console.hasVictory()) {
+            } else if (stage == 5 && !warden.isAlive() && console.getBossId() == null && console.hasVictory()) {
                 var advancement = player.server.getAdvancements().get(id("exploration/core_victory"));
                 if (!player.getAdvancements().getOrStartProgress(advancement).isDone()) throw new IllegalStateException("Actual melee participant did not receive story completion");
                 next(6);
@@ -218,7 +224,11 @@ public final class CoreClientCheck {
         private void cleanUp() {
             if (transit != null) transit.cleanUp();
             if (warden != null) warden.discard();
-            blocks.forEach(level::setBlockAndUpdate);console.loadWithComponents(originalConsole, level.registryAccess());console.setChanged();
+            blocks.forEach(level::setBlockAndUpdate);
+            level.getChunkAt(console.getBlockPos());
+            if (level.getBlockEntity(console.getBlockPos()) instanceof CoreConsoleBlockEntity current) {
+                current.loadWithComponents(originalConsole, level.registryAccess());current.setChanged();
+            }
             for (var entity : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
                     new net.minecraft.world.phys.AABB(arena).inflate(16))) if (entity.getItem().is(AeronauticsInnerworld.CORE_HEART.get())) entity.discard();
             for (var orb : level.getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, new net.minecraft.world.phys.AABB(arena).inflate(16))) orb.discard();

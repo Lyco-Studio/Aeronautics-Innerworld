@@ -9,9 +9,9 @@ import net.minecraft.locale.Language;
 import net.minecraft.world.item.ItemStack;
 
 final class BookLayoutChecks {
-    static void check(Minecraft client, ItemStack book, int pages) {
+    static void check(Minecraft client, ItemStack book) {
         var content = book.get(DataComponents.WRITTEN_BOOK_CONTENT);
-        if (content == null || content.pages().size() != pages) {
+        if (content == null || content.pages().isEmpty()) {
             throw new IllegalStateException("Expedition book has no usable pages");
         }
         var original = Language.getInstance();
