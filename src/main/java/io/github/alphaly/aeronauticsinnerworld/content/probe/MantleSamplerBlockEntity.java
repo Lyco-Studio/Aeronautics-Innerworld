@@ -118,6 +118,13 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
             for (int slot = 0; slot < 9; slot++) {
                 inventory.setStackInSlot(slot, pending.getStackInSlot(slot));
             }
+            if (ship instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel serverShip) {
+                for (var actor : serverShip.getPlot().getBlockEntityActors()) {
+                    if (actor instanceof CabinRegulatorBlockEntity cabin) {
+                        cabin.addWorkHeat(1);
+                    }
+                }
+            }
             progress = 0;
         }
     }

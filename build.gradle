@@ -118,6 +118,11 @@ neoForge.runs.create('integrationTestServer') {
     systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
     taskBefore prepareIntegrationStructures
 }
+tasks.named('runIntegrationTestServer') {
+    doFirst {
+        delete layout.projectDirectory.dir('run/integration/world')
+    }
+}
 neoForge.runs.create('lifecycleTestServer') {
     server()
     sourceSet = sourceSets.integrationTest
@@ -170,6 +175,29 @@ neoForge.runs.create('survivalTestClient') {
     systemProperty 'innerworld.survivalClientCheck', 'true'
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
+}
+neoForge.runs.create('combatTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.combatClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runCombatTestClient') {
+    def result = layout.projectDirectory.file('run/client/combat-check.result')
+    doFirst {
+        if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
+            throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
+        }
+        result.asFile.delete()
+    }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Combat client check failed; inspect the client diagnostics.')
+        }
+    }
 }
 neoForge.runs.create('relayTestClient') {
     client()

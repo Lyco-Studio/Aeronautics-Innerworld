@@ -7,6 +7,7 @@ import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayStructure;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -14,6 +15,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -21,6 +25,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
     private BlockPos home;
     private BlockPos mineral;
     private BlockPos relay;
+    private LavaStalker threat;
     private int clearance = 16;
     private int ticks;
 
@@ -49,6 +54,10 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
 
     public BlockPos getRelay() {
         return relay;
+    }
+
+    public LavaStalker getThreat() {
+        return threat;
     }
 
     public int getClearance() {
@@ -94,9 +103,17 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
         }
         for (var player : level.players()) {
             if (player.distanceToSqr(position) <= 64) {
-                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_hud",
-                        Math.round(position.y), clearance, Math.round(speed * 10) / 10.0,
-                        bearing, heat, coolant, faults), true);
+                if (threat != null && threat.isAlive()) {
+                    var direction = Direction.getNearest(threat.getX() - position.x, 0, threat.getZ() - position.z);
+                    player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_combat_hud",
+                            Math.round(position.y), threat.getName(), Math.round(position.distanceTo(threat.position())),
+                            Component.translatable("direction.aeronautics_innerworld." + direction.getName()),
+                            Math.round(threat.getY()), heat, coolant), true);
+                } else {
+                    player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_hud",
+                            Math.round(position.y), clearance, Math.round(speed * 10) / 10.0,
+                            bearing, heat, coolant, faults), true);
+                }
             }
         }
     }
@@ -127,7 +144,19 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
             }
         }
         relay = null;
+        threat = null;
         if (level instanceof ServerLevel server) {
+            double threatDistance = 32 * 32;
+            for (var creature : server.getEntitiesOfClass(LavaStalker.class, new AABB(origin, origin).inflate(32))) {
+                double distance = creature.distanceToSqr(origin);
+                if (creature.isAlive() && distance <= 32 * 32) {
+                    creature.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false, true));
+                    if (distance < threatDistance) {
+                        threat = creature;
+                        threatDistance = distance;
+                    }
+                }
+            }
             double relayDistance = 128 * 128;
             for (int x = (center.getX() >> 4) - 8; x <= (center.getX() >> 4) + 8; x++) {
                 for (int z = (center.getZ() >> 4) - 8; z <= (center.getZ() >> 4) + 8; z++) {
@@ -186,6 +215,11 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                     relay.getX(), relay.getY(), relay.getZ(), Math.round(position.distanceTo(Vec3.atCenterOf(relay))),
                     Component.translatable("direction.aeronautics_innerworld." + direction.getName())), false);
         }
+        if (threat != null && threat.isAlive()) {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_threat",
+                    threat.getName(), threat.blockPosition().getX(), threat.blockPosition().getY(), threat.blockPosition().getZ(),
+                    Math.round(position().distanceTo(threat.position()))), false);
+        }
         if (Sable.HELPER.getContaining(this) instanceof ServerSubLevel ship) {
             for (var actor : ship.getPlot().getBlockEntityActors()) {
                 BlockPos problem = null;
@@ -197,7 +231,8 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                 if (problem != null) {
                     var position = ship.logicalPose().transformPosition(Vec3.atCenterOf(problem));
                     player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_fault",
-                            level.getBlockState(problem).getBlock().getName(), Math.round(position.x),
+                            level.getBlockState(problem).isAir() ? Component.translatable("message.aeronautics_innerworld.hull_breach")
+                                    : level.getBlockState(problem).getBlock().getName(), Math.round(position.x),
                             Math.round(position.y), Math.round(position.z)), false);
                 }
             }

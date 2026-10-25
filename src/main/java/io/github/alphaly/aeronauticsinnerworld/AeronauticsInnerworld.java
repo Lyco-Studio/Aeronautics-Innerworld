@@ -21,12 +21,22 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEnt
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeServiceItem;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructures;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureBoltEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureCannonBlockEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterial;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.SpawnPlacementTypes;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -43,6 +53,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.entity.RegisterSpawnPlacementsEvent;
 
 @Mod(AeronauticsInnerworld.MOD_ID)
 public final class AeronauticsInnerworld {
@@ -53,6 +65,7 @@ public final class AeronauticsInnerworld {
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MOD_ID);
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     private static final DeferredRegister<ContraptionType> CONTRAPTIONS = DeferredRegister.create(CreateRegistries.CONTRAPTION_TYPE, MOD_ID);
+    private static final DeferredRegister<ArmorMaterial> ARMOR_MATERIALS = DeferredRegister.create(Registries.ARMOR_MATERIAL, MOD_ID);
 
     public static final DeferredBlock<Block> MULTI_AXIS_CUTTER = BLOCKS.registerSimpleBlock(
             "multi_axis_cutter", BlockBehaviour.Properties.of().strength(3.5f).sound(SoundType.METAL)
@@ -98,6 +111,23 @@ public final class AeronauticsInnerworld {
             () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
                     .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.SAMPLER));
     public static final DeferredItem<BlockItem> MANTLE_SAMPLER_ITEM = ITEMS.registerSimpleBlockItem(MANTLE_SAMPLER);
+    public static final DeferredBlock<ProbeDeviceBlock> PRESSURE_CANNON = BLOCKS.register("pressure_cannon",
+            () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4, 9).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.CANNON));
+    public static final DeferredItem<BlockItem> PRESSURE_CANNON_ITEM = ITEMS.registerSimpleBlockItem(PRESSURE_CANNON);
+    public static final DeferredItem<Item> PRESSURE_BOLT = ITEMS.registerSimpleItem("pressure_bolt", new Item.Properties().fireResistant());
+    public static final DeferredItem<Item> MOLTEN_SCALE = ITEMS.registerSimpleItem("molten_scale", new Item.Properties().fireResistant());
+    public static final DeferredHolder<ArmorMaterial, ArmorMaterial> HEATWEAVE = ARMOR_MATERIALS.register("heatweave",
+            () -> new ArmorMaterial(java.util.Map.of(ArmorItem.Type.HELMET, 2, ArmorItem.Type.CHESTPLATE, 5), 12,
+                    SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(MOLTEN_SCALE.get()),
+                    java.util.List.of(new ArmorMaterial.Layer(ResourceLocation.fromNamespaceAndPath(MOD_ID, "heatweave"))), 0, 0));
+    public static final DeferredItem<ArmorItem> HEATWEAVE_HELMET = ITEMS.register("heatweave_helmet",
+            () -> new ArmorItem(HEATWEAVE, ArmorItem.Type.HELMET, new Item.Properties().durability(ArmorItem.Type.HELMET.getDurability(18)).fireResistant()));
+    public static final DeferredItem<ArmorItem> HEATWEAVE_CHESTPLATE = ITEMS.register("heatweave_chestplate",
+            () -> new ArmorItem(HEATWEAVE, ArmorItem.Type.CHESTPLATE, new Item.Properties().durability(ArmorItem.Type.CHESTPLATE.getDurability(18)).fireResistant()));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PressureCannonBlockEntity>> PRESSURE_CANNON_ENTITY =
+            BLOCK_ENTITIES.register("pressure_cannon", () -> BlockEntityType.Builder.of(PressureCannonBlockEntity::new,
+                    PRESSURE_CANNON.get()).build(null));
     public static final DeferredBlock<Block> HARMONIC_ORE = BLOCKS.registerSimpleBlock("harmonic_ore",
             BlockBehaviour.Properties.of().strength(4).sound(SoundType.DEEPSLATE).requiresCorrectToolForDrops());
     public static final DeferredItem<BlockItem> HARMONIC_ORE_ITEM = ITEMS.registerSimpleBlockItem(HARMONIC_ORE);
@@ -143,6 +173,12 @@ public final class AeronauticsInnerworld {
     public static final DeferredHolder<EntityType<?>, EntityType<DrillHeadEntity>> DRILL_HEAD_ENTITY =
             ENTITIES.register("drill_head", () -> EntityType.Builder.<DrillHeadEntity>of(DrillHeadEntity::new, MobCategory.MISC)
                     .sized(1, 1).clientTrackingRange(12).updateInterval(3).fireImmune().build(MOD_ID + ":drill_head"));
+    public static final DeferredHolder<EntityType<?>, EntityType<LavaStalker>> LAVA_STALKER =
+            ENTITIES.register("lava_stalker", () -> EntityType.Builder.of(LavaStalker::new, MobCategory.MONSTER)
+                    .sized(1.1f, .7f).clientTrackingRange(8).fireImmune().build(MOD_ID + ":lava_stalker"));
+    public static final DeferredHolder<EntityType<?>, EntityType<PressureBoltEntity>> PRESSURE_BOLT_ENTITY =
+            ENTITIES.register("pressure_bolt", () -> EntityType.Builder.<PressureBoltEntity>of(PressureBoltEntity::new, MobCategory.MISC)
+                    .sized(.25f, .25f).clientTrackingRange(8).updateInterval(1).fireImmune().build(MOD_ID + ":pressure_bolt"));
 
     public AeronauticsInnerworld(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, InnerworldConfig.SPEC);
@@ -151,15 +187,29 @@ public final class AeronauticsInnerworld {
         BLOCK_ENTITIES.register(modBus);
         ENTITIES.register(modBus);
         CONTRAPTIONS.register(modBus);
+        ARMOR_MATERIALS.register(modBus);
         InnerworldStructures.register(modBus);
         modBus.addListener(this::commonSetup);
         modBus.addListener(this::buildCreativeTab);
         modBus.addListener(this::capabilities);
+        modBus.addListener(this::attributes);
+        modBus.addListener(this::spawnPlacements);
+    }
+
+    private void attributes(EntityAttributeCreationEvent event) {
+        event.put(LAVA_STALKER.get(), LavaStalker.attributes().build());
+    }
+
+    private void spawnPlacements(RegisterSpawnPlacementsEvent event) {
+        event.register(LAVA_STALKER.get(), SpawnPlacementTypes.NO_RESTRICTIONS, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                LavaStalker::canSpawn, RegisterSpawnPlacementsEvent.Operation.REPLACE);
     }
 
     private void capabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, MANTLE_SAMPLER_ENTITY.get(),
                 (entity, side) -> entity.inventory);
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, PRESSURE_CANNON_ENTITY.get(),
+                (entity, side) -> entity.ammunition);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
@@ -191,6 +241,11 @@ public final class AeronauticsInnerworld {
             event.accept(CABIN_REGULATOR_ITEM);
             event.accept(ECHO_SOUNDER_ITEM);
             event.accept(MANTLE_SAMPLER_ITEM);
+            event.accept(PRESSURE_CANNON_ITEM);
+            event.accept(PRESSURE_BOLT);
+            event.accept(MOLTEN_SCALE);
+            event.accept(HEATWEAVE_HELMET);
+            event.accept(HEATWEAVE_CHESTPLATE);
             event.accept(HARMONIC_ORE_ITEM);
             event.accept(RAW_HARMONIC);
             event.accept(HARMONIC_CRYSTAL);

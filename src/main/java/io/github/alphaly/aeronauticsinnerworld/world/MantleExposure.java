@@ -10,6 +10,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
@@ -30,11 +33,17 @@ public final class MantleExposure {
         boolean exposed = player.level().getFluidState(BlockPos.containing(eye)).is(FluidTags.LAVA)
                 && !WaterOcclusionContainer.getContainer(player.level()).isOccluded(eye);
         int seconds = Math.max(0, data.getInt("InnerworldHeatExposure") + (exposed ? 1 : -2));
-        data.putInt("InnerworldHeatExposure", Math.min(10, seconds));
-        if (seconds >= 3) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.heat_exposure"), true);
+        boolean helmet = player.getItemBySlot(EquipmentSlot.HEAD).is(AeronauticsInnerworld.HEATWEAVE_HELMET.get());
+        boolean chest = player.getItemBySlot(EquipmentSlot.CHEST).is(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get());
+        int limit = 5 + (helmet ? 5 : 0) + (chest ? 10 : 0);
+        data.putInt("InnerworldHeatExposure", Math.min(limit + 5, seconds));
+        if (helmet && chest && seconds < limit) {
+            player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, false, true));
         }
-        if (seconds >= 5) {
+        if (seconds >= 3) {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.heat_exposure", Math.max(0, limit - seconds)), true);
+        }
+        if (seconds >= limit) {
             var type = ResourceKey.create(Registries.DAMAGE_TYPE,
                     ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, "mantle_heat"));
             player.hurt(new DamageSource(player.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(type)), 2);

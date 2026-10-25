@@ -14,9 +14,10 @@ AMBER = (255, 186, 57, 255)
 
 
 class Canvas:
-    def __init__(self, size, color=(0, 0, 0, 0)):
+    def __init__(self, size, color=(0, 0, 0, 0), height=None):
         self.size = size
-        self.pixels = [[color for _ in range(size)] for _ in range(size)]
+        self.height = height or size
+        self.pixels = [[color for _ in range(size)] for _ in range(self.height)]
 
     def rect(self, x0, y0, x1, y1, color):
         for y in range(y0, y1 + 1):
@@ -37,7 +38,7 @@ class Canvas:
         def chunk(kind, data):
             return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
         rows = b''.join(b'\0' + bytes(c for pixel in row for c in pixel) for row in self.pixels)
-        data = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', self.size, self.size, 8, 6, 0, 0, 0))
+        data = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', self.size, self.height, 8, 6, 0, 0, 0))
         data += chunk(b'IDAT', zlib.compress(rows, 9)) + chunk(b'IEND', b'')
         path = ROOT / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -313,6 +314,97 @@ def generate():
     c.rect(14, 13, 16, 15, BRASS)
     c.grain()
     c.save('item/relic_alloy.png')
+
+    c = plate()
+    c.rect(2, 2, 13, 13, COPPER)
+    c.rect(3, 3, 12, 12, BRASS)
+    c.rect(4, 4, 11, 11, DARK)
+    c.rect(6, 5, 9, 10, STEEL)
+    c.rect(7, 6, 8, 9, (12, 22, 24, 255))
+    for x in (2, 12):
+        c.rect(x, 6, x + 1, 9, EDGE)
+    c.grain()
+    c.save('block/pressure_cannon.png')
+
+    c = Canvas(32)
+    c.rect(14, 9, 17, 27, STEEL)
+    c.rect(14, 10, 14, 26, EDGE)
+    c.rect(11, 5, 20, 12, COPPER)
+    c.rect(13, 2, 18, 10, EDGE)
+    c.rect(15, 1, 16, 6, (211, 223, 215, 255))
+    c.rect(12, 11, 19, 13, BRASS)
+    c.rect(10, 24, 13, 28, COPPER)
+    c.rect(18, 24, 21, 28, COPPER)
+    c.rect(15, 19, 16, 23, (86, 207, 193, 255))
+    c.grain()
+    c.save('item/pressure_bolt.png')
+
+    c = Canvas(32)
+    for y in range(4, 28):
+        half = min(11, y - 2, 29 - y)
+        c.rect(16 - half, y, 16 + half, y, COPPER if y % 6 < 2 else (72, 54, 47, 255))
+    c.rect(12, 11, 14, 22, BRASS)
+    c.rect(15, 8, 17, 24, (92, 69, 54, 255))
+    c.rect(19, 13, 20, 20, (228, 119, 39, 255))
+    c.grain()
+    c.save('item/molten_scale.png')
+
+    c = Canvas(64, (56, 47, 43, 255))
+    for y in range(64):
+        for x in range(64):
+            if (x + (y // 5) * 3) % 10 < 2:
+                c.dot(x, y, (111, 71, 45, 255))
+            elif y % 7 < 2:
+                c.dot(x, y, (39, 36, 34, 255))
+    c.rect(0, 30, 31, 31, COPPER)
+    c.rect(48, 32, 55, 36, AMBER)
+    c.rect(50, 33, 51, 35, (255, 234, 159, 255))
+    c.rect(40, 50, 59, 51, BRASS)
+    c.grain()
+    c.save('entity/lava_stalker.png')
+
+    c = Canvas(32)
+    c.rect(9, 5, 22, 19, DARK)
+    c.rect(6, 10, 25, 22, COPPER)
+    c.rect(8, 7, 23, 18, STEEL)
+    c.rect(9, 10, 22, 18, BRASS)
+    c.rect(11, 12, 20, 16, (23, 89, 99, 255))
+    c.rect(12, 12, 15, 13, (86, 207, 193, 255))
+    c.rect(10, 20, 21, 25, DARK)
+    for x in (11, 15, 19):
+        c.rect(x, 21, x + 1, 24, EDGE)
+    c.grain()
+    c.save('item/heatweave_helmet.png')
+
+    c = Canvas(32)
+    c.rect(3, 6, 28, 13, COPPER)
+    c.rect(7, 8, 24, 28, DARK)
+    c.rect(8, 10, 23, 26, STEEL)
+    c.rect(13, 4, 18, 9, (0, 0, 0, 0))
+    c.rect(8, 17, 23, 18, COPPER)
+    c.rect(14, 11, 17, 23, BRASS)
+    c.rect(15, 13, 16, 21, (86, 207, 193, 255))
+    c.rect(5, 8, 8, 11, EDGE)
+    c.rect(23, 8, 26, 11, EDGE)
+    c.grain()
+    c.save('item/heatweave_chestplate.png')
+
+    c = Canvas(64, height=32)
+    c.rect(0, 0, 31, 15, STEEL)
+    c.rect(0, 14, 31, 15, COPPER)
+    c.rect(8, 8, 15, 15, DARK)
+    c.rect(8, 9, 15, 12, BRASS)
+    c.rect(9, 10, 14, 11, (23, 89, 99, 255))
+    c.rect(9, 14, 14, 15, EDGE)
+    c.rect(16, 16, 39, 31, STEEL)
+    c.rect(16, 29, 39, 31, COPPER)
+    c.rect(23, 20, 24, 28, BRASS)
+    c.rect(24, 21, 24, 26, (86, 207, 193, 255))
+    c.rect(40, 16, 63, 31, DARK)
+    c.rect(40, 20, 63, 23, COPPER)
+    c.rect(40, 24, 63, 31, STEEL)
+    c.grain()
+    c.save('models/armor/heatweave_layer_1.png')
 
     c = Canvas(32)
     c.rect(22, 2, 24, 9, DARK)

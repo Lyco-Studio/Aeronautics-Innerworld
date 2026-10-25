@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ICI",
+    "BAB",
+    "IRI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "create:chute"
+    },
+    "B": {
+      "item": "create:brass_ingot"
+    },
+    "A": {
+      "item": "create:andesite_casing"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:pressure_cannon"
+  }
+}

@@ -161,12 +161,28 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         return heat;
     }
 
+    public void addWorkHeat(float amount) {
+        heat = net.minecraft.util.Mth.clamp(heat + amount, 0, 100);
+        setChanged();
+    }
+
+    public void recordHullDamage(BlockPos pos) {
+        damagedOffset = pos.subtract(worldPosition);
+        setChanged();
+    }
+
     public int getCoolant() {
         return coolant;
     }
 
     public BlockPos getDamagedPlate() {
-        return damagedOffset == null ? null : worldPosition.offset(damagedOffset);
+        if (damagedOffset == null) {
+            return null;
+        }
+        var pos = worldPosition.offset(damagedOffset);
+        var state = level.getBlockState(pos);
+        return state.is(AeronauticsInnerworld.DAMAGED_HULL.get()) || !Block.isShapeFullBlock(state.getCollisionShape(level, pos))
+                ? pos : null;
     }
 
     public boolean addCoolant(int seconds) {

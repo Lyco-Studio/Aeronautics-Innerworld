@@ -18,6 +18,7 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlock
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDeviceBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureCannonBlockEntity;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameRules;
 
 public final class ProbeTestRig {
     public final ServerLevel level;
@@ -42,6 +44,7 @@ public final class ProbeTestRig {
     private final BlockPos origin;
     private BlockPos plotOrigin;
     private SubLevelData saved;
+    private final boolean mobSpawning;
     private final java.util.ArrayList<SuperGlueEntity> glue = new java.util.ArrayList<>();
     private static final TicketType<BlockPos> ENVIRONMENT = TicketType.create("innerworld_probe_check",
             java.util.Comparator.comparingLong(BlockPos::asLong), 600);
@@ -56,10 +59,13 @@ public final class ProbeTestRig {
     public static final BlockPos LEFT_REVERSE = new BlockPos(1, 2, 5);
     public static final BlockPos RIGHT_REVERSE = new BlockPos(3, 2, 5);
     public static final BlockPos BOARDING_HATCH = new BlockPos(0, 1, 2);
+    public static final BlockPos CANNON = new BlockPos(1, 1, 0);
 
     public ProbeTestRig(ServerLevel level, BlockPos origin) {
         this.level = level;
         this.origin = origin;
+        mobSpawning = level.getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
+        level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, level.getServer());
         level.resetEmptyTime();
         level.getChunkSource().addRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
         removeOldRig();
@@ -133,6 +139,18 @@ public final class ProbeTestRig {
         }
     }
 
+    public void combatEquipment() {
+        workEquipment();
+        device(CANNON, AeronauticsInnerworld.PRESSURE_CANNON.get(), Direction.NORTH);
+        ((CreativeMotorBlockEntity) level.getBlockEntity(origin.offset(CANNON.south()))).generatedSpeed.setValue(0);
+        ((PressureCannonBlockEntity) level.getBlockEntity(origin.offset(CANNON))).ammunition.setStackInSlot(0,
+                new net.minecraft.world.item.ItemStack(AeronauticsInnerworld.PRESSURE_BOLT.get(), 9));
+    }
+
+    public PressureCannonBlockEntity cannon() {
+        return (PressureCannonBlockEntity) level.getBlockEntity(local(CANNON));
+    }
+
     private void engine(BlockPos pos, Direction facing) {
         place(pos, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
@@ -164,10 +182,14 @@ public final class ProbeTestRig {
     }
 
     public int sourceCopperDrops() {
+        return sourceDrops(net.minecraft.world.item.Items.COPPER_INGOT);
+    }
+
+    public int sourceDrops(net.minecraft.world.item.Item item) {
         return level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
                 new AABB(Vec3.atLowerCornerOf(origin.offset(-2, -2, -2)),
                         Vec3.atLowerCornerOf(origin.offset(7, 6, 9))))
-                .stream().filter(entity -> entity.getItem().is(net.minecraft.world.item.Items.COPPER_INGOT))
+                .stream().filter(entity -> entity.getItem().is(item))
                 .mapToInt(entity -> entity.getItem().getCount()).sum();
     }
 
@@ -297,6 +319,8 @@ public final class ProbeTestRig {
                     bounds.maxX(), bounds.maxY(), bounds.maxZ())) {
                 if (level.getBlockEntity(pos) instanceof PortableEngineBlockEntity engine) {
                     engine.inventory.clearContent();
+                } else if (level.getBlockEntity(pos) instanceof PressureCannonBlockEntity cannon) {
+                    cannon.clearContent();
                 }
             }
             if (level.getBlockEntity(local(SAMPLER)) instanceof MantleSamplerBlockEntity sampler) {
@@ -314,5 +338,6 @@ public final class ProbeTestRig {
         });
         original.forEach(level::setBlockAndUpdate);
         level.getChunkSource().removeRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
+        level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(mobSpawning, level.getServer());
     }
 }

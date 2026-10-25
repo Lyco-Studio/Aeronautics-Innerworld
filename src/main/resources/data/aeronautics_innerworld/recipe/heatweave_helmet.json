@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "SSS",
+    "CGC"
+  ],
+  "key": {
+    "S": {
+      "item": "aeronautics_innerworld:molten_scale"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:heatweave_helmet"
+  }
+}
