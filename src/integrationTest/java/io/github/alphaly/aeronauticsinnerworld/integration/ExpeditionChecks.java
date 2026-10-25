@@ -7,11 +7,14 @@ import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.LodestoneTracker;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -41,6 +44,8 @@ public final class ExpeditionChecks {
             }
         });
         var ore = new BlockPos[1];
+        var compass = new ItemStack[1];
+        var waypoint = new BlockPos[1];
         helper.startSequence().thenWaitUntil(() -> helper.assertTrue(rig.ready(), "Waiting for probe entity chunks"))
                 .thenExecute(() -> {
                     int copperDrops = rig.sourceCopperDrops();
@@ -71,6 +76,17 @@ public final class ExpeditionChecks {
                     var target = rig.sounder().getMineral();
                     helper.assertTrue(target != null && level.getBlockState(target).is(AeronauticsInnerworld.HARMONIC_ORE.get()),
                             "Sounder did not identify a mineral at its actual world location");
+                    var stack = new ItemStack(Items.COMPASS, 3);
+                    player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+                    var pos = rig.local(ProbeTestRig.SOUNDER);
+                    player.gameMode.useItemOn(player, level, stack, InteractionHand.MAIN_HAND,
+                            new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+                    compass[0] = player.getInventory().items.stream().filter(item -> item.is(Items.COMPASS)
+                            && item.has(DataComponents.LODESTONE_TRACKER)).findFirst().orElseThrow().copy();
+                    waypoint[0] = rig.sounder().getWaypoint();
+                    helper.assertTrue(waypoint[0].equals(target) && stack.getCount() == 2
+                                    && !stack.has(DataComponents.LODESTONE_TRACKER) && player.getInventory().countItem(Items.COMPASS) == 3,
+                            "Recording a route lost compasses or changed the entire stack");
                     rig.sampler().inventory.extractItem(0, 64, false);
                 }).thenExecuteAfter(25, () -> {
                     helper.assertTrue(!level.getBlockState(ore[0]).is(AeronauticsInnerworld.HARMONIC_ORE.get()),
@@ -103,6 +119,30 @@ public final class ExpeditionChecks {
                 }).thenExecuteAfter(4, () -> {
                     helper.assertTrue(new BlockPos(256, 180, 256).equals(rig.sounder().getHome()),
                             "Reload lost home berth: " + rig.sounder().saveWithFullMetadata(level.registryAccess()));
+                    helper.assertTrue(waypoint[0].equals(rig.sounder().getWaypoint()), "Reload lost the active navigation target");
+                    compass[0].getItem().inventoryTick(compass[0], level, player, 0, true);
+                    helper.assertTrue(compass[0].get(DataComponents.LODESTONE_TRACKER).target().orElseThrow().pos().equals(waypoint[0]),
+                            "A mined deposit invalidated its route compass");
+                    var wrongDimension = new ItemStack(Items.COMPASS);
+                    wrongDimension.set(DataComponents.LODESTONE_TRACKER, new LodestoneTracker(java.util.Optional.of(
+                            GlobalPos.of(net.minecraft.world.level.Level.OVERWORLD, BlockPos.ZERO)), false));
+                    rig.sounder().useCompass(player, wrongDimension);
+                    helper.assertTrue(waypoint[0].equals(rig.sounder().getWaypoint()), "A foreign dimension replaced the active waypoint");
+                    player.setShiftKeyDown(true);
+                    rig.sounder().interact(player);
+                    player.setShiftKeyDown(false);
+                    helper.assertTrue(rig.sounder().getWaypoint() == null && new BlockPos(256, 180, 256).equals(rig.sounder().getHome()),
+                            "Canceling navigation changed the return berth");
+                    int loaded = level.getChunkSource().getLoadedChunksCount();
+                    var distant = new BlockPos(12000, 96, 12000);
+                    var distantCompass = new ItemStack(Items.COMPASS);
+                    distantCompass.set(DataComponents.LODESTONE_TRACKER, new LodestoneTracker(java.util.Optional.of(
+                            GlobalPos.of(Mantle.LEVEL, distant)), false));
+                    rig.sounder().useCompass(player, distantCompass);
+                    helper.assertTrue(distant.equals(rig.sounder().getWaypoint())
+                                    && level.getChunkSource().getLoadedChunksCount() == loaded,
+                            "Loading a saved route failed or loaded target chunks");
+                    rig.sounder().useCompass(player, compass[0]);
                     var fault = findFault(rig);
                     helper.assertTrue(fault != null, "Reload lost the mechanical fault");
                     use(player, new ItemStack(AeronauticsInnerworld.REPAIR_KIT.get(), 2), fault.getBlockPos(), Direction.UP);

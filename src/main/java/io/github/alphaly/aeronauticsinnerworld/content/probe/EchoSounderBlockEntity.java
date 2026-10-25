@@ -12,10 +12,14 @@ import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.LodestoneTracker;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.phys.AABB;
@@ -24,6 +28,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class EchoSounderBlockEntity extends KineticBlockEntity {
     private BlockPos home;
+    private BlockPos waypoint;
     private BlockPos mineral;
     private BlockPos relay;
     private boolean deepWorks;
@@ -52,6 +57,10 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
 
     public BlockPos getHome() {
         return home;
+    }
+
+    public BlockPos getWaypoint() {
+        return waypoint;
     }
 
     public BlockPos getRelay() {
@@ -96,12 +105,15 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                 }
             }
         }
-        Component bearing = Component.literal("—");
-        if (home != null) {
-            var direction = Direction.getNearest(home.getX() + .5 - position.x, 0, home.getZ() + .5 - position.z);
-            bearing = Component.translatable("message.aeronautics_innerworld.sonar_bearing",
-                    Math.round(position.distanceTo(Vec3.atCenterOf(home))),
+        Component bearing = Component.translatable("message.aeronautics_innerworld.sonar_home_bearing", "—");
+        var destination = waypoint == null ? home : waypoint;
+        if (destination != null) {
+            var direction = Direction.getNearest(destination.getX() + .5 - position.x, 0, destination.getZ() + .5 - position.z);
+            var distance = Component.translatable("message.aeronautics_innerworld.sonar_bearing",
+                    Math.round(position.distanceTo(Vec3.atCenterOf(destination))),
                     Component.translatable("direction.aeronautics_innerworld." + direction.getName()));
+            bearing = waypoint == null ? Component.translatable("message.aeronautics_innerworld.sonar_home_bearing", distance)
+                    : Component.translatable("message.aeronautics_innerworld.sonar_target_bearing", distance, waypoint.getY());
         }
         for (var player : level.players()) {
             if (player.distanceToSqr(position) <= 64) {
@@ -188,6 +200,12 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
 
     public void interact(Player player) {
         if (player.isShiftKeyDown()) {
+            if (waypoint != null) {
+                waypoint = null;
+                setChanged();
+                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_home"), true);
+                return;
+            }
             if (!level.getFluidState(BlockPos.containing(position())).isEmpty()) {
                 player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_home_wet"), true);
             } else {
@@ -211,6 +229,10 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
         if (home != null) {
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_home",
                     home.getX(), home.getY(), home.getZ()), false);
+        }
+        if (waypoint != null) {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_waypoint",
+                    waypoint.getX(), waypoint.getY(), waypoint.getZ()), false);
         }
         if (relay == null) {
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_relay"), false);
@@ -250,17 +272,50 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
         }
     }
 
+    public void useCompass(Player player, ItemStack stack) {
+        if (!level.dimension().equals(Mantle.LEVEL) || Math.abs(getSpeed()) < 16) {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_power"), true);
+            return;
+        }
+        var tracker = stack.get(DataComponents.LODESTONE_TRACKER);
+        if (tracker != null) {
+            if (tracker.target().isEmpty() || !tracker.target().get().dimension().equals(level.dimension())) {
+                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_dimension"), true);
+                return;
+            }
+            waypoint = tracker.target().get().pos().immutable();
+        } else {
+            scan();
+            waypoint = relay != null ? relay : mineral != null ? mineral : BlockPos.containing(position());
+            var recorded = stack.getCount() == 1 ? stack : stack.copyWithCount(1);
+            // Untracked lodestone targets retain discovered coordinates after a site or ore is removed.
+            recorded.set(DataComponents.LODESTONE_TRACKER,
+                    new LodestoneTracker(java.util.Optional.of(GlobalPos.of(level.dimension(), waypoint)), false));
+            recorded.set(DataComponents.ITEM_NAME, Component.translatable("item.aeronautics_innerworld.route_compass"));
+            if (recorded != stack) {
+                stack.shrink(1);
+                if (!player.getInventory().add(recorded)) player.drop(recorded, false);
+            }
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_saved"), false);
+        }
+        setChanged();
+        player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_waypoint",
+                waypoint.getX(), waypoint.getY(), waypoint.getZ()), false);
+    }
+
     @Override
     protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.write(tag, registries, clientPacket);
         if (home != null) {
             tag.putLong("Home", home.asLong());
         }
+        if (waypoint != null) tag.putLong("Waypoint", waypoint.asLong());
     }
 
     @Override
     protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(tag, registries, clientPacket);
         home = tag.contains("Home") ? BlockPos.of(tag.getLong("Home")) : null;
+        waypoint = tag.contains("Waypoint") ? BlockPos.of(tag.getLong("Waypoint")) : null;
     }
 }

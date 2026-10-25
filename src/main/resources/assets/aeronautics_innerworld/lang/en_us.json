@@ -75,7 +75,7 @@
   "item.aeronautics_innerworld.coolant_cell": "Coolant Cell",
   "item.aeronautics_innerworld.stabilized_coolant_cell": "Stabilized Coolant Cell",
   "item.aeronautics_innerworld.repair_kit": "Probe Repair Kit",
-  "message.aeronautics_innerworld.sonar_hud": "Y%s | %sm free | %sm/s | Home %s | H%s%% C%ss !%s",
+  "message.aeronautics_innerworld.sonar_hud": "Y%s | %sm free | %sm/s | %s | H%s%% C%ss !%s",
   "message.aeronautics_innerworld.sonar_bearing": "%sm %s",
   "message.aeronautics_innerworld.sonar_mineral": "%s at %s, %s, %s · %s m",
   "message.aeronautics_innerworld.sonar_home": "Home berth: %s, %s, %s",
@@ -192,5 +192,13 @@
   "book.aeronautics_innerworld.page.22": "Warden\n\nDodge warning rings. Pull a coolant lever to expose the core for 8s.\n\nAfter victory, sneak-use the console with four crystals for a rematch.",
   "advancement.aeronautics_innerworld.core_entry.title": "Beyond Isolation",
   "advancement.aeronautics_innerworld.core_entry.description": "Reach the core and prepare a camp for the labyrinth.",
-  "book.aeronautics_innerworld.page.23": "Recovery\n\nA compass, two crystals and two relic alloy make a recovery compass. It points to your last death in this dimension.\n\nKeep a spare probe and repair supplies."
+  "book.aeronautics_innerworld.page.23": "Recovery\n\nA compass, two crystals and two relic alloy make a recovery compass. It points to your last death in this dimension.\n\nKeep a spare probe and repair supplies.",
+  "message.aeronautics_innerworld.sonar_home_bearing": "Home %s",
+  "message.aeronautics_innerworld.sonar_target_bearing": "Goal %s Y%s",
+  "message.aeronautics_innerworld.sonar_waypoint": "Active waypoint: %s, %s, %s",
+  "message.aeronautics_innerworld.sonar_route_saved": "Route compass recorded.",
+  "message.aeronautics_innerworld.sonar_route_dimension": "This compass has no target in this dimension.",
+  "message.aeronautics_innerworld.sonar_route_home": "Waypoint cleared; navigating to the home berth.",
+  "book.aeronautics_innerworld.page.24": "Route compasses\n\nUse a plain compass on a powered sounder to save its nearest site, ore or position. Use a saved compass to reload it.\n\nSneak empty-hand to cancel; the berth stays recorded.",
+  "item.aeronautics_innerworld.route_compass": "Route Compass"
 }

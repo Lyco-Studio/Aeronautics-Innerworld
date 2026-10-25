@@ -13,6 +13,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -45,6 +46,9 @@ public final class SurvivalClientCheck {
     private static boolean openedHatches;
     private static boolean closedHatches;
     private static boolean finished;
+    private static boolean recordedRoute;
+    private static boolean reloadedRoute;
+    private static boolean routeScreenshot;
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -123,6 +127,22 @@ public final class SurvivalClientCheck {
                 toggle(client, ProbeTestRig.RIGHT_THROTTLE);
                 stopped = true;
             }
+            if (scene.ticks >= 217 && !recordedRoute && client.player.getMainHandItem().is(Items.COMPASS)) {
+                toggle(client, ProbeTestRig.SOUNDER);
+                recordedRoute = true;
+            }
+            if (scene.ticks >= 232 && !reloadedRoute && client.player.getMainHandItem().has(DataComponents.LODESTONE_TRACKER)) {
+                toggle(client, ProbeTestRig.SOUNDER);
+                reloadedRoute = true;
+            }
+            if (scene.ticks >= 248 && !routeScreenshot) {
+                if (!client.player.getMainHandItem().has(DataComponents.LODESTONE_TRACKER)) {
+                    throw new IllegalStateException("Route compass data did not reach the client");
+                }
+                Screenshot.grab(client.gameDirectory, "mantle-route-compass.png", client.getMainRenderTarget(),
+                        message -> LogUtils.getLogger().info("Route compass screenshot: {}", message.getString()));
+                routeScreenshot = true;
+            }
             if (step == null) {
                 step = client.getSingleplayerServer().submit(scene::tick);
             } else if (step.isDone()) {
@@ -168,6 +188,7 @@ public final class SurvivalClientCheck {
         private final ProbeTestRig rig;
         private int ticks;
         private double initialZ;
+        private BlockPos waypoint;
 
         private Scene(ServerPlayer player) {
             this.player = player;
@@ -241,7 +262,26 @@ public final class SurvivalClientCheck {
             if (ticks > 75 && (player.isInLava() || player.isOnFire() || player.getHealth() < player.getMaxHealth())) {
                 throw new IllegalStateException("Survival pilot was exposed inside mechanically powered cabin");
             }
-            return ticks >= 230;
+            if (ticks == 216) {
+                player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COMPASS));
+                player.containerMenu.broadcastChanges();
+            }
+            if (ticks == 230) {
+                waypoint = rig.sounder().getWaypoint();
+                var tracker = player.getMainHandItem().get(DataComponents.LODESTONE_TRACKER);
+                if (!recordedRoute || waypoint == null || tracker == null || tracker.tracked()
+                        || !tracker.target().orElseThrow().pos().equals(waypoint)
+                        || !rig.level.dimension().equals(tracker.target().orElseThrow().dimension())) {
+                    throw new IllegalStateException("Client compass input did not record its world-space route");
+                }
+                player.setShiftKeyDown(true);
+                rig.sounder().interact(player);
+                player.setShiftKeyDown(false);
+            }
+            if (ticks == 245 && (!reloadedRoute || !waypoint.equals(rig.sounder().getWaypoint()))) {
+                throw new IllegalStateException("Saved compass input did not reload its route");
+            }
+            return ticks >= 250;
         }
 
         private void cleanUp() {

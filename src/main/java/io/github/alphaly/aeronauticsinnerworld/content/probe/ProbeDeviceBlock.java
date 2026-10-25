@@ -15,6 +15,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.Containers;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -86,6 +87,10 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hit) {
+        if (stack.is(Items.COMPASS) && level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {
+            if (!level.isClientSide) sounder.useCompass(player, stack);
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (stack.is(AeronauticsInnerworld.PRESSURE_BOLT.get()) && level.getBlockEntity(pos) instanceof PressureCannonBlockEntity cannon) {
             if (!level.isClientSide) {
                 cannon.reload(player, stack);
