@@ -1,0 +1,18 @@
+{
+  "feature": "aeronautics_innerworld:mantle_spire",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 6
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "absolute": 1
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

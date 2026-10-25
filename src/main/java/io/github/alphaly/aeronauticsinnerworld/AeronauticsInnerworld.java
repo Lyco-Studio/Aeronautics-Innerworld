@@ -21,6 +21,7 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEnt
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeServiceItem;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructures;
+import io.github.alphaly.aeronauticsinnerworld.world.MantleSpireFeature;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureBoltEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureCannonBlockEntity;
@@ -41,6 +42,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -70,6 +72,8 @@ public final class AeronauticsInnerworld {
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     private static final DeferredRegister<ContraptionType> CONTRAPTIONS = DeferredRegister.create(CreateRegistries.CONTRAPTION_TYPE, MOD_ID);
     private static final DeferredRegister<ArmorMaterial> ARMOR_MATERIALS = DeferredRegister.create(Registries.ARMOR_MATERIAL, MOD_ID);
+    private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
+    public static final DeferredHolder<Feature<?>, MantleSpireFeature> MANTLE_SPIRE = FEATURES.register("mantle_spire", MantleSpireFeature::new);
 
     public static final DeferredBlock<Block> MULTI_AXIS_CUTTER = BLOCKS.registerSimpleBlock(
             "multi_axis_cutter", BlockBehaviour.Properties.of().strength(3.5f).sound(SoundType.METAL)
@@ -211,6 +215,7 @@ public final class AeronauticsInnerworld {
         ENTITIES.register(modBus);
         CONTRAPTIONS.register(modBus);
         ARMOR_MATERIALS.register(modBus);
+        FEATURES.register(modBus);
         InnerworldStructures.register(modBus);
         modBus.addListener(this::commonSetup);
         modBus.addListener(this::buildCreativeTab);

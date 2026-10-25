@@ -36,6 +36,8 @@ public final class RelayClientCheck {
     private static int bookFrames;
     private static CompletableFuture<Scene> setup;
     private static CompletableFuture<Void> cleanup;
+    private static CompletableFuture<Void> terrainView;
+    private static int terrainFrames;
     private static Scene scene;
     private static boolean openedBook;
     private static boolean finished;
@@ -76,6 +78,17 @@ public final class RelayClientCheck {
                 return;
             }
             scene = setup.join();
+            if (terrainView != null) {
+                if (terrainView.isDone()) {
+                    terrainView.join();
+                    if (++terrainFrames == 40) {
+                        Screenshot.grab(client.gameDirectory, "mantle-spire-route.png", client.getMainRenderTarget(),
+                                message -> LogUtils.getLogger().info("Natural mantle spire screenshot: {}", message.getString()));
+                        cleanup = client.getSingleplayerServer().submit(scene::cleanUp);
+                    }
+                }
+                return;
+            }
             if (++sceneTicks == 25) {
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.RELAY_BEACON.get().defaultBlockState())
                         == client.getModelManager().getMissingModel()
@@ -103,13 +116,20 @@ public final class RelayClientCheck {
                     Screenshot.grab(client.gameDirectory, "mantle-" + CHECK + "-record.png", client.getMainRenderTarget(),
                             message -> LogUtils.getLogger().info("Relay archive screenshot: {}", message.getString()));
                     book.onClose();
-                    cleanup = client.getSingleplayerServer().submit(() -> {
-                        try {
+                    if (DEEP) {
+                        terrainView = client.getSingleplayerServer().submit(() -> {
                             scene.verify();
-                        } finally {
-                            scene.cleanUp();
-                        }
-                    });
+                            scene.observeSpire();
+                        });
+                    } else {
+                        cleanup = client.getSingleplayerServer().submit(() -> {
+                            try {
+                                scene.verify();
+                            } finally {
+                                scene.cleanUp();
+                            }
+                        });
+                    }
                 }
             }
         } catch (Exception e) {
@@ -157,7 +177,7 @@ public final class RelayClientCheck {
             }
             var tag = TagKey.create(Registries.STRUCTURE,
                     ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, DEEP ? "deep_works" : "mantle_relays"));
-            var located = level.findNearestMapStructure(tag, DEEP ? new BlockPos(4096, 40, 4096) : new BlockPos(1024, 175, 1024), 4, false);
+            var located = level.findNearestMapStructure(tag, DEEP ? new BlockPos(8192, 40, 8192) : new BlockPos(1024, 175, 1024), 4, false);
             if (located == null) {
                 throw new IllegalStateException("Native placement did not locate a mantle relay");
             }
@@ -243,6 +263,24 @@ public final class RelayClientCheck {
                     || player.getHealth() < oldHealth) {
                 throw new IllegalStateException("Natural dry gallery exposed its explorer to lava or heat");
             }
+        }
+
+        private void observeSpire() {
+            var level = player.serverLevel();
+            var center = new net.minecraft.world.level.ChunkPos(dry);
+            for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) {
+                var chunk = level.getChunk(center.x + dx, center.z + dz);
+                var origin = chunk.getPos().getWorldPosition();
+                for (var pos : BlockPos.betweenClosed(origin.offset(0, 64, 0), origin.offset(15, 64, 15))) {
+                    if (!level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.BASALT)
+                            || !level.getBlockState(pos.above()).is(net.minecraft.world.level.block.Blocks.BASALT)) continue;
+                    player.setGameMode(GameType.SPECTATOR);
+                    player.teleportTo(level, pos.getX() + 10.5, 65, pos.getZ() + .5, 90, 0);
+                    LogUtils.getLogger().info("Natural mantle spire verified at {}", pos);
+                    return;
+                }
+            }
+            throw new IllegalStateException("New mantle region contains no natural spires");
         }
 
         private void cleanUp() {

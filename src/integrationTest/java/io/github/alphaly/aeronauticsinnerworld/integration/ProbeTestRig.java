@@ -69,6 +69,12 @@ public final class ProbeTestRig {
         level.resetEmptyTime();
         level.getChunkSource().addRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
         removeOldRig();
+        for (var pos : BlockPos.betweenClosed(origin.offset(-6, -12, -6), origin.offset(10, 12, 14))) {
+            var state = level.getBlockState(pos);
+            if (state.is(Blocks.BASALT) || state.is(Blocks.SMOOTH_BASALT) || state.is(AeronauticsInnerworld.HARMONIC_ORE.get())) {
+                place(pos.subtract(origin), Blocks.LAVA.defaultBlockState());
+            }
+        }
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 4; y++) {
                 for (int z = 0; z < 7; z++) {
