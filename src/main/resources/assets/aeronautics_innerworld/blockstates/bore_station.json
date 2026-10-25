@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "aeronautics_innerworld:block/bore_station"
+    },
+    "facing=east": {
+      "model": "aeronautics_innerworld:block/bore_station",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "aeronautics_innerworld:block/bore_station",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "aeronautics_innerworld:block/bore_station",
+      "y": 270
+    }
+  }
+}

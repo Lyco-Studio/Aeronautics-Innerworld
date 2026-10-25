@@ -34,5 +34,21 @@
   "status.aeronautics_innerworld.layer_ineligible": "跨层需空载乘员；检查组件跨度及往返记录",
   "message.aeronautics_innerworld.head_reconnected": "钻头已重新接入原控制器。",
   "message.aeronautics_innerworld.head_controller_missing": "请在原位置重建钻探控制器，再重新接入钻头。",
-  "message.aeronautics_innerworld.head_controller_busy": "原控制器已连接其他钻头。"
+  "message.aeronautics_innerworld.head_controller_busy": "原控制器已连接其他钻头。",
+  "message.aeronautics_innerworld.station_wrong_layer": "接驳站用于主世界与地幔之间的钻井连接。",
+  "message.aeronautics_innerworld.station_too_far": "主世界接驳站需位于控制器 32 格以内。",
+  "message.aeronautics_innerworld.station_bound": "接驳站已绑定，等待钻头开通并放置另一端。",
+  "message.aeronautics_innerworld.station_connected": "钻井接驳站已连通。",
+  "message.aeronautics_innerworld.station_waiting": "另一端尚未连通，请先放置随钻头进入地幔的接驳站。",
+  "message.aeronautics_innerworld.station_controller_missing": "原钻探控制器尚未就绪，请检查或在原位置重建。",
+  "message.aeronautics_innerworld.station_no_power": "钻机没有可用旋转动力，请检查供能后重试。",
+  "message.aeronautics_innerworld.station_player_busy": "请脱离乘骑并稍等片刻后通行。",
+  "message.aeronautics_innerworld.station_unavailable": "另一端接驳站已失去连接，请重新绑定站点。",
+  "message.aeronautics_innerworld.station_exit_blocked": "请在目的站正前方保留两格干燥净空及稳固地面。",
+  "message.aeronautics_innerworld.station_unbound": "请使用已绑定控制器的钻探操纵器接入本站。",
+  "message.aeronautics_innerworld.station_destination": "目的地：%s（%s，%s，%s）",
+  "block.aeronautics_innerworld.bore_station": "钻井接驳站",
+  "dimension.aeronautics_innerworld.overworld": "主世界",
+  "dimension.aeronautics_innerworld.mantle": "地幔",
+  "item.aeronautics_innerworld.drill_remote.station_binding": "对接驳站使用以接入同一钻井"
 }

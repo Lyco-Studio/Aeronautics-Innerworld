@@ -36,6 +36,9 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
     private GlobalPos remoteHead;
     private UUID remoteHeadId;
     private GlobalPos ticketedHead;
+    private BlockPos sourceStation;
+    private BlockPos mantleStation;
+    private boolean mantleBored;
 
     public DrillControllerBlockEntity(BlockPos pos, BlockState state) {
         super(AeronauticsInnerworld.DRILL_CONTROLLER_ENTITY.get(), pos, state);
@@ -214,6 +217,9 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
     }
 
     void acceptTransferredHead(DrillHeadEntity head) {
+        if (level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && head.level().dimension().equals(Mantle.LEVEL)) {
+            mantleBored = true;
+        }
         movedContraption = head;
         segmentOrigin = head.position();
         offset = getInitialOffset();
@@ -331,7 +337,16 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
                 return false;
             }
         }
+        var stations = movedContraption.getContraption().getBlocks().entrySet().stream()
+                .filter(entry -> entry.getValue().state().is(AeronauticsInnerworld.BORE_STATION.get()))
+                .map(entry -> anchor.offset(entry.getKey())).toList();
         movedContraption.disassemble();
+        // The destination may unload as soon as the moving head releases its ticket.
+        for (var pos : stations) {
+            if (headLevel.getBlockEntity(pos) instanceof BoreStationBlockEntity station) {
+                registerStation(station);
+            }
+        }
         movedContraption = null;
         disassemble();
         return true;
@@ -344,9 +359,63 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             return false;
         }
         attach(head);
+        if (head.isRemote() && head.level().dimension().equals(Mantle.LEVEL)) {
+            mantleBored = true;
+        }
         maintainRemoteHead();
         notifyUpdate();
         return true;
+    }
+
+    void registerStation(BoreStationBlockEntity station) {
+        if (!GlobalPos.of(level.dimension(), worldPosition).equals(station.getOwner())) {
+            return;
+        }
+        if (station.getLevel() == level) {
+            if (worldPosition.distSqr(station.getBlockPos()) <= 32 * 32
+                    && (sourceStation == null || sourceStation.equals(station.getBlockPos())
+                    || !(level.getBlockEntity(sourceStation) instanceof BoreStationBlockEntity previous)
+                    || !station.getOwner().equals(previous.getOwner()))) {
+                if (!station.getBlockPos().equals(sourceStation)) {
+                    sourceStation = station.getBlockPos();
+                    setChanged();
+                }
+                if (station.getPartner() != null && station.getPartner().dimension().equals(Mantle.LEVEL)) {
+                    if (!station.getPartner().pos().equals(mantleStation)) {
+                        mantleStation = station.getPartner().pos();
+                        mantleBored = true;
+                        setChanged();
+                    }
+                } else if (mantleStation != null) {
+                    var mantle = ((ServerLevel) level).getServer().getLevel(Mantle.LEVEL);
+                    if (mantle != null && mantle.getBlockEntity(mantleStation) instanceof BoreStationBlockEntity target
+                            && station.getOwner().equals(target.getOwner())) {
+                        pairStations(station, target);
+                    }
+                }
+            }
+            return;
+        }
+        if (!mantleBored || sourceStation == null || !station.getLevel().dimension().equals(Mantle.LEVEL)
+                || !(level.getBlockEntity(sourceStation) instanceof BoreStationBlockEntity source)
+                || !station.getOwner().equals(source.getOwner())) {
+            return;
+        }
+        var destination = GlobalPos.of(station.getLevel().dimension(), station.getBlockPos());
+        if (source.getPartner() == null || source.getPartner().equals(destination)
+                || !(station.getLevel().getBlockEntity(source.getPartner().pos()) instanceof BoreStationBlockEntity previous)
+                || !station.getOwner().equals(previous.getOwner())) {
+            pairStations(source, station);
+        }
+    }
+
+    private void pairStations(BoreStationBlockEntity source, BoreStationBlockEntity target) {
+        source.pairWith(GlobalPos.of(Mantle.LEVEL, target.getBlockPos()));
+        target.pairWith(GlobalPos.of(level.dimension(), source.getBlockPos()));
+        if (!target.getBlockPos().equals(mantleStation)) {
+            mantleStation = target.getBlockPos();
+            setChanged();
+        }
     }
 
     @Override
@@ -430,6 +499,13 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
         tag.putBoolean("Engaged", engaged);
         tag.putBoolean("StopRequested", stopRequested);
         tag.putString("WorkStatus", status);
+        tag.putBoolean("MantleBored", mantleBored);
+        if (sourceStation != null) {
+            tag.putLong("SourceStation", sourceStation.asLong());
+        }
+        if (mantleStation != null) {
+            tag.putLong("MantleStation", mantleStation.asLong());
+        }
         if (remoteHead != null) {
             var position = movedContraption == null ? remoteHead.pos() : movedContraption.blockPosition();
             tag.putString("HeadDimension", remoteHead.dimension().location().toString());
@@ -449,6 +525,9 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
         engaged = tag.getBoolean("Engaged");
         stopRequested = tag.getBoolean("StopRequested");
         status = tag.getString("WorkStatus");
+        mantleBored = tag.getBoolean("MantleBored");
+        sourceStation = tag.contains("SourceStation") ? BlockPos.of(tag.getLong("SourceStation")) : null;
+        mantleStation = tag.contains("MantleStation") ? BlockPos.of(tag.getLong("MantleStation")) : null;
         var headDimension = ResourceLocation.tryParse(tag.getString("HeadDimension"));
         remoteHead = headDimension == null ? null : GlobalPos.of(ResourceKey.create(Registries.DIMENSION, headDimension),
                 BlockPos.of(tag.getLong("HeadPosition")));

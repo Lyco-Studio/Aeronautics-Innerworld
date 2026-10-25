@@ -11,6 +11,8 @@ import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.InnerworldConfig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillHeadEntity;
 import java.util.UUID;
@@ -27,6 +29,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.level.block.Blocks;
@@ -44,6 +47,9 @@ final class DrillControllerClientCheck {
     private boolean replacingController;
     private boolean clickedRecovery;
     private CompletableFuture<Boolean> recovery;
+    private CompletableFuture<Boolean> stationProgress;
+    private boolean stationComplete;
+    private int stationViewTicks;
 
     DrillControllerClientCheck(Minecraft client) {
         var server = client.getSingleplayerServer();
@@ -61,6 +67,32 @@ final class DrillControllerClientCheck {
                 return false;
             }
             rig = setup.join();
+        }
+        if (turns == 5) {
+            if (stationComplete) {
+                if (!client.level.dimension().equals(Mantle.LEVEL)) {
+                    return false;
+                }
+                client.player.lookAt(Anchor.EYES, Vec3.atCenterOf(rig.destinationStation));
+                return ++stationViewTicks >= 10;
+            }
+            if (sample != null) {
+                if (!sample.isDone()) {
+                    return false;
+                }
+                sample.join();
+                sample = null;
+            }
+            if (stationProgress == null) {
+                stationProgress = server.submit(rig::sampleTransit);
+                return false;
+            }
+            if (!stationProgress.isDone()) {
+                return false;
+            }
+            stationComplete = stationProgress.join();
+            stationProgress = null;
+            return false;
         }
         if (!started) {
             if (client.level.getBlockEntity(rig.controllerPos) == null) {
@@ -108,7 +140,7 @@ final class DrillControllerClientCheck {
         }
         if (!(client.getEntityRenderDispatcher().getRenderer(entity) instanceof ContraptionEntityRenderer)
                 || VisualizerRegistry.getVisualizer(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get()) == null
-                || entity.getContraption() == null || entity.getContraption().getBlocks().size() != 3) {
+                || entity.getContraption() == null || entity.getContraption().getBlocks().size() != 10) {
             throw new IllegalStateException("Client head renderer or structure was not restored");
         }
         if (checkpoint.dimension.equals(Level.OVERWORLD)) {
@@ -179,7 +211,12 @@ final class DrillControllerClientCheck {
             checkpoint = null;
             return false;
         }
-        return true;
+        sample = server.submit(() -> {
+            rig.placeStation();
+            return null;
+        });
+        turns = 5;
+        return false;
     }
 
     CompletableFuture<Void> cleanUp(Minecraft client) {
@@ -212,6 +249,14 @@ final class DrillControllerClientCheck {
         private Vec3 mantleOrigin;
         private boolean playerMoved;
         private final ItemStack originalHand;
+        private final ItemStack originalSupplies;
+        private final int originalCooldown;
+        private final BlockPos sourceStation;
+        private final java.util.List<BlockPos> sourceBlocks;
+        private BlockPos destinationStation;
+        private java.util.List<BlockPos> placedBlocks;
+        private int transitPhase;
+        private int nextTransitTick;
         private final ItemStack remote = new ItemStack(AeronauticsInnerworld.DRILL_REMOTE.get());
         private volatile String state = "setup";
 
@@ -225,9 +270,11 @@ final class DrillControllerClientCheck {
             originalYaw = player.getYRot();
             originalPitch = player.getXRot();
             originalHand = player.getMainHandItem().copy();
+            originalSupplies = player.getInventory().getItem(17).copy();
+            originalCooldown = player.getPortalCooldown();
             while (true) {
                 boolean clear = true;
-                for (var pos : BlockPos.betweenClosed(root.offset(-1, -4, -2), root.offset(5, 2, 2))) {
+                for (var pos : BlockPos.betweenClosed(root.offset(-4, -4, -3), root.offset(6, 3, 3))) {
                     if (!level.isEmptyBlock(pos)) {
                         clear = false;
                         break;
@@ -247,16 +294,42 @@ final class DrillControllerClientCheck {
                     .setValue(DrillControllerBlock.FACING, Direction.DOWN));
             level.setBlockAndUpdate(controllerPos.above(), AllBlocks.CREATIVE_MOTOR.getDefaultState()
                     .setValue(BlockStateProperties.FACING, Direction.DOWN));
-            level.setBlockAndUpdate(root, Blocks.SLIME_BLOCK.defaultBlockState());
+            level.setBlockAndUpdate(root, Blocks.CHEST.defaultBlockState());
             for (var cutter : new BlockPos[] {root.below(), root.east()}) {
                 level.setBlockAndUpdate(cutter, AeronauticsInnerworld.MULTI_AXIS_CUTTER.get().defaultBlockState());
                 level.addFreshEntity(new SuperGlueEntity(level, SuperGlueEntity.span(root, cutter)));
+            }
+            sourceBlocks = java.util.List.of(root, root.below(), root.east(), root.north(), root.north().below(),
+                    root.east().north().below(), root.east().north().below(2), root.east(2).north().below(),
+                    root.east(2).north(), root.east(2).north().above(), root.west(3), root.west(3).north().below(),
+                    controllerPos, controllerPos.above());
+            sourceStation = root.west(3);
+            level.setBlockAndUpdate(sourceStation, AeronauticsInnerworld.BORE_STATION.get().defaultBlockState());
+            level.setBlockAndUpdate(sourceStation.north().below(), Blocks.IRON_BLOCK.defaultBlockState());
+            level.setBlockAndUpdate(root.north(), AeronauticsInnerworld.BORE_STATION.get().defaultBlockState()
+                    .setValue(BoreStationBlock.FACING, Direction.EAST));
+            for (var pos : new BlockPos[] {root.north().below(), root.east().north().below(2),
+                    root.east(2).north().below(), root.east(2).north(), root.east(2).north().above()}) {
+                level.setBlockAndUpdate(pos, AeronauticsInnerworld.MULTI_AXIS_CUTTER.get().defaultBlockState());
+            }
+            level.setBlockAndUpdate(root.east().north().below(), Blocks.IRON_BLOCK.defaultBlockState());
+            for (var edge : new BlockPos[][] {{root, root.north()}, {root.north(), root.north().below()},
+                    {root.north().below(), root.east().north().below()},
+                    {root.east().north().below(), root.east().north().below(2)},
+                    {root.east().north().below(), root.east(2).north().below()},
+                    {root.east(2).north().below(), root.east(2).north()},
+                    {root.east(2).north(), root.east(2).north().above()}}) {
+                level.addFreshEntity(new SuperGlueEntity(level, SuperGlueEntity.span(edge[0], edge[1])));
             }
             ((CreativeMotorBlockEntity) level.getBlockEntity(controllerPos.above())).generatedSpeed.setValue(32);
             controller = (DrillControllerBlockEntity) level.getBlockEntity(controllerPos);
             player.setItemInHand(InteractionHand.MAIN_HAND, remote);
             player.gameMode.useItemOn(player, level, remote, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(controllerPos), Direction.UP, controllerPos, false));
+            for (var station : new BlockPos[] {sourceStation, root.north()}) {
+                player.gameMode.useItemOn(player, level, remote, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(station), Direction.UP, station, false));
+            }
         }
 
         private void start() {
@@ -348,6 +421,68 @@ final class DrillControllerClientCheck {
             player.teleportTo((ServerLevel) head.level(), head.getX() - 2, head.getY(), head.getZ() + 2, 0, 0);
         }
 
+        private void placeStation() {
+            var head = controller.movedContraption;
+            var anchor = head.blockPosition();
+            placedBlocks = head.getContraption().getBlocks().keySet().stream().map(anchor::offset).toList();
+            destinationStation = anchor.north();
+            if (!controller.tryPlaceHead()) {
+                throw new IllegalStateException("Client station assembly could not be placed");
+            }
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            player.getInventory().setItem(17, new ItemStack(Items.COPPER_INGOT, 17));
+            player.setPortalCooldown(0);
+            state = "waiting for bore station pairing";
+        }
+
+        private boolean sampleTransit() {
+            if (level.getServer().getTickCount() < nextTransitTick || player.isOnPortalCooldown()) {
+                return false;
+            }
+            var mantle = level.getServer().getLevel(Mantle.LEVEL);
+            var source = (BoreStationBlockEntity) level.getBlockEntity(sourceStation);
+            var target = (BoreStationBlockEntity) mantle.getBlockEntity(destinationStation);
+            if (source.getPartner() == null || target.getPartner() == null) {
+                state = "station pairing: " + source.getPartner() + "/" + target.getPartner()
+                        + "; controller=" + controller.getStatus();
+                return false;
+            }
+            if (transitPhase < 2) {
+                if (transitPhase == 1) {
+                    var previous = level.getBlockState(sourceStation);
+                    level.removeBlock(sourceStation, false);
+                    level.setBlockAndUpdate(sourceStation, previous);
+                    player.setItemInHand(InteractionHand.MAIN_HAND, remote);
+                    player.gameMode.useItemOn(player, level, remote, InteractionHand.MAIN_HAND,
+                            new BlockHitResult(Vec3.atCenterOf(sourceStation), Direction.UP, sourceStation, false));
+                    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                }
+                var world = transitPhase == 0 ? mantle : level;
+                var station = transitPhase == 0 ? destinationStation : sourceStation;
+                player.gameMode.useItemOn(player, world, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(station), Direction.UP, station, false));
+                var expected = transitPhase == 0 ? level : mantle;
+                if (player.serverLevel() != expected) {
+                    throw new IllegalStateException("Client station transit failed at leg " + transitPhase
+                            + "; cooldown=" + player.getPortalCooldown() + "; speed=" + controller.getSpeed()
+                            + "; hand=" + player.getMainHandItem() + "; owner=" + source.getOwner()
+                            + "; pair=" + source.getPartner() + "/" + target.getPartner()
+                            + "; exit=" + mantle.getBlockState(destinationStation.east())
+                            + "; headroom=" + mantle.getBlockState(destinationStation.east().above())
+                            + "; floor=" + mantle.getBlockState(destinationStation.east().below()));
+                }
+                state = "bore station transit leg " + ++transitPhase;
+                nextTransitTick = level.getServer().getTickCount() + 45;
+                return false;
+            }
+            var cargo = player.getInventory().getItem(17);
+            if (!cargo.is(Items.COPPER_INGOT) || cargo.getCount() != 17) {
+                throw new IllegalStateException("Client station transit lost carried supplies");
+            }
+            LogUtils.getLogger().info("Client bore station round trip and carried supplies passed");
+            return true;
+        }
+
         private void cleanUp() {
             var head = controller.movedContraption;
             if (head == null && identity != null) {
@@ -361,15 +496,33 @@ final class DrillControllerClientCheck {
                 var blocks = head.getContraption().getBlocks().keySet().stream().map(anchor::offset).toList();
                 var headLevel = head.level();
                 if (controller.tryPlaceHead()) {
-                    blocks.forEach(pos -> headLevel.removeBlock(pos, false));
+                    blocks.forEach(pos -> {
+                        if (headLevel.getBlockEntity(pos) instanceof net.minecraft.world.Container inventory) {
+                            inventory.clearContent();
+                        }
+                        headLevel.removeBlock(pos, false);
+                    });
                 } else {
                     head.discard();
                     controller.movedContraption = null;
                     controller.disassemble();
                 }
             }
-            level.removeBlock(controllerPos.above(), false);
-            level.removeBlock(controllerPos, false);
+            if (placedBlocks != null) {
+                var mantle = level.getServer().getLevel(Mantle.LEVEL);
+                for (var pos : placedBlocks) {
+                    if (mantle.getBlockEntity(pos) instanceof net.minecraft.world.Container inventory) {
+                        inventory.clearContent();
+                    }
+                    mantle.removeBlock(pos, false);
+                }
+            }
+            for (var pos : sourceBlocks) {
+                if (level.getBlockEntity(pos) instanceof net.minecraft.world.Container inventory) {
+                    inventory.clearContent();
+                }
+                level.removeBlock(pos, false);
+            }
             if (originalBoundary != null) {
                 InnerworldConfig.OVERWORLD_BOUNDARY.set(originalBoundary);
             }
@@ -380,6 +533,8 @@ final class DrillControllerClientCheck {
                 player.onUpdateAbilities();
             }
             player.setItemInHand(InteractionHand.MAIN_HAND, originalHand);
+            player.getInventory().setItem(17, originalSupplies);
+            player.setPortalCooldown(originalCooldown);
         }
     }
 }

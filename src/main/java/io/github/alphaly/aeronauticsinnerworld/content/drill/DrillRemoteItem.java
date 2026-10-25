@@ -33,6 +33,13 @@ public final class DrillRemoteItem extends Item {
     @Override
     public InteractionResult useOn(UseOnContext context) {
         var level = context.getLevel();
+        if (level.getBlockEntity(context.getClickedPos()) instanceof BoreStationBlockEntity station) {
+            if (!level.isClientSide) {
+                var owner = binding(context.getItemInHand());
+                message(context.getPlayer(), owner == null ? "remote_unbound" : station.bind(owner));
+            }
+            return InteractionResult.SUCCESS;
+        }
         if (level.getBlockEntity(context.getClickedPos()) instanceof DrillControllerBlockEntity) {
             if (!level.isClientSide) {
                 var data = context.getItemInHand().getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
@@ -82,6 +89,7 @@ public final class DrillRemoteItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         var owner = binding(stack);
         lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.controls"));
+        lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.station_binding"));
         if (owner != null) {
             lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.binding",
                     owner.dimension().location().toString(), owner.pos().getX(), owner.pos().getY(), owner.pos().getZ()));

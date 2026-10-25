@@ -1,10 +1,13 @@
 package io.github.alphaly.aeronauticsinnerworld.integration;
 
+import com.mojang.authlib.GameProfile;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.contraptions.glue.SuperGlueEntity;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillHeadEntity;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
@@ -15,6 +18,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
@@ -30,6 +34,7 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -123,6 +128,86 @@ public final class DrillLayerChecks {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 1600)
+    public static void pairsCarriedStationAndRejectsUnsafeTransit(GameTestHelper helper) {
+        var rig = new Rig(helper, true);
+        helper.startSequence()
+                .thenIdle(2)
+                .thenExecute(() -> ((CreativeMotorBlockEntity) helper.getLevel().getBlockEntity(rig.controllerPos.above()))
+                        .generatedSpeed.setValue(64))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    rig.traveller = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "bore-transit-check")) {
+                        @Override
+                        public void displayClientMessage(net.minecraft.network.chat.Component message, boolean actionBar) {
+                            rig.stationMessage = message.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                                    ? text.getKey() : message.getString();
+                        }
+                    };
+                    rig.traveller.getInventory().setItem(5, new ItemStack(Items.COPPER_INGOT, 17));
+                    helper.assertTrue(!rig.sourceStation().travel(rig.traveller), "Station opened before drilling");
+                    rig.assertStationMessage("station_waiting");
+                    rig.controller().toggleWork();
+                    rig.identity = rig.head().getUUID();
+                })
+                .thenWaitUntil(() -> helper.assertTrue(rig.head().isRemote(), "Station assembly has not crossed"))
+                .thenExecute(rig::remoteUse)
+                .thenWaitUntil(() -> helper.assertTrue(rig.head().getY() <= 253.25,
+                        "Station assembly has not excavated its exit: " + rig.controller().getStatus()))
+                .thenExecute(rig::remoteUse)
+                .thenWaitUntil(rig::assertPaused)
+                .thenExecute(() -> {
+                    rig.assertCargo();
+                    helper.assertTrue(rig.sourceStation().getPartner() == null, "Moving station connected before placement");
+                    rig.destinationStation = rig.head().blockPosition().north();
+                    helper.assertTrue(rig.controller().tryPlaceHead(), "Station assembly could not be placed");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(rig.sourceStation().getPartner() != null, "Stations have not paired: source=" + rig.sourceStation().getOwner()
+                        + "; target=" + rig.targetStation().getOwner() + "; controller="
+                        + rig.controller().saveWithFullMetadata(helper.getLevel().registryAccess())))
+                .thenExecute(() -> {
+                    rig.reloadStation(helper.getLevel(), rig.sourceStationPos);
+                    rig.reloadStation(rig.mantle(), rig.destinationStation);
+                    var source = helper.getLevel();
+                    var controllerData = rig.controller().saveWithFullMetadata(source.registryAccess());
+                    source.setBlockEntity(BlockEntity.loadStatic(rig.controllerPos, source.getBlockState(rig.controllerPos),
+                            controllerData, source.registryAccess()));
+                    var stationState = source.getBlockState(rig.sourceStationPos);
+                    source.removeBlock(rig.sourceStationPos, false);
+                    source.setBlockAndUpdate(rig.sourceStationPos, stationState);
+                    rig.sourceStation().bind(net.minecraft.core.GlobalPos.of(source.dimension(), rig.controllerPos));
+                    helper.assertTrue(rig.sourceStation().getPartner() != null, "Rebuilt source station lost its destination");
+                    var feet = rig.destinationStation.east();
+                    rig.mantle().setBlockAndUpdate(feet, Blocks.STONE.defaultBlockState());
+                    helper.assertTrue(!rig.sourceStation().travel(rig.traveller), "Station overwrote an obstructed exit");
+                    rig.assertStationMessage("station_exit_blocked");
+                    helper.assertTrue(rig.mantle().getBlockState(feet).is(Blocks.STONE), "Station cleared destination terrain");
+                    rig.mantle().setBlockAndUpdate(feet, Blocks.LAVA.defaultBlockState());
+                    helper.assertTrue(!rig.sourceStation().travel(rig.traveller), "Station admitted the player into lava");
+                    rig.assertStationMessage("station_exit_blocked");
+                    rig.mantle().setBlockAndUpdate(feet, Blocks.AIR.defaultBlockState());
+                    ((CreativeMotorBlockEntity) helper.getLevel().getBlockEntity(rig.controllerPos.above())).generatedSpeed.setValue(0);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(rig.controller().getSpeed() == 0, "Station power has not stopped"))
+                .thenExecute(() -> {
+                    helper.assertTrue(!rig.sourceStation().travel(rig.traveller), "Unpowered station transported a player");
+                    rig.assertStationMessage("station_no_power");
+                    ((CreativeMotorBlockEntity) helper.getLevel().getBlockEntity(rig.controllerPos.above())).generatedSpeed.setValue(64);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(rig.controller().getSpeed() != 0, "Station power has not resumed"))
+                .thenExecute(() -> {
+                    rig.traveller.setPortalCooldown(40);
+                    helper.assertTrue(!rig.sourceStation().travel(rig.traveller), "Station cooldown was bypassed");
+                    rig.assertStationMessage("station_player_busy");
+                    helper.assertTrue(rig.sourceStation().getPartner().pos().equals(rig.destinationStation),
+                            "Station pairing changed during refused transit");
+                    var cargo = rig.traveller.getInventory().getItem(5);
+                    helper.assertTrue(cargo.is(Items.COPPER_INGOT) && cargo.getCount() == 17,
+                            "Refused transit changed carried supplies");
+                })
+                .thenSucceed();
+    }
+
     private static final class Rig {
         private final GameTestHelper helper;
         private final BlockPos controllerPos;
@@ -130,9 +215,19 @@ public final class DrillLayerChecks {
         private UUID identity;
         private Vec3 checkpoint;
         private BlockPos returnObstruction;
+        private BlockPos sourceStationPos;
+        private BlockPos destinationStation;
+        private ServerPlayer traveller;
+        private String stationMessage;
+        private final boolean withStation;
 
         private Rig(GameTestHelper helper) {
+            this(helper, false);
+        }
+
+        private Rig(GameTestHelper helper, boolean withStation) {
             this.helper = helper;
+            this.withStation = withStation;
             var base = new BlockPos(5, 5, 6);
             controllerPos = helper.absolutePos(base);
             helper.setBlock(base, AeronauticsInnerworld.DRILL_CONTROLLER.get().defaultBlockState()
@@ -153,6 +248,43 @@ public final class DrillLayerChecks {
             player.setItemInHand(InteractionHand.MAIN_HAND, remote);
             remote.getItem().useOn(new UseOnContext(player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(controllerPos), Direction.UP, controllerPos, false)));
+            if (withStation) {
+                var main = base.offset(-4, 0, -4);
+                sourceStationPos = helper.absolutePos(main);
+                helper.setBlock(main, AeronauticsInnerworld.BORE_STATION.get().defaultBlockState()
+                        .setValue(BoreStationBlock.FACING, Direction.SOUTH));
+                helper.setBlock(main.south().below(), Blocks.IRON_BLOCK);
+                helper.setBlock(root.north(), AeronauticsInnerworld.BORE_STATION.get().defaultBlockState()
+                        .setValue(BoreStationBlock.FACING, Direction.EAST));
+                helper.setBlock(root.north().below(), AeronauticsInnerworld.MULTI_AXIS_CUTTER.get());
+                helper.setBlock(root.east().north().below(), Blocks.IRON_BLOCK);
+                helper.setBlock(root.east().north().below(2), AeronauticsInnerworld.MULTI_AXIS_CUTTER.get());
+                glue(root, root.north());
+                glue(root.north(), root.north().below());
+                glue(root.east().below(), root.east().north().below());
+                glue(root.east().north().below(), root.east().north().below(2));
+                var owner = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), controllerPos);
+                sourceStation().bind(owner);
+                ((BoreStationBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(root.north()))).bind(owner);
+            }
+        }
+
+        private void assertStationMessage(String key) {
+            helper.assertTrue(("message.aeronautics_innerworld." + key).equals(stationMessage),
+                    "Unexpected transit rejection: " + stationMessage);
+        }
+
+        private BoreStationBlockEntity sourceStation() {
+            return (BoreStationBlockEntity) helper.getLevel().getBlockEntity(sourceStationPos);
+        }
+
+        private BoreStationBlockEntity targetStation() {
+            return (BoreStationBlockEntity) mantle().getBlockEntity(destinationStation);
+        }
+
+        private void reloadStation(ServerLevel level, BlockPos pos) {
+            var data = level.getBlockEntity(pos).saveWithFullMetadata(level.registryAccess());
+            level.setBlockEntity(BlockEntity.loadStatic(pos, level.getBlockState(pos), data, level.registryAccess()));
         }
 
         private void glue(BlockPos from, BlockPos to) {
@@ -210,7 +342,7 @@ public final class DrillLayerChecks {
 
         private void assertCargo() {
             helper.assertTrue(head().getUUID().equals(identity), "Cross-layer head identity changed");
-            helper.assertTrue(head().getContraption().getBlocks().size() == 5, "Cross-layer structure changed");
+            helper.assertTrue(head().getContraption().getBlocks().size() == (withStation ? 9 : 5), "Cross-layer structure changed");
             helper.assertTrue(count(Items.DIAMOND) == 3, "Cross-layer cargo was lost or duplicated");
         }
 

@@ -34,5 +34,21 @@
   "status.aeronautics_innerworld.layer_ineligible": "Transfer requires no passengers; check head extent and return connection",
   "message.aeronautics_innerworld.head_reconnected": "Drill head reconnected to its original controller.",
   "message.aeronautics_innerworld.head_controller_missing": "Replace the drill controller at its original position before reconnecting.",
-  "message.aeronautics_innerworld.head_controller_busy": "The original controller is already assigned to another drill head."
+  "message.aeronautics_innerworld.head_controller_busy": "The original controller is already assigned to another drill head.",
+  "message.aeronautics_innerworld.station_wrong_layer": "Bore stations connect the Overworld and Mantle through a drilled shaft.",
+  "message.aeronautics_innerworld.station_too_far": "Place the Overworld station within 32 blocks of its controller.",
+  "message.aeronautics_innerworld.station_bound": "Station bound. Drill through and place the other station to connect.",
+  "message.aeronautics_innerworld.station_connected": "Bore stations connected.",
+  "message.aeronautics_innerworld.station_waiting": "Place the station carried by the drill head in the Mantle first.",
+  "message.aeronautics_innerworld.station_controller_missing": "The original drill controller is unavailable. Check or replace it at its original position.",
+  "message.aeronautics_innerworld.station_no_power": "The drill has no available rotational power. Check its supply and try again.",
+  "message.aeronautics_innerworld.station_player_busy": "Dismount and wait a moment before using the station.",
+  "message.aeronautics_innerworld.station_unavailable": "The other station is disconnected. Bind the stations again.",
+  "message.aeronautics_innerworld.station_exit_blocked": "Leave two dry air blocks and a solid floor in front of the destination station.",
+  "message.aeronautics_innerworld.station_unbound": "Bind this station with a drill remote assigned to a controller.",
+  "message.aeronautics_innerworld.station_destination": "Destination: %s (%s, %s, %s)",
+  "block.aeronautics_innerworld.bore_station": "Bore Station",
+  "dimension.aeronautics_innerworld.overworld": "Overworld",
+  "dimension.aeronautics_innerworld.mantle": "Mantle",
+  "item.aeronautics_innerworld.drill_remote.station_binding": "Use on stations to connect them to the same bore"
 }

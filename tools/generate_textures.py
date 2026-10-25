@@ -114,6 +114,17 @@ def generate():
     c.grain()
     c.save('block/controller_back.png')
 
+    c = plate()
+    c.rect(3, 2, 12, 13, COPPER)
+    c.rect(4, 3, 11, 12, DARK)
+    c.rect(5, 4, 6, 11, STEEL)
+    c.rect(9, 4, 10, 11, STEEL)
+    c.rect(6, 7, 6, 8, BRASS)
+    c.rect(9, 7, 9, 8, BRASS)
+    c.rect(6, 2, 9, 2, AMBER)
+    c.grain()
+    c.save('block/bore_station_front.png')
+
     c = Canvas(32)
     c.rect(22, 2, 24, 9, DARK)
     c.rect(22, 1, 24, 2, BRASS)

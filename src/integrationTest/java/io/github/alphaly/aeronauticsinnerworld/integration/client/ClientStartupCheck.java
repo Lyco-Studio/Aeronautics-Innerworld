@@ -57,12 +57,17 @@ public final class ClientStartupCheck {
                     throw new IllegalStateException("Controller model was not loaded");
                 }
             }
+            for (var stationState : AeronauticsInnerworld.BORE_STATION.get().getStateDefinition().getPossibleStates()) {
+                if (client.getBlockRenderer().getBlockModel(stationState) == client.getModelManager().getMissingModel()) {
+                    throw new IllegalStateException("Bore station model was not loaded");
+                }
+            }
             drillCheck = new DrillControllerClientCheck(client);
         }
         if (drillCheck != null) {
             try {
                 if (drillCheck.tick(client)) {
-                    Screenshot.grab(client.gameDirectory, "drill-controller-check.png", client.getMainRenderTarget(),
+                    Screenshot.grab(client.gameDirectory, "bore-station-check.png", client.getMainRenderTarget(),
                             message -> LogUtils.getLogger().info("Drill check screenshot: {}", message.getString()));
                     cleanup = drillCheck.cleanUp(client);
                 }

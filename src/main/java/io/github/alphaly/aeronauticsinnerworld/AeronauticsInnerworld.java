@@ -11,6 +11,8 @@ import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBloc
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillHeadEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.MultiAxisCutterMovementBehaviour;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillRemoteItem;
+import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlockEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -52,6 +54,13 @@ public final class AeronauticsInnerworld {
     public static final DeferredItem<BlockItem> DRILL_CONTROLLER_ITEM = ITEMS.registerSimpleBlockItem(DRILL_CONTROLLER);
     public static final DeferredItem<DrillRemoteItem> DRILL_REMOTE = ITEMS.register("drill_remote",
             () -> new DrillRemoteItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredBlock<BoreStationBlock> BORE_STATION = BLOCKS.register("bore_station",
+            () -> new BoreStationBlock(BlockBehaviour.Properties.of().strength(3.5f).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()));
+    public static final DeferredItem<BlockItem> BORE_STATION_ITEM = ITEMS.registerSimpleBlockItem(BORE_STATION);
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BoreStationBlockEntity>> BORE_STATION_ENTITY =
+            BLOCK_ENTITIES.register("bore_station", () -> BlockEntityType.Builder.of(
+                    BoreStationBlockEntity::new, BORE_STATION.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DrillControllerBlockEntity>> DRILL_CONTROLLER_ENTITY =
             BLOCK_ENTITIES.register("drill_controller", () -> BlockEntityType.Builder.of(
                     DrillControllerBlockEntity::new, DRILL_CONTROLLER.get()).build(null));
@@ -77,8 +86,13 @@ public final class AeronauticsInnerworld {
             MovementBehaviour.REGISTRY.register(MULTI_AXIS_CUTTER.get(), new MultiAxisCutterMovementBehaviour());
             BlockMovementChecks.registerNotSupportiveCheck((state, direction) ->
                     state.is(MULTI_AXIS_CUTTER) ? CheckResult.SUCCESS : CheckResult.PASS);
-            BlockMovementChecks.registerMovementAllowedCheck((state, level, pos) ->
-                    state.is(DRILL_CONTROLLER) ? CheckResult.FAIL : CheckResult.PASS);
+            BlockMovementChecks.registerMovementAllowedCheck((state, level, pos) -> {
+                if (state.is(DRILL_CONTROLLER) || (state.is(BORE_STATION)
+                        && level.getBlockEntity(pos) instanceof BoreStationBlockEntity station && station.getPartner() != null)) {
+                    return CheckResult.FAIL;
+                }
+                return CheckResult.PASS;
+            });
         });
     }
 
@@ -87,6 +101,7 @@ public final class AeronauticsInnerworld {
             event.accept(MULTI_AXIS_CUTTER_ITEM);
             event.accept(DRILL_CONTROLLER_ITEM);
             event.accept(DRILL_REMOTE);
+            event.accept(BORE_STATION_ITEM);
         }
     }
 }

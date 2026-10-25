@@ -2,6 +2,7 @@
   "replace": false,
   "values": [
     "aeronautics_innerworld:multi_axis_cutter",
-    "aeronautics_innerworld:drill_controller"
+    "aeronautics_innerworld:drill_controller",
+    "aeronautics_innerworld:bore_station"
   ]
 }
