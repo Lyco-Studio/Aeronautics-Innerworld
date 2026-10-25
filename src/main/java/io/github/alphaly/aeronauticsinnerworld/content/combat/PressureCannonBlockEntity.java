@@ -17,6 +17,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 public final class PressureCannonBlockEntity extends KineticBlockEntity implements Clearable {
@@ -70,6 +71,14 @@ public final class PressureCannonBlockEntity extends KineticBlockEntity implemen
         }
         projectile.setPos(muzzle);
         projectile.shoot(direction.x, direction.y, direction.z, 1.5f, 0);
+        var box = ship.getPlot().getBoundingBox();
+        var crewSpace = new AABB(box.minX(), box.minY(), box.minZ(), box.maxX() + 1, box.maxY() + 1, box.maxZ() + 1);
+        var owner = level.getNearestPlayer(muzzle.x, muzzle.y, muzzle.z, 12,
+                player -> !player.isSpectator() && crewSpace.contains(
+                        ship.logicalPose().transformPositionInverse(player.getBoundingBox().getCenter())));
+        if (owner != null) {
+            projectile.setOwner(owner);
+        }
         if (level.addFreshEntity(projectile)) {
             ammunition.extractItem(0, 1, false);
             cooldown = Math.max(10, 640 / Math.round(Math.abs(getSpeed())));

@@ -1,0 +1,33 @@
+{
+  "type": "create:mixing",
+  "heat_requirement": "heated",
+  "ingredients": [
+    {
+      "item": "aeronautics_innerworld:relic_alloy"
+    },
+    {
+      "item": "aeronautics_innerworld:harmonic_crystal"
+    },
+    {
+      "item": "aeronautics_innerworld:harmonic_crystal"
+    },
+    {
+      "item": "aeronautics_innerworld:molten_scale"
+    },
+    {
+      "item": "aeronautics_innerworld:molten_scale"
+    },
+    {
+      "item": "minecraft:iron_ingot"
+    },
+    {
+      "item": "minecraft:iron_ingot"
+    }
+  ],
+  "results": [
+    {
+      "id": "aeronautics_innerworld:relic_alloy",
+      "count": 2
+    }
+  ]
+}

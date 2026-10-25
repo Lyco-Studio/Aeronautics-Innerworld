@@ -4,6 +4,7 @@ import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import dev.ryanhcode.sable.Sable;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
@@ -19,6 +20,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
@@ -33,6 +35,7 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
     };
     private BlockPos target;
     private float progress;
+    private java.util.UUID specimen;
     private String status = "sampler_idle";
 
     public MantleSamplerBlockEntity(BlockPos pos, BlockState state) {
@@ -76,13 +79,16 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
         var direction = ship.logicalPose().transformNormal(
                 Vec3.atLowerCornerOf(getBlockState().getValue(ProbeDeviceBlock.FACING).getNormal()));
         BlockPos found = null;
+        int clearDistance = 4;
         for (int i = 1; i <= 4; i++) {
             var pos = BlockPos.containing(origin.add(direction.scale(i)));
             if (!level.hasChunkAt(pos)) {
+                clearDistance = i - 1;
                 break;
             }
             var state = level.getBlockState(pos);
             if (!state.getCollisionShape(level, pos).isEmpty()) {
+                clearDistance = i - 1;
                 if (state.is(MINEABLE)) {
                     found = pos;
                 }
@@ -90,15 +96,19 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
             }
         }
         if (found == null) {
-            status = "sampler_no_target";
-            target = null;
-            progress = 0;
+            if (!sampleCreature(server, origin, direction, clearDistance)) {
+                status = "sampler_no_target";
+                target = null;
+                progress = 0;
+                specimen = null;
+            }
             return;
         }
-        if (!found.equals(target)) {
+        if (specimen != null || !found.equals(target)) {
             target = found;
             progress = 0;
         }
+        specimen = null;
         status = "sampler_working";
         progress += Math.min(256, Math.abs(getSpeed())) / 32;
         if (progress < 20) {
@@ -118,14 +128,70 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
             for (int slot = 0; slot < 9; slot++) {
                 inventory.setStackInSlot(slot, pending.getStackInSlot(slot));
             }
-            if (ship instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel serverShip) {
-                for (var actor : serverShip.getPlot().getBlockEntityActors()) {
-                    if (actor instanceof CabinRegulatorBlockEntity cabin) {
-                        cabin.addWorkHeat(1);
-                    }
-                }
+            addWorkHeat();
+            progress = 0;
+        }
+    }
+
+    private boolean sampleCreature(ServerLevel server, Vec3 origin, Vec3 direction, int reach) {
+        if (reach < 1) {
+            return false;
+        }
+        LavaStalker nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (var creature : server.getEntitiesOfClass(LavaStalker.class,
+                new AABB(origin, origin.add(direction.scale(reach))).inflate(1.25))) {
+            var center = creature.getBoundingBox().getCenter();
+            double along = center.subtract(origin).dot(direction);
+            if (creature.isNeutral() && creature.isAlive() && creature.getTarget() == null && along >= .5 && along <= reach
+                    && center.distanceToSqr(origin.add(direction.scale(along))) <= 1 && along < nearestDistance) {
+                nearest = creature;
+                nearestDistance = along;
+            }
+        }
+        if (nearest == null) {
+            return false;
+        }
+        if (nearest.getSampleCooldown() > 0) {
+            status = "sampler_grazer_wait";
+            target = null;
+            progress = 0;
+            specimen = null;
+            return true;
+        }
+        if (!nearest.getUUID().equals(specimen)) {
+            specimen = nearest.getUUID();
+            progress = 0;
+        }
+        target = nearest.blockPosition();
+        status = "sampler_grazer_working";
+        progress += Math.min(256, Math.abs(getSpeed())) / 32;
+        if (progress < 20) {
+            return true;
+        }
+        var pending = new ItemStackHandler(9);
+        pending.deserializeNBT(level.registryAccess(), inventory.serializeNBT(level.registryAccess()));
+        if (!ItemHandlerHelper.insertItemStacked(pending, new ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get()), false).isEmpty()) {
+            status = "sampler_full";
+            return true;
+        }
+        if (!nearest.takeSample().isEmpty()) {
+            for (int slot = 0; slot < 9; slot++) {
+                inventory.setStackInSlot(slot, pending.getStackInSlot(slot));
             }
             progress = 0;
+            addWorkHeat();
+        }
+        return true;
+    }
+
+    private void addWorkHeat() {
+        if (Sable.HELPER.getContaining(this) instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel ship) {
+            for (var actor : ship.getPlot().getBlockEntityActors()) {
+                if (actor instanceof CabinRegulatorBlockEntity cabin) {
+                    cabin.addWorkHeat(1);
+                }
+            }
         }
     }
 

@@ -39,12 +39,24 @@
         "minCount": 1,
         "maxCount": 1
       }
+    ],
+    "creature": [
+      {
+        "type": "aeronautics_innerworld:mantle_grazer",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      }
     ]
   },
   "spawn_costs": {
     "aeronautics_innerworld:lava_stalker": {
       "energy_budget": 0.15,
       "charge": 0.7
+    },
+    "aeronautics_innerworld:mantle_grazer": {
+      "energy_budget": 0.1,
+      "charge": 0.8
     }
   }
 }

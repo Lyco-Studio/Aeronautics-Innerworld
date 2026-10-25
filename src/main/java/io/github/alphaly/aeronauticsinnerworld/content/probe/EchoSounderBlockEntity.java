@@ -151,7 +151,9 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                 double distance = creature.distanceToSqr(origin);
                 if (creature.isAlive() && distance <= 32 * 32) {
                     creature.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false, true));
-                    if (distance < threatDistance) {
+                    boolean hostile = !creature.isNeutral() || creature.getTarget() != null;
+                    boolean currentHostile = threat != null && (!threat.isNeutral() || threat.getTarget() != null);
+                    if (threat == null || hostile && !currentHostile || hostile == currentHostile && distance < threatDistance) {
                         threat = creature;
                         threatDistance = distance;
                     }
@@ -219,6 +221,10 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_threat",
                     threat.getName(), threat.blockPosition().getX(), threat.blockPosition().getY(), threat.blockPosition().getZ(),
                     Math.round(position().distanceTo(threat.position()))), false);
+            if (threat.isNeutral()) {
+                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.grazer_sample",
+                        (threat.getSampleCooldown() + 19) / 20), false);
+            }
         }
         if (Sable.HELPER.getContaining(this) instanceof ServerSubLevel ship) {
             for (var actor : ship.getPlot().getBlockEntityActors()) {

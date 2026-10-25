@@ -363,6 +363,20 @@ def generate():
     c.grain()
     c.save('entity/lava_stalker.png')
 
+    c = Canvas(64, (55, 66, 62, 255))
+    for y in range(64):
+        for x in range(64):
+            if (x + (y // 6) * 4) % 12 < 3:
+                c.dot(x, y, (113, 133, 115, 255))
+            elif y % 8 < 2:
+                c.dot(x, y, (29, 48, 45, 255))
+    c.rect(0, 30, 31, 31, COPPER)
+    c.rect(48, 32, 55, 36, (86, 207, 193, 255))
+    c.rect(50, 33, 51, 35, (192, 242, 208, 255))
+    c.rect(40, 50, 59, 51, COPPER)
+    c.grain()
+    c.save('entity/mantle_grazer.png')
+
     c = Canvas(32)
     c.rect(9, 5, 22, 19, DARK)
     c.rect(6, 10, 25, 22, COPPER)

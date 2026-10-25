@@ -147,5 +147,11 @@
   "book.aeronautics_innerworld.page.17": "舱外防护\n\n熔甲鳞片可制成隔热面罩与护衣。面罩将热暴露时限延至10秒，护衣15秒，成套20秒。成套穿戴还会提供短时抗火。达到时限仍会受热伤害，需及时返回干燥空间或密封舱冷却。",
   "message.aeronautics_innerworld.hull_breach": "船体破口",
   "message.aeronautics_innerworld.sonar_combat_hud": "Y%s | %s %sm %s Y%s | 热%s%% 冷%ss",
-  "message.aeronautics_innerworld.sonar_threat": "生物回波：%s · %s，%s，%s · %s 米"
+  "message.aeronautics_innerworld.sonar_threat": "生物回波：%s · %s，%s，%s · %s 米",
+  "entity.aeronautics_innerworld.mantle_grazer": "地幔滤食者",
+  "message.aeronautics_innerworld.grazer_warning": "滤食者正在警戒，保持距离并停止侵扰。",
+  "message.aeronautics_innerworld.grazer_sample": "温和采样恢复：约 %s 秒。",
+  "message.aeronautics_innerworld.sampler_grazer_wait": "滤食者正在重新积累矿物，稍后再来。",
+  "message.aeronautics_innerworld.sampler_grazer_working": "正在温和采样；取得样本后保持距离。",
+  "book.aeronautics_innerworld.page.18": "温和采集\n\n滤食者容忍短时靠近。采样器可温和取得粗谐振矿，每只约一分钟恢复一次；采完及时撤离，持续侵扰或攻击会招致反击。谐振晶体、鳞片、铁锭与回收合金可在加热搅拌中重铸更多合金。"
 }

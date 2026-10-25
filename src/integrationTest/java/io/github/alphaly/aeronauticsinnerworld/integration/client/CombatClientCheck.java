@@ -46,6 +46,7 @@ public final class CombatClientCheck {
     private static boolean checkedArmor;
     private static int outlineFrames;
     private static boolean capturedEnemy;
+    private static boolean checkedGrazer;
     private static boolean finished;
 
     @SubscribeEvent
@@ -87,7 +88,7 @@ public final class CombatClientCheck {
             }
             scene = setup.join();
             if (!checkedModels && scene.ticks >= 45) {
-                BookLayoutChecks.check(client, scene.manual, 17);
+                BookLayoutChecks.check(client, scene.manual, 18);
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.PRESSURE_CANNON.get().defaultBlockState())
                         == client.getModelManager().getMissingModel()) {
                     throw new IllegalStateException("Pressure cannon model is missing");
@@ -111,6 +112,15 @@ public final class CombatClientCheck {
                 Screenshot.grab(client.gameDirectory, "mantle-probe-cannon.png", client.getMainRenderTarget(),
                         message -> LogUtils.getLogger().info("Cannon encounter screenshot: {}", message.getString()));
                 capturedEnemy = true;
+            }
+            if (!checkedGrazer && scene.grazer != null && scene.grazer.isAlive()
+                    && client.level.getEntity(scene.grazer.getId()) instanceof LavaStalker grazer) {
+                var renderer = client.getEntityRenderDispatcher().getRenderer(grazer);
+                if (!grazer.isNeutral() || !(renderer instanceof LavaStalkerRenderer)
+                        || !renderer.getTextureLocation(grazer).getPath().endsWith("mantle_grazer.png")) {
+                    throw new IllegalStateException("Neutral grazer did not retain its distinct identity and skin");
+                }
+                checkedGrazer = true;
             }
             if (scene.ticks == 180 && !checkedArmor) {
                 if (++armorFrames == 1) {
@@ -169,6 +179,10 @@ public final class CombatClientCheck {
         private final ProbeTestRig rig;
         private final ItemStack manual;
         private LavaStalker predator;
+        private LavaStalker grazer;
+        private int grazerSince;
+        private boolean provoked;
+        private boolean grazerRetaliated;
         private int ticks;
         private boolean killed;
         private float protectedHealth;
@@ -248,12 +262,38 @@ public final class CombatClientCheck {
             if (ticks == 160 && !killed) {
                 throw new IllegalStateException("Occupied probe did not defeat its target");
             }
+            if (killed && ticks >= 120 && grazer == null) {
+                grazer = AeronauticsInnerworld.MANTLE_GRAZER.get().create(rig.level);
+                var direction = rig.subLevel.logicalPose().transformNormal(new Vec3(0, 0, -1));
+                grazer.setPos(rig.world(ProbeTestRig.CANNON).add(direction.scale(3)).add(0, -.5, 0));
+                grazer.setNoGravity(true);
+                grazerSince = ticks;
+                rig.level.addFreshEntity(grazer);
+            }
+            if (grazer != null && !grazerRetaliated && ticks - grazerSince >= 20 && !provoked) {
+                if (grazer.getTarget() != null || !checkedGrazer) {
+                    throw new IllegalStateException("Grazer attacked a nearby crew without warning or failed to synchronize");
+                }
+                rig.motor(ProbeTestRig.CANNON, 32);
+                provoked = true;
+            }
+            if (provoked && !grazerRetaliated && grazer.getTarget() != null) {
+                if (grazer.getTarget() != player) {
+                    throw new IllegalStateException("Crew-fired pressure bolt attributed the retaliation to the wrong entity");
+                }
+                grazerRetaliated = true;
+                rig.motor(ProbeTestRig.CANNON, 0);
+                grazer.discard();
+            }
             if (ticks == 175) {
                 player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(AeronauticsInnerworld.HEATWEAVE_HELMET.get()));
                 player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get()));
                 player.containerMenu.broadcastChanges();
             }
             if (ticks == 200) {
+                if (!grazerRetaliated) {
+                    throw new IllegalStateException("Provoked grazer did not retaliate against its actual shooter");
+                }
                 protectedHealth = player.getHealth();
                 var outside = rig.world(new BlockPos(-6, 1, 2));
                 player.teleportTo(rig.level, outside.x, outside.y, outside.z, 180, 0);
@@ -285,6 +325,9 @@ public final class CombatClientCheck {
         private void cleanUp() {
             if (predator != null) {
                 predator.discard();
+            }
+            if (grazer != null) {
+                grazer.discard();
             }
             rig.cleanUp();
             player.teleportTo(oldLevel, oldPosition.x, oldPosition.y, oldPosition.z, oldYaw, oldPitch);

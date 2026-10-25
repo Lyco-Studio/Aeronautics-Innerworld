@@ -176,6 +176,9 @@ public final class AeronauticsInnerworld {
     public static final DeferredHolder<EntityType<?>, EntityType<LavaStalker>> LAVA_STALKER =
             ENTITIES.register("lava_stalker", () -> EntityType.Builder.of(LavaStalker::new, MobCategory.MONSTER)
                     .sized(1.1f, .7f).clientTrackingRange(8).fireImmune().build(MOD_ID + ":lava_stalker"));
+    public static final DeferredHolder<EntityType<?>, EntityType<LavaStalker>> MANTLE_GRAZER =
+            ENTITIES.register("mantle_grazer", () -> EntityType.Builder.of(LavaStalker::new, MobCategory.CREATURE)
+                    .sized(1.6f, 1).clientTrackingRange(8).fireImmune().build(MOD_ID + ":mantle_grazer"));
     public static final DeferredHolder<EntityType<?>, EntityType<PressureBoltEntity>> PRESSURE_BOLT_ENTITY =
             ENTITIES.register("pressure_bolt", () -> EntityType.Builder.<PressureBoltEntity>of(PressureBoltEntity::new, MobCategory.MISC)
                     .sized(.25f, .25f).clientTrackingRange(8).updateInterval(1).fireImmune().build(MOD_ID + ":pressure_bolt"));
@@ -198,10 +201,14 @@ public final class AeronauticsInnerworld {
 
     private void attributes(EntityAttributeCreationEvent event) {
         event.put(LAVA_STALKER.get(), LavaStalker.attributes().build());
+        event.put(MANTLE_GRAZER.get(), LavaStalker.attributes().add(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH, 40)
+                .add(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR, 4).build());
     }
 
     private void spawnPlacements(RegisterSpawnPlacementsEvent event) {
         event.register(LAVA_STALKER.get(), SpawnPlacementTypes.NO_RESTRICTIONS, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                LavaStalker::canSpawn, RegisterSpawnPlacementsEvent.Operation.REPLACE);
+        event.register(MANTLE_GRAZER.get(), SpawnPlacementTypes.NO_RESTRICTIONS, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 LavaStalker::canSpawn, RegisterSpawnPlacementsEvent.Operation.REPLACE);
     }
 

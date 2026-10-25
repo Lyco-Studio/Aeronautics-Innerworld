@@ -167,6 +167,23 @@ public final class ProbeTestRig {
         return pos;
     }
 
+    public Vec3 creatureSamplingTarget() {
+        var origin = world(SAMPLER);
+        var direction = subLevel.logicalPose().transformNormal(new Vec3(0, 0, -1));
+        for (int i = 1; i <= 4; i++) {
+            var pos = BlockPos.containing(origin.add(direction.scale(i)));
+            original.putIfAbsent(pos, level.getBlockState(pos));
+            level.setBlockAndUpdate(pos, Blocks.LAVA.defaultBlockState());
+        }
+        var center = origin.add(direction.scale(3));
+        var block = BlockPos.containing(center);
+        for (var pos : BlockPos.betweenClosed(block.offset(-1, -1, -1), block.offset(1, 1, 1))) {
+            original.putIfAbsent(pos.immutable(), level.getBlockState(pos));
+            level.setBlockAndUpdate(pos, Blocks.LAVA.defaultBlockState());
+        }
+        return center.add(0, -.5, 0);
+    }
+
     public EchoSounderBlockEntity sounder() {
         return (EchoSounderBlockEntity) level.getBlockEntity(local(SOUNDER));
     }

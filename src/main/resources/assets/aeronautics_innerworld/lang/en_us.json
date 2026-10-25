@@ -147,5 +147,11 @@
   "book.aeronautics_innerworld.page.17": "Heatweave gear\n\nStalker scales make a mask and jacket. Heat limits: mask 10 s, jacket 15 s, both 20 s. A full set also resists fire below its heat limit. Cool down in a dry space; the suit is for brief work.",
   "message.aeronautics_innerworld.hull_breach": "Hull breach",
   "message.aeronautics_innerworld.sonar_combat_hud": "Y%s | %s %sm %s Y%s | H%s%% C%ss",
-  "message.aeronautics_innerworld.sonar_threat": "Creature echo: %s at %s, %s, %s · %s m"
+  "message.aeronautics_innerworld.sonar_threat": "Creature echo: %s at %s, %s, %s · %s m",
+  "entity.aeronautics_innerworld.mantle_grazer": "Mantle Grazer",
+  "message.aeronautics_innerworld.grazer_warning": "The grazer is becoming agitated; give it space.",
+  "message.aeronautics_innerworld.grazer_sample": "Gentle sampling recovers in about %s seconds.",
+  "message.aeronautics_innerworld.sampler_grazer_wait": "The grazer is accumulating minerals; return later.",
+  "message.aeronautics_innerworld.sampler_grazer_working": "Gentle sampling in progress; withdraw after collection.",
+  "book.aeronautics_innerworld.page.18": "Gentle harvesting\n\nGrazers tolerate brief visits. A sampler can recover one raw harmonic mineral per minute without harm. Withdraw after sampling; repeated intrusion or attacks provoke them. Use heated mixing to recast relic alloy."
 }
