@@ -165,7 +165,7 @@ public final class CoreWarden extends Monster {
         var advancement = server.getServer().getAdvancements().get(ResourceLocation.fromNamespaceAndPath("aeronautics_innerworld", "exploration/core_victory"));
         for (var identity : participants) {
             var player = server.getServer().getPlayerList().getPlayer(identity);
-            if (player == null || player.level() != server || player.distanceToSqr(this) > 64 * 64 || advancement == null) continue;
+            if (player == null || advancement == null) continue;
             boolean first = !player.getAdvancements().getOrStartProgress(advancement).isDone();
             player.getAdvancements().award(advancement, "defeat");
             if (first) player.sendSystemMessage(Component.translatable("message.aeronautics_innerworld.core_ending"));

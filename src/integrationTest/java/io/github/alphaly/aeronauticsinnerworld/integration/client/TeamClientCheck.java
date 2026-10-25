@@ -216,13 +216,15 @@ public final class TeamClientCheck {
                     if (warden.getHealth() >= 8) return;
                     require(warden.isAlive(), "First participant unexpectedly killed the shared target");
                     guest.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);guest.containerMenu.broadcastChanges();
+                    guest.teleportTo((net.minecraft.server.level.ServerLevel) warden.level(),
+                            warden.getX() + 80, warden.getY(), warden.getZ(), 0, 0);
                     signal(host, "attack", BlockPos.ZERO, new ItemStack(Items.DIAMOND_SWORD));next(6);
                 }
                 case 6 -> {
                     if (warden.isAlive() || console.getBossId() != null || !console.hasVictory()) return;
                     var advancement = host.server.getAdvancements().get(id("exploration/core_victory"));
                     require(host.getAdvancements().getOrStartProgress(advancement).isDone()
-                            && guest.getAdvancements().getOrStartProgress(advancement).isDone(), "A real combat participant lost shared story completion");
+                            && guest.getAdvancements().getOrStartProgress(advancement).isDone(), "A retreating combat participant lost shared story completion");
                     transit = new CoreTransitFixture(host, entrance, outward);
                     guest.teleportTo(host.server.getLevel(Core.LEVEL), entrance.getX() + .5, entrance.getY(), entrance.getZ() + .5, 0, 0);
                     signal(host, "travel", transit.coreStation, ItemStack.EMPTY);next(7);
