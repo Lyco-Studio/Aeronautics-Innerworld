@@ -31,6 +31,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -59,6 +60,16 @@ public final class LavaStalker extends Monster {
                 && pos.getY() > 8 && pos.getY() < 198 && level.getFluidState(pos).is(FluidTags.LAVA)
                 && level.getFluidState(pos.above()).is(FluidTags.LAVA)
                 && (reason == MobSpawnType.SPAWN_EGG || reason == MobSpawnType.SPAWNER || random.nextInt(8) == 0);
+    }
+
+    @Override
+    public boolean checkSpawnObstruction(LevelReader level) {
+        return level.getFluidState(blockPosition()).is(FluidTags.LAVA) && level.noCollision(this);
+    }
+
+    @Override
+    public float getWalkTargetValue(BlockPos pos, LevelReader level) {
+        return level.getFluidState(pos).is(FluidTags.LAVA) ? 10 : -10;
     }
 
     @Override
