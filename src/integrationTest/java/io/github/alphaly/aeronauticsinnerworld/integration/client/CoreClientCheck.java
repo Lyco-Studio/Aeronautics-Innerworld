@@ -27,6 +27,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -54,14 +55,14 @@ public final class CoreClientCheck {
         if (!Boolean.getBoolean("innerworld.coreClientCheck") || finished) return;
         var client = Minecraft.getInstance();
         try {
-            if (++ticks > (FULL_COMBAT ? 7200 : 2400) && cleanup == null) throw new IllegalStateException("Core client timed out at stage " + observedStage);
+            if (++ticks > (FULL_COMBAT ? 18000 : 2400) && cleanup == null) throw new IllegalStateException("Core client timed out at stage " + observedStage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
                 cleanup.join();finished = true;
                 if (failure != null) throw failure;
                 Files.writeString(client.gameDirectory.toPath().resolve(FULL_COMBAT ? "core-combat-check.result" : "core-check.result"), "verified");
                 LogUtils.getLogger().info(FULL_COMBAT
-                        ? "Core survival combat check passed: full-health active Warden, ordinary armor and weapons, network combat controls, victory and supply round trip"
+                        ? "Core survival combat check passed: walking maze controls, full-health active Warden, ordinary equipment, network combat, victory and supply round trip"
                         : "Core client check passed: natural maze, surveyor, Warden renderer, attack warning, dodge, damage, network cooling, melee victory, story advancement and actual core/mantle supply round trip");
                 client.stop();return;
             }
@@ -74,11 +75,12 @@ public final class CoreClientCheck {
             scene = setup.join();
             if (!client.level.dimension().equals(Core.LEVEL) && scene.stage < 7) return;
             if (observedStage != scene.stage) {
-                if (observedStage == 10) releaseControls(client);
+                releaseControls(client);
                 observedStage = scene.stage;frames = 0;clicked = false;
             }
             frames++;
             if (observedStage == 10) fight(client);
+            if (observedStage >= 11 && observedStage <= 15) scene.walk.tickClient(client);
             if (!checkedBooks && frames > 15) {
                 BookLayoutChecks.check(client, scene.manual);BookLayoutChecks.check(client, scene.record);checkedBooks = true;
             }
@@ -128,11 +130,6 @@ public final class CoreClientCheck {
             if (entity instanceof CoreWarden warden && warden.getUUID().equals(scene.warden.getUUID())) { target = warden; break; }
         }
         if (target == null || !target.isAlive()) {releaseControls(client);return;}
-        if (!clicked && frames > 8) {
-            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
-                    new BlockHitResult(Vec3.atCenterOf(scene.valve), net.minecraft.core.Direction.UP, scene.valve, false));
-            clicked = true;
-        }
         var offset = target.position().add(0, 1.5, 0).subtract(client.player.getEyePosition());
         client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
         client.player.setXRot((float)-Math.toDegrees(Math.atan2(offset.y, Math.sqrt(offset.x * offset.x + offset.z * offset.z))));
@@ -185,7 +182,9 @@ public final class CoreClientCheck {
         private final BlockPos valve;
         private final BlockPos arena;
         private final BlockPos entrance;
+        private final BoundingBox bounds;
         private final net.minecraft.core.Direction outward;
+        private volatile CoreMazeWalk walk;
         private CoreTransitFixture transit;
         private CoreWarden warden;
         private volatile int stage;
@@ -212,7 +211,7 @@ public final class CoreClientCheck {
             var structure = level.registryAccess().registryOrThrow(Registries.STRUCTURE).get(id("core_maze"));
             var start = level.getChunkAt(located).getStartForStructure(structure);
             if (start == null || !start.isValid()) throw new IllegalStateException("Natural core maze has no structure start");
-            var box = start.getBoundingBox();
+            var box = start.getBoundingBox();bounds = box;
             for (int x = box.minX() >> 4; x <= box.maxX() >> 4; x++) for (int z = box.minZ() >> 4; z <= box.maxZ() >> 4; z++) level.getChunk(x, z);
             CoreConsoleBlockEntity found = null;ItemStack book = ItemStack.EMPTY;
             for (var pos : BlockPos.betweenClosed(box.minX(), box.minY() + 1, box.minZ(), box.maxX(), box.minY() + 1, box.maxZ())) {
@@ -231,6 +230,17 @@ public final class CoreClientCheck {
             var maze = (CoreMazePiece) start.getPieces().getFirst();entrance = maze.getEntrance();outward = maze.getOrientation().getOpposite();
             player.setGameMode(GameType.SURVIVAL);player.getAbilities().flying = false;player.onUpdateAbilities();
             player.getInventory().clearContent();player.setHealth(20);player.getFoodData().setFoodLevel(20);
+            if (FULL_COMBAT) {
+                player.server.setDifficulty(Difficulty.NORMAL, true);player.removeAllEffects();
+                player.getFoodData().setSaturation(5);
+                player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+                player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+                player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+                player.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+                player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
+                player.getInventory().setItem(1, new ItemStack(Items.COOKED_BEEF, 16));
+                player.getInventory().selected = 0;
+            }
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.CORE_SURVEYOR.get()));
             player.teleportTo(level, entrance.getX() + .5, entrance.getY(), entrance.getZ() + .5, 0, 0);player.containerMenu.broadcastChanges();
             since = level.getGameTime();
@@ -238,7 +248,27 @@ public final class CoreClientCheck {
 
         private void advance() {
             level.resetEmptyTime();
-            if (level.getGameTime() - since > (stage == 10 ? 6000 : 240)) throw new IllegalStateException("Core scene stalled at stage " + stage);
+            if (level.getGameTime() - since > (stage >= 10 ? 6000 : 240)) throw new IllegalStateException("Core scene stalled at stage " + stage + ", player=" + player.position());
+            if (stage >= 11 && stage <= 15) {
+                minimumHealth = Math.min(minimumHealth, player.getHealth());
+                if (player.getHealth() <= 8) throw new IllegalStateException("Maze walkthrough needs recovery at " + player.position());
+                walk.advance(player.position());
+                if (stage <= 13) {
+                    var node = BlockPos.of(originalConsole.getLongArray("Nodes")[stage - 11]);
+                    if (level.getBlockState(node).getValue(LeverBlock.POWERED)) {
+                        LogUtils.getLogger().info("Walked to and restored core node {} at {}, health {}", stage - 10, node, player.getHealth());
+                        if (stage == 13) walkTo(console.getBlockPos(), 14);
+                        else walkTo(BlockPos.of(originalConsole.getLongArray("Nodes")[stage - 10]), stage + 1);
+                    }
+                } else if (stage == 14 && console.getBossId() != null && level.getEntity(console.getBossId()) instanceof CoreWarden active) {
+                    warden = active;
+                    if (warden.getHealth() != warden.getMaxHealth() || warden.isNoAi()) throw new IllegalStateException("Walkthrough requires a fresh active Warden");
+                    walkTo(valve, 15);
+                } else if (stage == 15 && warden.isCoreExposed()) {
+                    player.getInventory().selected = 0;player.containerMenu.broadcastChanges();next(10);
+                }
+                return;
+            }
             if (stage == 10) {
                 minimumHealth = Math.min(minimumHealth, player.getHealth());
                 if (player.getHealth() <= 8) throw new IllegalStateException("Survival duel needs recovery: player=" + player.getHealth() + ", Warden=" + warden.getHealth());
@@ -258,6 +288,10 @@ public final class CoreClientCheck {
                 return;
             }
             if (stage == 0 && player.getCooldowns().isOnCooldown(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
+                if (FULL_COMBAT) {
+                    player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));player.containerMenu.broadcastChanges();
+                    walkTo(BlockPos.of(originalConsole.getLongArray("Nodes")[0]), 11);return;
+                }
                 for (long packed : originalConsole.getLongArray("Nodes")) {
                     var pos = BlockPos.of(packed);level.setBlockAndUpdate(pos, level.getBlockState(pos).setValue(LeverBlock.POWERED, true));
                 }
@@ -270,19 +304,6 @@ public final class CoreClientCheck {
                 }
                 if (console.getBossId() == null || !(level.getEntity(console.getBossId()) instanceof CoreWarden active)) return;
                 warden = active;player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-                if (FULL_COMBAT) {
-                    if (warden.getHealth() != warden.getMaxHealth() || warden.isNoAi()) throw new IllegalStateException("Survival duel requires a fresh active Warden");
-                    player.server.setDifficulty(Difficulty.NORMAL, true);
-                    player.removeAllEffects();player.getInventory().selected = 0;player.getFoodData().setSaturation(5);
-                    player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
-                    player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
-                    player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
-                    player.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
-                    player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
-                    player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
-                    player.getInventory().setItem(1, new ItemStack(Items.COOKED_BEEF, 16));player.containerMenu.broadcastChanges();
-                    player.teleportTo(level, valve.getX() - 1.5, valve.getY(), valve.getZ() + .5, -90, 0);next(10);return;
-                }
                 player.teleportTo(level, arena.getX() + .5, arena.getY(), arena.getZ() + 7.5, 180, 0);next(1);
             } else if (stage == 1 && warden.getAttackType() != 0) {
                 safeHealth = player.getHealth();
@@ -312,6 +333,10 @@ public final class CoreClientCheck {
         }
 
         private void next(int stage) {this.stage = stage;since = level.getGameTime();}
+
+        private void walkTo(BlockPos control, int stage) {
+            walk = new CoreMazeWalk(level, bounds, player.blockPosition(), control);next(stage);
+        }
 
         private void cleanUp() {
             if (transit != null) transit.cleanUp();
