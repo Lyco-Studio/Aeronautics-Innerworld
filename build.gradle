@@ -192,6 +192,7 @@ neoForge.runs.create('survivalTestClient') {
     gameDirectory = project.file('run/client')
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.survivalClientCheck', 'true'
+    systemProperty 'innerworld.survivalSteering', providers.gradleProperty('survivalSteering').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -374,6 +375,7 @@ tasks.named('runRelayTestClient') {
 }
 tasks.named('runSurvivalTestClient') {
     def result = layout.projectDirectory.file('run/client/survival-check.result')
+    def expected = providers.gradleProperty('survivalSteering').getOrElse('false') == 'true' ? 'steering-verified' : 'verified'
     doFirst {
         if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
             throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
@@ -381,7 +383,7 @@ tasks.named('runSurvivalTestClient') {
         result.asFile.delete()
     }
     doLast {
-        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+        if (!result.asFile.isFile() || result.asFile.text != expected) {
             throw new GradleException('Survival client check failed; inspect the client diagnostics.')
         }
     }
