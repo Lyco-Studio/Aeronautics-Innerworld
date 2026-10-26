@@ -43,7 +43,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder("aeronautics_innerworld_industry")
 @PrefixGameTestTemplate(false)
 public final class IndustryChecks {
-    @GameTest(template = "empty", timeoutTicks = 1600)
+    @GameTest(template = "empty", timeoutTicks = 2400)
     public static void processesExpeditionSuppliesAndDeepUpgrade(GameTestHelper helper) {
         var line = new Production(helper);
         helper.testInfo.addListener(new GameTestListener() {
@@ -54,6 +54,7 @@ public final class IndustryChecks {
         });
         helper.onEachTick(line::tick);
         helper.startSequence()
+                .thenWaitUntil(line::recoverNaturalOre)
                 .thenWaitUntil(line::checkPressedAndSmelted)
                 .thenExecute(line::stockBasin)
                 .thenExecuteAfter(60, line::checkColdAndFuel)
@@ -66,6 +67,7 @@ public final class IndustryChecks {
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final FakePlayer player;
+        private final NaturalOreSource mine;
         private final Map<BlockPos, BlockState> original = new LinkedHashMap<>();
         private final BlockPos burner, basin, mixer, mixerCrank, depot, press, pressCrank, furnace, bench;
         private int ticks, plates;
@@ -88,11 +90,13 @@ public final class IndustryChecks {
             player.setGameMode(GameType.SURVIVAL);player.setPos(Vec3.atBottomCenterOf(at(7, 2, 6)));
             ((DepotBlockEntity) level.getBlockEntity(depot)).setHeldItem(new ItemStack(Items.COPPER_INGOT));
             var oven = (AbstractFurnaceBlockEntity) level.getBlockEntity(furnace);
-            oven.setItem(0, new ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get(), 4));oven.setItem(1, new ItemStack(Items.COAL));
+            oven.setItem(1, new ItemStack(Items.COAL));
             player.getInventory().add(new ItemStack(AeronauticsInnerworld.RELIC_ALLOY.get(), 3));
             player.getInventory().add(new ItemStack(AllItems.PRECISION_MECHANISM.get(), 2));
             player.getInventory().add(new ItemStack(AeronauticsInnerworld.PRESSURE_MATRIX.get()));
             player.getInventory().add(new ItemStack(Items.GLASS, 2));player.getInventory().add(new ItemStack(Items.WATER_BUCKET));
+            player.getInventory().add(new ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get(), 3));
+            mine = new NaturalOreSource(helper);
         }
 
         private BlockPos at(int x, int y, int z) {return helper.absolutePos(new BlockPos(x, y, z));}
@@ -101,6 +105,7 @@ public final class IndustryChecks {
         private int count(Item item) {return player.getInventory().countItem(item);}
 
         void tick() {
+            mine.tick();
             if (++ticks % 10 == 0) {use(pressCrank, Direction.EAST);use(mixerCrank, Direction.UP);}
             var work = (DepotBlockEntity) level.getBlockEntity(depot);
             if (plates < 2 && work.getHeldItem().is(AllItems.COPPER_SHEET.get())) {
@@ -108,6 +113,15 @@ public final class IndustryChecks {
                 use(depot, Direction.UP);plates++;
                 if (plates == 1) work.setHeldItem(new ItemStack(Items.COPPER_INGOT));
             }
+        }
+
+        void recoverNaturalOre() {
+            var samples = mine.recover();
+            helper.assertTrue(player.getInventory().add(samples), "Factory worker could not receive the natural sample");
+            var raw = new ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get());
+            var input = player.getInventory().removeItem(player.getInventory().findSlotMatchingItem(raw), 4);
+            helper.assertTrue(input.getCount() == 4, "Natural sample did not join the three prepared processing inputs");
+            ((AbstractFurnaceBlockEntity) level.getBlockEntity(furnace)).setItem(0, input);
         }
 
         private void emptyHand() {
@@ -199,6 +213,7 @@ public final class IndustryChecks {
         }
 
         void cleanUp() {
+            mine.cleanUp();
             closeMenu();player.getInventory().clearContent();
             original.keySet().forEach(pos -> Clearable.tryClear(level.getBlockEntity(pos)));
             original.forEach(level::setBlockAndUpdate);
