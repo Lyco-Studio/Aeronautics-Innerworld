@@ -155,6 +155,21 @@ public final class ProbeTestRig {
         }
     }
 
+    public void cargoConnection() {
+        workEquipment();
+        for (var pos : List.of(new BlockPos(3, 0, 0), new BlockPos(4, 0, 0), new BlockPos(4, 0, 1))) {
+            place(pos, Blocks.HOPPER.defaultBlockState().setValue(net.minecraft.world.level.block.HopperBlock.FACING,
+                    pos.getX() == 3 ? Direction.EAST : Direction.SOUTH));
+        }
+        var connector = new BlockPos(4, 0, 2);
+        place(connector, SimBlocks.DOCKING_CONNECTOR.getDefaultState().setValue(BlockStateProperties.FACING, Direction.EAST));
+        place(connector.below(), Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.CEILING)
+                .setValue(LeverBlock.POWERED, true));
+        glue(connector, connector.below());
+        ((MantleSamplerBlockEntity) level.getBlockEntity(origin.offset(SAMPLER))).inventory.setStackInSlot(0,
+                new net.minecraft.world.item.ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get(), 17));
+    }
+
     public void combatEquipment() {
         workEquipment();
         device(CANNON, AeronauticsInnerworld.PRESSURE_CANNON.get(), Direction.NORTH);
