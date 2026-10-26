@@ -130,6 +130,20 @@ public final class CoreClientCheck {
             if (entity instanceof CoreWarden warden && warden.getUUID().equals(scene.warden.getUUID())) { target = warden; break; }
         }
         if (target == null || !target.isAlive()) {releaseControls(client);return;}
+        var zone = target.getHeatZone();
+        if (zone != null && client.player.position().subtract(Vec3.atBottomCenterOf(zone)).horizontalDistanceSqr() < 3.5 * 3.5) {
+            var away = client.player.position().subtract(Vec3.atBottomCenterOf(zone)).multiply(1, 0, 1);
+            if (away.lengthSqr() < .1) away = new Vec3(1, 0, 0);
+            away = away.normalize();
+            for (int turn = 0; turn < 4; turn++) {
+                if (client.level.noCollision(client.player, client.player.getBoundingBox().move(away.scale(1.5)))) break;
+                away = new Vec3(-away.z, 0, away.x);
+            }
+            client.player.setYRot((float)Math.toDegrees(Math.atan2(-away.x, away.z)));client.player.setXRot(0);
+            client.options.keyUp.setDown(true);client.options.keyDown.setDown(false);client.options.keyUse.setDown(false);
+            if (client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
+            return;
+        }
         var offset = target.position().add(0, 1.5, 0).subtract(client.player.getEyePosition());
         client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
         client.player.setXRot((float)-Math.toDegrees(Math.atan2(offset.y, Math.sqrt(offset.x * offset.x + offset.z * offset.z))));
@@ -192,6 +206,7 @@ public final class CoreClientCheck {
         private float safeHealth;
         private float minimumHealth = 20;
         private float lastBossHealth = 240;
+        private boolean sawHeatWarning;
 
         private Scene(ServerPlayer player) {
             this.player = player;oldLevel = player.serverLevel();oldPosition = player.position();oldYaw = player.getYRot();oldPitch = player.getXRot();
@@ -270,6 +285,7 @@ public final class CoreClientCheck {
                 return;
             }
             if (stage == 10) {
+                sawHeatWarning |= warden.getHeatZone() != null;
                 minimumHealth = Math.min(minimumHealth, player.getHealth());
                 if (player.getHealth() <= 8) throw new IllegalStateException("Survival duel needs recovery: player=" + player.getHealth() + ", Warden=" + warden.getHealth());
                 if ((int)warden.getHealth() / 20 != (int)lastBossHealth / 20) {
@@ -278,6 +294,7 @@ public final class CoreClientCheck {
                     lastBossHealth = warden.getHealth();
                 }
                 if (!warden.isAlive() && console.getBossId() == null && console.hasVictory()) {
+                    if (!sawHeatWarning) throw new IllegalStateException("Full Warden combat did not reach a heat-zone warning");
                     var advancement = player.server.getAdvancements().get(id("exploration/core_victory"));
                     if (!player.getAdvancements().getOrStartProgress(advancement).isDone()) throw new IllegalStateException("Survival victory was not recorded");
                     LogUtils.getLogger().info("Full-health Warden survival victory: {} ticks, minimum health {}, sword wear {}, shield wear {}",

@@ -64,7 +64,8 @@
                   "resolved": true,
                   "pages": [
                     "{\"translate\": \"book.aeronautics_innerworld.core.1\"}",
-                    "{\"translate\": \"book.aeronautics_innerworld.core.2\"}"
+                    "{\"translate\": \"book.aeronautics_innerworld.core.2\"}",
+                    "{\"translate\": \"book.aeronautics_innerworld.page.27\"}"
                   ]
                 }
               }

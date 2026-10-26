@@ -235,5 +235,8 @@
   "item.aeronautics_innerworld.coolant_cell.tooltip.summary": "右键舱室调节器，补充_120秒_冷却储备，出坞前携带备用冷却芯。",
   "item.aeronautics_innerworld.stabilized_coolant_cell.tooltip.summary": "右键舱室调节器，补充_240秒_冷却储备；每台调节器最多储备600秒。",
   "item.aeronautics_innerworld.repair_kit.tooltip.summary": "舱室热量_不高于70%_时，右键裂损舱壳或故障动力设备进行维修。缺失方块需要补装，敞开破口先封堵。",
-  "item.aeronautics_innerworld.core_surveyor.tooltip.summary": "在_地核_右键定位维护迷宫入口。徒步远征前准备食物、照明、防具和武器。"
+  "item.aeronautics_innerworld.core_surveyor.tooltip.summary": "在_地核_右键定位维护迷宫入口。徒步远征前准备食物、照明、防具和武器。",
+  "message.aeronautics_innerworld.warden_heat_warning": "取热回路泄漏：离开标记圈！冷却阀可以熄灭热区。",
+  "death.attack.core_heat": "%1$s被%2$s的回路热流吞没",
+  "book.aeronautics_innerworld.page.27": "回路热区\n\n第二阶段起，橙色圆圈预警回路泄漏，蓝色火焰出现前离开。\n\n冷却阀可以熄灭热区。隔热面罩和护衣可减少热流伤害，盾牌与普通护甲无法抵挡。"
 }

@@ -235,5 +235,8 @@
   "item.aeronautics_innerworld.coolant_cell.tooltip.summary": "Use on a cabin regulator for _120 seconds_ of cooling. Bring spare cells before leaving the dock.",
   "item.aeronautics_innerworld.stabilized_coolant_cell.tooltip.summary": "Use on a cabin regulator for _240 seconds_ of cooling. Each regulator holds up to 600 seconds.",
   "item.aeronautics_innerworld.repair_kit.tooltip.summary": "Use on a cracked hull plate or faulty drive when cabin heat is _70% or lower_. Replace missing blocks and patch open breaches first.",
-  "item.aeronautics_innerworld.core_surveyor.tooltip.summary": "Use in the _core_ to locate a maintenance labyrinth entrance. Take food, light, armor and weapons for the walking expedition."
+  "item.aeronautics_innerworld.core_surveyor.tooltip.summary": "Use in the _core_ to locate a maintenance labyrinth entrance. Take food, light, armor and weapons for the walking expedition.",
+  "message.aeronautics_innerworld.warden_heat_warning": "Heat leak marked: leave the circle! A coolant valve can extinguish it.",
+  "death.attack.core_heat": "%1$s was overwhelmed by %2$s's heat leak",
+  "book.aeronautics_innerworld.page.27": "Heat leaks\n\nFrom phase two, leave orange rings before blue fire ignites.\n\nValves extinguish heat. Heatweave gear reduces it; shields and ordinary armor do not."
 }
