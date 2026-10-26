@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,6 +39,7 @@ public final class ProbeClientCheck {
     private static Scene scene;
     private static RuntimeException failure;
     private static boolean finished;
+    private static boolean capturedPause, oldPause;
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -45,6 +47,8 @@ public final class ProbeClientCheck {
             return;
         }
         var client = Minecraft.getInstance();
+        if (!capturedPause) {oldPause = client.options.pauseOnLostFocus;capturedPause = true;client.options.pauseOnLostFocus = false;}
+        if (client.screen instanceof PauseScreen) client.setScreen(null);
         if (++ticks > 1800 && failure == null && cleanup == null) {
             failure = new IllegalStateException("Probe client check timed out");
         }
@@ -57,7 +61,7 @@ public final class ProbeClientCheck {
         }
         if (cleanup != null) {
             if (cleanup.isDone()) {
-                cleanup.join();
+                try {cleanup.join();} finally {client.options.pauseOnLostFocus = oldPause;client.options.save();}
                 if (failure != null) {
                     throw failure;
                 }

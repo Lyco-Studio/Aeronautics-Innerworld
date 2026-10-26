@@ -68,6 +68,8 @@ public final class SurvivalClientCheck {
         return Boolean.getBoolean("innerworld.survivalSteering");
     }
 
+    private static boolean constructing() {return Boolean.getBoolean("innerworld.survivalBuild");}
+
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
         if (!Boolean.getBoolean("innerworld.survivalClientCheck") || finished) {
@@ -77,11 +79,11 @@ public final class SurvivalClientCheck {
         if (!capturedOptions) {oldPause = client.options.pauseOnLostFocus;capturedOptions = true;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > (steering() ? 6000 : 1800) && cleanup == null) {
+            if (++ticks > (constructing() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
                 throw new IllegalStateException("Survival client check timed out");
             }
             if (cleanup != null) {
-                client.options.keyUse.setDown(false);
+                ProbeConstruction.release(client);
                 if (cleanup.isDone()) {
                     cleanup.join();
                     client.options.pauseOnLostFocus = oldPause;
@@ -89,8 +91,9 @@ public final class SurvivalClientCheck {
                     if (failure != null) {
                         throw failure;
                     }
-                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), steering() ? "steering-verified" : "verified");
-                    LogUtils.getLogger().info(steering() ? "Survival steering check passed: fueled quarter-turn, countersteer and native propulsion stop"
+                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
+                    LogUtils.getLogger().info(constructing() ? "Native survival probe build passed: block placement, fuel, glue and occupied assembly"
+                            : steering() ? "Survival steering check passed: fueled quarter-turn, countersteer and native propulsion stop"
                             : "Survival client check passed: bilingual guide, fueled probe and mechanical controls over the client connection");
                     finished = true;
                     client.stop();
@@ -109,7 +112,8 @@ public final class SurvivalClientCheck {
                 return;
             }
             scene = setup.join();
-            if (scene.rig.subLevel == null) assemble(client);
+            if (scene.construction != null && !scene.construction.complete) scene.construction.tickClient(client);
+            else if (scene.rig.subLevel == null) assemble(client);
             if (scene.ticks == 40 && !readGuide) {
                 if (!openedGuide && client.player.getMainHandItem().is(Items.WRITTEN_BOOK)) {
                     client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
@@ -208,6 +212,7 @@ public final class SurvivalClientCheck {
                 throw new IllegalStateException("Survival client check failed", e);
             }
             failure = new IllegalStateException("Survival client check failed", e);
+            ProbeConstruction.release(client);
             client.setScreen(null);
             cleanup = client.getSingleplayerServer().submit(() -> {
                 if (scene != null) {
@@ -276,6 +281,7 @@ public final class SurvivalClientCheck {
         private final CompoundTag oldFood = new CompoundTag();
         private final int oldExposure;
         private final ProbeTestRig rig;
+        private final ProbeConstruction construction;
         private final BlockPos assembler;
         private final java.util.Set<java.util.UUID> previousStructures = new java.util.HashSet<>();
         private int ticks;
@@ -301,23 +307,30 @@ public final class SurvivalClientCheck {
             oldEffects = player.getActiveEffects().stream().map(MobEffectInstance::new).toList();
             player.getFoodData().addAdditionalSaveData(oldFood);
             oldExposure = player.getPersistentData().getInt("InnerworldHeatExposure");
-            rig = new ProbeTestRig(player.server.getLevel(Mantle.LEVEL), new BlockPos(384, 180, 128));
-            rig.workEquipment();
-            rig.survivalPower();
-            assembler = rig.moveAssemblerInside();
+            if (constructing()) {
+                construction = new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), new BlockPos(768, 204, 128));
+                rig = construction.rig;assembler = construction.assembler;
+            } else {
+                construction = null;
+                rig = new ProbeTestRig(player.server.getLevel(Mantle.LEVEL), new BlockPos(384, 180, 128));
+                rig.workEquipment();rig.survivalPower();assembler = rig.moveAssemblerInside();
+            }
             SubLevelContainer.getContainer(rig.level).getAllSubLevels().forEach(structure -> previousStructures.add(structure.getUniqueId()));
             player.setGameMode(GameType.SURVIVAL);player.getInventory().clearContent();player.getInventory().selected = 0;
             player.removeAllEffects();player.setHealth(player.getMaxHealth());
-            var position = Vec3.atBottomCenterOf(assembler.south()).add(0, .05, 0);
+            if (construction != null) construction.supply();
+            var position = construction == null ? Vec3.atBottomCenterOf(assembler.south()).add(0, .05, 0) : construction.startingPosition();
             player.teleportTo(rig.level, position.x, position.y, position.z, 0, 0);player.containerMenu.broadcastChanges();
         }
 
         private boolean tick() {
             rig.level.resetEmptyTime();
+            if (construction != null && !construction.complete) {construction.advance();return false;}
             if (rig.subLevel == null) {
                 for (var structure : SubLevelContainer.getContainer(rig.level).getAllSubLevels()) {
                     if (!previousStructures.contains(structure.getUniqueId())) {
                         rig.acceptClientAssembly(structure);
+                        if (construction != null) construction.verifyAssembly();
                         LogUtils.getLogger().info("Fueled probe assembled through native client lever input: {}", structure.getUniqueId());
                         break;
                     }
@@ -325,6 +338,7 @@ public final class SurvivalClientCheck {
                 if (rig.subLevel == null) return false;
             }
             ++ticks;
+            if (constructing() && ticks == 41) return true;
             if (ticks == 40) {
                 if (!rig.cabin().isSealed() || player.getHealth() < player.getMaxHealth() || player.isInLava()) {
                     throw new IllegalStateException("Native probe assembly did not preserve crew protection");
@@ -451,6 +465,7 @@ public final class SurvivalClientCheck {
 
         private void cleanUp() {
             rig.cleanUp();
+            if (construction != null) construction.cleanUp();
             player.teleportTo(oldLevel, oldPosition.x, oldPosition.y, oldPosition.z, oldYaw, oldPitch);
             player.setGameMode(oldMode);
             player.getAbilities().flying = oldFlying;

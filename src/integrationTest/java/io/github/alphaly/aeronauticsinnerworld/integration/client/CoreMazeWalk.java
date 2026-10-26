@@ -16,6 +16,7 @@ final class CoreMazeWalk {
     private final ArrayDeque<BlockPos> steps = new ArrayDeque<>();
     private final BlockPos control;
     private final boolean interact;
+    private final boolean precise;
     private volatile BlockPos target;
     private boolean used;
 
@@ -24,7 +25,12 @@ final class CoreMazeWalk {
     }
 
     CoreMazeWalk(ServerLevel level, BoundingBox bounds, BlockPos from, BlockPos control, boolean interact) {
+        this(level, bounds, from, control, interact, false);
+    }
+
+    CoreMazeWalk(ServerLevel level, BoundingBox bounds, BlockPos from, BlockPos control, boolean interact, boolean stepsAllowed) {
         this.control = control;this.interact = interact;
+        precise = stepsAllowed;
         var parents = new HashMap<BlockPos, BlockPos>();
         var queue = new ArrayDeque<BlockPos>();
         parents.put(from, from);queue.add(from);
@@ -33,21 +39,26 @@ final class CoreMazeWalk {
             var pos = queue.remove();
             if (interact ? pos.distManhattan(control) == 1 : pos.equals(control)) {end = pos;break;}
             for (var direction : Direction.Plane.HORIZONTAL) {
-                var next = pos.relative(direction);
-                if (!bounds.isInside(next) || parents.containsKey(next)
-                        || !level.getBlockState(next).getCollisionShape(level, next).isEmpty()
-                        || !level.getBlockState(next.above()).getCollisionShape(level, next.above()).isEmpty()
-                        || !level.getBlockState(next.below()).isFaceSturdy(level, next.below(), Direction.UP)) continue;
-                parents.put(next, pos);queue.add(next);
+                for (int height : stepsAllowed ? new int[] {0, 1, -1} : new int[] {0}) {
+                    var next = pos.relative(direction).above(height);
+                    if (!bounds.isInside(next) || parents.containsKey(next)
+                            || !level.getBlockState(next).getCollisionShape(level, next).isEmpty()
+                            || !level.getBlockState(next.above()).getCollisionShape(level, next.above()).isEmpty()
+                            || !level.getBlockState(next.below()).isFaceSturdy(level, next.below(), Direction.UP)) continue;
+                    if (height > 0 && !level.getBlockState(pos.above(2)).getCollisionShape(level, pos.above(2)).isEmpty()) continue;
+                    if (height < 0 && !level.getBlockState(next.above(2)).getCollisionShape(level, next.above(2)).isEmpty()) continue;
+                    parents.put(next, pos);queue.add(next);
+                }
             }
         }
         if (end == null) throw new IllegalStateException("No walking approach to core control " + control);
         while (!end.equals(from)) {steps.addFirst(end);end = parents.get(end);}
+        if (precise) steps.addFirst(from);
         target = steps.poll();
     }
 
     void advance(Vec3 position) {
-        if (target != null && position.distanceToSqr(Vec3.atBottomCenterOf(target)) < .12) target = steps.poll();
+        if (target != null && position.distanceToSqr(Vec3.atBottomCenterOf(target)) < (precise ? .01 : .12)) target = steps.poll();
     }
 
     boolean arrived() {return target == null;}
@@ -61,10 +72,12 @@ final class CoreMazeWalk {
             var offset = Vec3.atBottomCenterOf(next).subtract(client.player.position());
             client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
             client.player.setXRot(0);
-            client.options.keyUp.setDown(offset.horizontalDistanceSqr() > .07);
+            client.options.keyUp.setDown(offset.horizontalDistanceSqr() > (precise ? .0025 : .07));
+            client.options.keyJump.setDown(offset.y > .6);
             return;
         }
         client.options.keyUp.setDown(false);
+        client.options.keyJump.setDown(false);
         if (!interact || used) return;
         client.player.getInventory().selected = 2;
         var point = new Vec3(control.getX() + .5, control.getY() + .15, control.getZ() + .5);

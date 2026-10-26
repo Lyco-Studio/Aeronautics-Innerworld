@@ -297,6 +297,21 @@ public final class ProbeTestRig {
         SubLevelContainer.getContainer(level).addForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
     }
 
+    public Map<BlockPos, BlockState> takeConstructionPlan() {
+        var plan = new HashMap<BlockPos, BlockState>();
+        for (var pos : original.keySet()) {
+            var state = level.getBlockState(pos);
+            if (!state.isAir()) plan.put(pos, state);
+            var entity = level.getBlockEntity(pos);
+            if (entity instanceof PortableEngineBlockEntity engine) engine.inventory.clearContent();
+            if (entity instanceof MantleSamplerBlockEntity sampler)
+                for (int slot = 0; slot < 9; slot++) sampler.inventory.setStackInSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+        }
+        glue.forEach(net.minecraft.world.entity.Entity::discard);glue.clear();
+        original.forEach(level::setBlockAndUpdate);
+        return plan;
+    }
+
     private void locateCabin() {
         var bounds = subLevel.getPlot().getBoundingBox();
         for (var pos : BlockPos.betweenClosed(bounds.minX(), bounds.minY(), bounds.minZ(),

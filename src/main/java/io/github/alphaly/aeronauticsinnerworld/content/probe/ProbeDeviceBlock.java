@@ -98,7 +98,8 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
             }
             return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }
-        return super.useItemOn(stack, state, level, pos, player, hand, hit);
+        return stack.isEmpty() ? ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+                : ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
     }
 
     @Override
