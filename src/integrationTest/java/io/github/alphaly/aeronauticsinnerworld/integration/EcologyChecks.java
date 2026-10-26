@@ -9,6 +9,9 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
@@ -28,6 +31,15 @@ public final class EcologyChecks {
         var rig = new ProbeTestRig(level, new BlockPos(640, 180, 128));
         rig.workEquipment();
         var grazer = new LavaStalker[1];
+        helper.testInfo.addListener(new GameTestListener() {
+            public void testStructureLoaded(GameTestInfo test) { }
+            public void testPassed(GameTestInfo test, GameTestRunner runner) { }
+            public void testFailed(GameTestInfo test, GameTestRunner runner) {
+                if (grazer[0] != null) grazer[0].discard();
+                rig.cleanUp();
+            }
+            public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) { }
+        });
         helper.onEachTick(() -> {
             level.resetEmptyTime();
             if (grazer[0] != null && grazer[0].isAlive()) {
@@ -60,7 +72,9 @@ public final class EcologyChecks {
                 }).thenExecuteAfter(25, () -> {
                     helper.assertTrue(rig.sampler().inventory.getStackInSlot(0).is(AeronauticsInnerworld.RAW_HARMONIC.get())
                             && rig.sampler().inventory.getStackInSlot(0).getCount() == 1,
-                            "Gentle sampling failed to preserve exactly one mineral sample");
+                            "Gentle sampling failed to preserve exactly one mineral sample: status=" + rig.sampler().getStatus()
+                                    + ", specimen=" + grazer[0].position() + ", sampler=" + rig.world(ProbeTestRig.SAMPLER)
+                                    + ", target=" + grazer[0].getTarget() + ", cooldown=" + grazer[0].getSampleCooldown());
                     helper.assertTrue(grazer[0].getHealth() == 40 && grazer[0].getTarget() == null
                             && grazer[0].getSampleCooldown() > 1100, "Gentle sampling harmed or depleted the creature incorrectly");
                     var saved = new CompoundTag();

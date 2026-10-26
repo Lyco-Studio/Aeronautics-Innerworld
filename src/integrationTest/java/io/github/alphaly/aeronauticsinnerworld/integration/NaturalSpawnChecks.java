@@ -17,6 +17,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -29,7 +30,7 @@ import java.util.UUID;
 @GameTestHolder(AeronauticsInnerworld.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class NaturalSpawnChecks {
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(template = "empty", timeoutTicks = 120)
     public static void naturallySpawnsLavaEcologyAndRejectsSolidObstructions(GameTestHelper helper) {
         var level = helper.getLevel().getServer().getLevel(Mantle.LEVEL);
         var center = new BlockPos(1160, 100, 136);
@@ -46,6 +47,8 @@ public final class NaturalSpawnChecks {
         observer.setPos(center.getX() + 64, center.getY(), center.getZ());
         level.addNewPlayer(observer);
         var spawned = new ArrayList<Mob>();
+        var origins = new HashMap<Mob, Vec3>();
+        var activeChunks = new HashMap<ChunkPos, Boolean>();
         var cleaned = new boolean[1];
         Runnable cleanUp = () -> {
             if (cleaned[0]) return;
@@ -53,6 +56,7 @@ public final class NaturalSpawnChecks {
             spawned.forEach(Mob::discard);
             observer.discard();
             original.forEach(level::setBlockAndUpdate);
+            activeChunks.forEach((pos, forced) -> {if (!forced) level.setChunkForced(pos.x, pos.z, false);});
             if (!wasForced) level.setChunkForced(chunk.x, chunk.z, false);
         };
         helper.testInfo.addListener(new GameTestListener() {
@@ -91,6 +95,24 @@ public final class NaturalSpawnChecks {
                                 + level.getNearestPlayer(center.getX(), center.getY(), center.getZ(), -1, false)
                                 + ", biome=" + level.getBiome(center).unwrapKey() + ", candidates="
                                 + level.getBiome(center).value().getMobSettings().getMobs(category).unwrap());
+            }
+            for (var mob : spawned) {
+                var location = mob.chunkPosition();
+                activeChunks.putIfAbsent(location, level.getForcedChunks().contains(location.toLong()));
+                level.setChunkForced(location.x, location.z, true);
+                mob.getRandom().setSeed(1703 + origins.size());
+                origins.put(mob, mob.position());
+            }
+            observer.discard();
+        }).thenExecuteAfter(80, () -> {
+            for (var category : List.of(MobCategory.MONSTER, MobCategory.CREATURE)) {
+                helper.assertTrue(spawned.stream().filter(mob -> mob.getType().getCategory() == category)
+                                .anyMatch(mob -> mob.position().distanceToSqr(origins.get(mob)) > 1),
+                        "Unprovoked mantle " + category + " remains stationary in open lava");
+            }
+            for (var mob : spawned) {
+                helper.assertTrue(mob.isAlive() && mob.isInLava() && mob.getTarget() == null && level.noCollision(mob),
+                        "Idle swimming left its lava habitat or acquired a creative observer as a target");
             }
         }).thenSucceed();
     }

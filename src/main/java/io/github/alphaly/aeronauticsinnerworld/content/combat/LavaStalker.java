@@ -42,6 +42,8 @@ public final class LavaStalker extends Monster {
     private int attackCooldown;
     private int disturbance;
     private int sampleCooldown;
+    private Vec3 swimTarget;
+    private int swimTicks;
 
     public LavaStalker(EntityType<? extends LavaStalker> type, Level level) {
         super(type, level);
@@ -161,8 +163,11 @@ public final class LavaStalker extends Monster {
         if (target == null || !target.isAlive()) {
             windup = 0;
             entityData.set(WINDING_UP, false);
+            swimIdle();
             return;
         }
+        swimTarget = null;
+        swimTicks = 0;
         var offset = target.getBoundingBox().getCenter().subtract(getBoundingBox().getCenter());
         getLookControl().setLookAt(target, 30, 30);
         if (isInLava() && offset.lengthSqr() > 1) {
@@ -219,6 +224,33 @@ public final class LavaStalker extends Monster {
         windup = 0;
         entityData.set(WINDING_UP, false);
         attackCooldown = 80;
+    }
+
+    private void swimIdle() {
+        if (!isInLava()) {
+            swimTarget = null;
+            swimTicks = 0;
+            return;
+        }
+        if (--swimTicks <= 0 || swimTarget != null && (distanceToSqr(swimTarget) < 1 || horizontalCollision || verticalCollision)) {
+            swimTarget = null;
+            swimTicks = 80 + random.nextInt(80);
+            for (int attempt = 0; attempt < 6; attempt++) {
+                var candidate = position().add(random.nextDouble() * 12 - 6, random.nextDouble() * 4 - 2, random.nextDouble() * 12 - 6);
+                var pos = BlockPos.containing(candidate);
+                if (!level().hasChunkAt(pos) || !level().getFluidState(pos).is(FluidTags.LAVA)
+                        || !level().getFluidState(pos.above()).is(FluidTags.LAVA)
+                        || !level().noCollision(this, getBoundingBox().move(candidate.subtract(position())))) continue;
+                var sight = level().clip(new ClipContext(getBoundingBox().getCenter(), candidate.add(0, getBbHeight() / 2, 0),
+                        ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+                if (sight.getType() == HitResult.Type.MISS) {swimTarget = candidate;break;}
+            }
+        }
+        if (swimTarget == null) return;
+        var offset = swimTarget.subtract(position());
+        setDeltaMovement(getDeltaMovement().scale(.6).add(offset.normalize().scale(.035)));
+        setYRot(Mth.rotLerp(.12f, getYRot(), (float)Math.toDegrees(Math.atan2(-offset.x, offset.z))));
+        yBodyRot = getYRot();
     }
 
     @Override

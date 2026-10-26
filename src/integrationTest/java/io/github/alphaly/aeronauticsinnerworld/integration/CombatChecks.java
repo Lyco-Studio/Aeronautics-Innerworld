@@ -114,7 +114,8 @@ public final class CombatChecks {
                 }).thenWaitUntil(() -> helper.assertTrue(predator[0].isDeadOrDying(),
                         "Cannon has not defeated its target: health=" + predator[0].getHealth()
                                 + ", rounds=" + rig.cannon().ammunition.getStackInSlot(0).getCount()
-                                + ", speed=" + rig.cannon().getSpeed()))
+                                + ", speed=" + rig.cannon().getSpeed() + ", target=" + predator[0].position()
+                                + ", muzzle=" + rig.world(ProbeTestRig.CANNON)))
                 .thenExecute(() -> {
                     rig.motor(ProbeTestRig.CANNON, 0);
                     remainingAmmo[0] = rig.cannon().ammunition.getStackInSlot(0).getCount();

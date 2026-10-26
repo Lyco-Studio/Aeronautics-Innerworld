@@ -266,6 +266,8 @@ public final class CombatClientCheck {
                 grazer = AeronauticsInnerworld.MANTLE_GRAZER.get().create(rig.level);
                 var direction = rig.subLevel.logicalPose().transformNormal(new Vec3(0, 0, -1));
                 grazer.setPos(rig.world(ProbeTestRig.CANNON).add(direction.scale(3)).add(0, -.5, 0));
+                // Keep the attribution target in the mounted cannon's fixed firing lane.
+                grazer.setNoAi(true);
                 grazer.setNoGravity(true);
                 grazerSince = ticks;
                 rig.level.addFreshEntity(grazer);
