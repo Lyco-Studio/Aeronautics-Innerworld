@@ -56,8 +56,17 @@ public final class WirelessDock {
         }
         for (int y : new int[] {1, 2}) set(at(2, y, -2), AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, ROTATION.rotate(Direction.NORTH)));
-        for (var pos : BlockPos.betweenClosed(at(0, 9, 9), at(4, 9, 17))) set(pos, Blocks.LAVA.defaultBlockState());
         var builder = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "wireless-dock"));
+        for (int x = -1; x <= 5; x++) for (int z = 9; z <= 18; z++) {
+            if (x == -1 || x == 5 || z == 18) set(at(x, 9, z), Blocks.DEEPSLATE_BRICKS.defaultBlockState());
+            for (int y : new int[] {10, 11}) set(at(x, y, z), Blocks.AIR.defaultBlockState());
+        }
+        var wellSupply = new java.util.ArrayList<BlockPos>();
+        for (var pos : BlockPos.betweenClosed(at(0, 9, 9), at(4, 9, 17))) {
+            var cell = pos.immutable();set(cell, Blocks.AIR.defaultBlockState());wellSupply.add(cell);
+            set(cell.above(), Blocks.AIR.defaultBlockState());set(cell.above(2), Blocks.AIR.defaultBlockState());
+        }
+        BucketReservoir.fill(level, builder, wellSupply);
         shutter = new FloodingShutter(level, ORIGIN, builder, ROTATION, true);
         gate = new DockPortcullis(level, ORIGIN, builder, ROTATION);
         shutter.fuel(16);gate.fuel(16);

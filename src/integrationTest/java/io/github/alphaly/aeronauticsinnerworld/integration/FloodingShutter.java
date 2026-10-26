@@ -56,7 +56,7 @@ final class FloodingShutter {
             boolean intake = relative.getY() == 9 && relative.getX() >= 0 && relative.getX() <= 4
                     && relative.getZ() >= -1 && relative.getZ() <= 7;
             if (intake) {
-                if (fillReservoir) set(at(pos), Blocks.LAVA.defaultBlockState());
+                if (fillReservoir) set(at(pos), Blocks.AIR.defaultBlockState());
                 else if (!level.getFluidState(at(pos)).is(FluidTags.LAVA))
                     throw new IllegalStateException("Shutter intake has no natural lava at " + at(pos));
             } else set(at(pos), Blocks.DEEPSLATE_BRICKS.defaultBlockState());
@@ -85,6 +85,17 @@ final class FloodingShutter {
         fuel(4);
         var glue = new SuperGlueEntity(level, SuperGlueEntity.span(at(0, 8, -1), at(4, 8, 7)));
         level.addFreshEntity(glue);
+        if (fillReservoir) {
+            for (int x : new int[] {-1, 5}) for (int z = x == -1 ? 0 : -1; z <= 7; z++)
+                for (int y : new int[] {10, 11}) set(at(x, y, z), Blocks.AIR.defaultBlockState());
+            var cells = new java.util.ArrayList<BlockPos>();
+            for (int x = 0; x <= 4; x++) for (int z = -1; z <= 7; z++)
+                if (x != 0 || z != -1) {
+                    var pos = at(x, 9, z);set(pos.above(), Blocks.AIR.defaultBlockState());set(pos.above(2), Blocks.AIR.defaultBlockState());
+                    cells.add(pos);
+                }
+            BucketReservoir.fill(level, player, cells);
+        }
     }
 
     private static BlockState lever(boolean powered) {

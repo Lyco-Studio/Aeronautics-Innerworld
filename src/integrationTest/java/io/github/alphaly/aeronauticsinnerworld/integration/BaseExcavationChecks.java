@@ -332,9 +332,9 @@ public final class BaseExcavationChecks {
             dockOrigin = start.offset(16, 1, 2);
             builder.getInventory().add(builder.getMainHandItem().copy());
             builder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_PICKAXE));
-            excavate(new BlockPos(-7, 7, -5), new BlockPos(10, 10, 8));
+            excavate(new BlockPos(-7, 7, -5), new BlockPos(10, 11, 8));
             excavate(new BlockPos(-1, -1, 4), new BlockPos(9, 14, 8));
-            excavate(new BlockPos(0, 7, 9), new BlockPos(4, 9, 17));
+            excavate(new BlockPos(-1, 7, 9), new BlockPos(5, 11, 18));
             excavate(new BlockPos(1, -2, -1), new BlockPos(3, -2, 7));
             helper.assertTrue(builder.getMainHandItem().getDamageValue() == extraMined,
                     "Dock expansion did not consume normal pickaxe durability: " + extraMined);
@@ -345,8 +345,13 @@ public final class BaseExcavationChecks {
             }
             for (int y : new int[] {1, 2}) dockSet(dockAt(new BlockPos(2, y, -2)), AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState()
                     .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH).rotate(Rotation.COUNTERCLOCKWISE_90));
-            for (var pos : BlockPos.betweenClosed(new BlockPos(0, 9, 9), new BlockPos(4, 9, 17)))
-                dockSet(dockAt(pos), Blocks.LAVA.defaultBlockState());
+            for (int x = -1; x <= 5; x++) for (int z = 9; z <= 18; z++)
+                if (x == -1 || x == 5 || z == 18) dockSet(dockAt(new BlockPos(x, 9, z)), Blocks.DEEPSLATE_BRICKS.defaultBlockState());
+            var wellSupply = new java.util.ArrayList<BlockPos>();
+            for (var pos : BlockPos.betweenClosed(new BlockPos(0, 9, 9), new BlockPos(4, 9, 17))) {
+                var cell = dockAt(pos);dockSet(cell, Blocks.AIR.defaultBlockState());wellSupply.add(cell);
+            }
+            BucketReservoir.fill(mantle, builder, wellSupply);
             for (var pos : BlockPos.betweenClosed(start.offset(25, 0, -2).atY(193), start.offset(43, 0, 2).atY(199)))
                 helper.assertTrue(mantle.getBlockState(pos).getCollisionShape(mantle, pos).isEmpty(),
                         "Natural launch route is obstructed at " + pos + ": " + mantle.getBlockState(pos));
