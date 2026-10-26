@@ -65,6 +65,7 @@ public final class ExpeditionChecks {
                             "Assembly lost home berth: " + rig.sounder().saveWithFullMetadata(level.registryAccess()));
                     helper.assertTrue(Math.abs(rig.sounder().getSpeed()) >= 16,
                             "Fueled Aeronautics portable engine did not power the sounder");
+                    checkRecoveryNavigation(helper, rig, player);
                     dockedForSampling[0] = true;
                     ore[0] = rig.mineralTarget();
                 }).thenExecuteAfter(15, () -> {
@@ -203,6 +204,32 @@ public final class ExpeditionChecks {
         helper.assertTrue(result.is(AeronauticsInnerworld.STABILIZED_COOLANT_CELL.get()) && result.getCount() == 2,
                 "Expedition coolant recipe produces incorrect supplies");
         helper.succeed();
+    }
+
+    private static void checkRecoveryNavigation(GameTestHelper helper, ProbeTestRig rig, FakePlayer player) {
+        var destination = new BlockPos(290, 163, 264);
+        var compass = new ItemStack(Items.RECOVERY_COMPASS);
+        compass.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Rescue navigation"));
+        var original = compass.copy();
+        player.setLastDeathLocation(java.util.Optional.of(GlobalPos.of(Mantle.LEVEL, destination)));
+        use(player, compass, rig.local(ProbeTestRig.SOUNDER), Direction.NORTH);
+        helper.assertTrue(destination.equals(rig.sounder().getWaypoint())
+                        && new BlockPos(256, 180, 256).equals(rig.sounder().getHome())
+                        && ItemStack.isSameItemSameComponents(compass, original) && compass.getCount() == 1,
+                "Recovery navigation did not use world death coordinates or modified the compass/home berth");
+        player.setLastDeathLocation(java.util.Optional.of(GlobalPos.of(net.minecraft.world.level.Level.OVERWORLD, BlockPos.ZERO)));
+        use(player, compass, rig.local(ProbeTestRig.SOUNDER), Direction.NORTH);
+        helper.assertTrue(destination.equals(rig.sounder().getWaypoint()), "A foreign death replaced the rescue route");
+        player.setLastDeathLocation(java.util.Optional.empty());
+        use(player, compass, rig.local(ProbeTestRig.SOUNDER), Direction.NORTH);
+        helper.assertTrue(destination.equals(rig.sounder().getWaypoint()), "An empty death history replaced the rescue route");
+        player.setLastDeathLocation(java.util.Optional.of(GlobalPos.of(Mantle.LEVEL, BlockPos.ZERO)));
+        float speed = rig.sounder().getSpeed();
+        rig.sounder().setSpeed(0);
+        use(player, compass, rig.local(ProbeTestRig.SOUNDER), Direction.NORTH);
+        helper.assertTrue(destination.equals(rig.sounder().getWaypoint()), "An unpowered sounder loaded a rescue route");
+        rig.sounder().setSpeed(speed);
+        player.setShiftKeyDown(true);rig.sounder().interact(player);player.setShiftKeyDown(false);
     }
 
     private static void primeHeat(ProbeTestRig rig, float heat, int hotSeconds) {

@@ -87,7 +87,8 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hit) {
-        if (stack.is(Items.COMPASS) && level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {
+        if ((stack.is(Items.COMPASS) || stack.is(Items.RECOVERY_COMPASS))
+                && level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {
             if (!level.isClientSide) sounder.useCompass(player, stack);
             return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }

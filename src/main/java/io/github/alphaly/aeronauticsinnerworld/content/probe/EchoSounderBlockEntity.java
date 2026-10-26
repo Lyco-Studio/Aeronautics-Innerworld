@@ -19,6 +19,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.LodestoneTracker;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -278,7 +279,18 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
             return;
         }
         var tracker = stack.get(DataComponents.LODESTONE_TRACKER);
-        if (tracker != null) {
+        if (stack.is(Items.RECOVERY_COMPASS)) {
+            var death = player.getLastDeathLocation();
+            if (death.isEmpty()) {
+                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_death"), true);
+                return;
+            }
+            if (!death.get().dimension().equals(level.dimension())) {
+                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_dimension"), true);
+                return;
+            }
+            waypoint = death.get().pos().immutable();
+        } else if (tracker != null) {
             if (tracker.target().isEmpty() || !tracker.target().get().dimension().equals(level.dimension())) {
                 player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_dimension"), true);
                 return;

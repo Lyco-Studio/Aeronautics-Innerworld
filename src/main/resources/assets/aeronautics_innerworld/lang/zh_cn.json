@@ -192,7 +192,7 @@
   "book.aeronautics_innerworld.page.22": "守核机\n\n地面预警圈与机械动作提示攻击，及时移出危险区。场地的两座冷却阀能使核心暴露八秒，回路约十五秒恢复。最后阶段核心持续开放。\n\n击败后失控回路停机，参与者获得通关进度。潜行空手操作维护台，可用背包内四枚谐振晶体复战。",
   "advancement.aeronautics_innerworld.core_entry.title": "越过隔离层",
   "advancement.aeronautics_innerworld.core_entry.description": "抵达地核并建立步行远征的出发点。",
-  "book.aeronautics_innerworld.page.23": "事故恢复\n\n用指南针、两枚谐振晶体和两份遗迹合金合成追溯指针。在上次死亡所在维度使用，可定位事故地点。\n\n基地保留备用艇、冷却与维修包。先封堵破口，再修复残存设备；损毁方块需补装。死亡掉落遵循世界规则。",
+  "book.aeronautics_innerworld.page.23": "事故恢复\n\n用指南针、两枚谐振晶体和两份遗迹合金合成追溯指针。持它右键供能的探测仪，可载入自己在地幔的上次死亡地点。\n\n基地保留备用艇、冷却与维修包。先封堵，再修复残存设备。死亡掉落遵循世界规则。",
   "message.aeronautics_innerworld.sonar_home_bearing": "基地%s",
   "message.aeronautics_innerworld.sonar_target_bearing": "目标%s Y%s",
   "message.aeronautics_innerworld.sonar_waypoint": "当前航路目标：%s，%s，%s",
@@ -221,8 +221,8 @@
   "block.aeronautics_innerworld.mantle_ballast.tooltip.behaviour1": "切换转速控制、上浮和下潜，两侧应选择相同模式。",
   "block.aeronautics_innerworld.cabin_regulator.tooltip.summary": "通风面朝向_干燥的封闭舱内_，背面接入至少_16 RPM_并关闭舱门。用冷却芯右键补充冷却储备。",
   "block.aeronautics_innerworld.echo_sounder.tooltip.summary": "背面接入至少_16 RPM_，探测附近矿物与遗迹，标记熔岩生物并提供返航导航。",
-  "block.aeronautics_innerworld.echo_sounder.tooltip.condition1": "用指南针右键",
-  "block.aeronautics_innerworld.echo_sounder.tooltip.behaviour1": "记录航路，或载入已有航路罗盘；潜行空手右键取消当前目标。",
+  "block.aeronautics_innerworld.echo_sounder.tooltip.condition1": "手持指南针或追溯指针右键",
+  "block.aeronautics_innerworld.echo_sounder.tooltip.behaviour1": "记录或载入航路；追溯指针载入自己的上次死亡地点。潜行空手右键取消目标。",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.summary": "胶合到探测器，从_背面_供能。采掘前方_4格_内岩体、采集平静滤食者样本并回收散落物，随移动目标调整采样口。",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.condition1": "空手右键",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.behaviour1": "每次卸下一组货物，继续卸货前切到空槽；潜行右键查看货舱。",
@@ -240,5 +240,6 @@
   "death.attack.core_heat": "%1$s被%2$s的回路热流吞没",
   "book.aeronautics_innerworld.page.27": "回路热区\n\n第二阶段起，橙色圆圈预警回路泄漏，蓝色火焰出现前离开。\n\n冷却阀可以熄灭热区。隔热面罩和护衣可减少热流伤害，盾牌与普通护甲无法抵挡。",
   "message.aeronautics_innerworld.sampler_salvaging": "正在回收散落物，货舱满时余物留在原处。",
-  "book.aeronautics_innerworld.page.28": "船载回收\n\n给采样器供能，对准前方4格内的散落物，保持采样口畅通。\n\n空手右键每次卸下一组。物品进入手中后，切到空槽再卸下一组。满仓时余物留在原处。"
+  "book.aeronautics_innerworld.page.28": "船载回收\n\n给采样器供能，对准前方4格内的散落物，保持采样口畅通。\n\n空手右键每次卸下一组。物品进入手中后，切到空槽再卸下一组。满仓时余物留在原处。",
+  "message.aeronautics_innerworld.sonar_no_death": "尚无死亡地点可用于救援导航。"
 }

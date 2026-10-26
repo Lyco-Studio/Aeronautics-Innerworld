@@ -85,7 +85,7 @@ public final class RecoveryClientCheck {
                 cleanup.join();finished = true;
                 if (failure != null) throw failure;
                 Files.writeString(client.gameDirectory.toPath().resolve("recovery-check.result"), "verified");
-                LogUtils.getLogger().info("Recovery client check passed: native heat deaths, keep/drop inventory rules, charged anchor respawns, recovery compass target and actual item pickup");
+                LogUtils.getLogger().info("Recovery client check passed: native heat deaths, keep/drop inventory rules, charged anchor respawns, recovery compass target, actual item pickup and rescue navigation");
                 client.stop();return;
             }
             if (client.level == null || client.player == null || client.getSingleplayerServer() == null || ticks < 100) return;
@@ -95,6 +95,7 @@ public final class RecoveryClientCheck {
             scene = setup.join();
             if (scene.stage != observedStage) {release(client);observedStage = scene.stage;frames = 0;clicked = false;}
             frames++;
+            if (observedStage == 0 && frames == 1) BookLayoutChecks.check(client, scene.manual);
             if (observedStage == 0 && frames % 12 == 0 && client.player.getMainHandItem().is(Items.GLOWSTONE)) useAnchor(client);
             if (observedStage == 1 && !clicked && frames > 8) {
                 client.player.getInventory().selected = 1;useAnchor(client);clicked = true;
@@ -130,7 +131,14 @@ public final class RecoveryClientCheck {
                     client.options.keyJump.setDown(offset.y > .3);client.options.keyShift.setDown(offset.y < -.5);
                 } else release(client);
             }
-            if (observedStage == 9 && frames > 15) {release(client);cleanup = server.submit(scene::cleanUp);return;}
+            if (observedStage == 9 && !clicked && client.player.getInventory().getItem(0).is(Items.RECOVERY_COMPASS)) {
+                client.player.getInventory().selected = 0;
+                var pos = scene.rig.local(ProbeTestRig.SOUNDER);
+                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(pos), Direction.NORTH, pos, false));
+                clicked = true;
+            }
+            if (observedStage == 10 && frames > 15) {release(client);cleanup = server.submit(scene::cleanUp);return;}
             if (step != null) {if (!step.isDone()) return;step.join();step = null;}
             step = server.submit(scene::advance);
         } catch (Exception e) {
@@ -170,7 +178,7 @@ public final class RecoveryClientCheck {
         private final BlockPos anchor;
         private final HashMap<BlockPos, BlockState> base = new HashMap<>();
         private final ArrayList<ItemEntity> drops = new ArrayList<>();
-        private final ItemStack cargo, tool;
+        private final ItemStack cargo, tool, manual;
         private volatile int stage = -1;
         private long since;
         private boolean diedFromHeat;
@@ -185,6 +193,10 @@ public final class RecoveryClientCheck {
             oldLastDeath = player.getLastDeathLocation();
             oldKeepInventory = server.getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY);
             level = server.getLevel(Mantle.LEVEL);
+            var input = net.minecraft.world.item.crafting.CraftingInput.of(2, 1,
+                    java.util.List.of(new ItemStack(Items.BOOK), new ItemStack(Items.COPPER_INGOT)));
+            manual = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, input, level)
+                    .orElseThrow().value().assemble(input, level.registryAccess());
             var origin = new BlockPos(2304, 180, 128);
             rig = new ProbeTestRig(level, origin);rig.workEquipment();
             for (int x = -9; x <= -3; x++) for (int y = 5; y <= 9; y++) for (int z = 0; z <= 6; z++) {
@@ -268,6 +280,12 @@ public final class RecoveryClientCheck {
                         throw new IllegalStateException("Native pickup lost components or left duplicate loose cargo");
                     LogUtils.getLogger().info("Native rescue pickup conserved three scales and the damaged tool, health={}", player.getHealth());next(9);
                 }
+            } else if (stage == 9 && lastDeath.pos().equals(rig.sounder().getWaypoint())) {
+                if (!player.getMainHandItem().is(Items.RECOVERY_COMPASS) || player.getMainHandItem().getCount() != 1
+                        || player.getMainHandItem().has(DataComponents.LODESTONE_TRACKER)
+                        || !new BlockPos(2304, 180, 128).equals(rig.sounder().getHome()))
+                    throw new IllegalStateException("Recovery navigation modified the compass or home berth");
+                LogUtils.getLogger().info("Native recovery compass loaded the actual world death location into probe navigation");next(10);
             }
         }
 

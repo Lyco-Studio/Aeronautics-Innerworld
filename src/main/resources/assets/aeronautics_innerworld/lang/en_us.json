@@ -192,7 +192,7 @@
   "book.aeronautics_innerworld.page.22": "Warden\n\nDodge warning rings. Pull a coolant lever to expose the core for 8s.\n\nAfter victory, sneak-use the console with four crystals for a rematch.",
   "advancement.aeronautics_innerworld.core_entry.title": "Beyond Isolation",
   "advancement.aeronautics_innerworld.core_entry.description": "Reach the core and prepare a camp for the labyrinth.",
-  "book.aeronautics_innerworld.page.23": "Recovery\n\nA compass, two crystals and two relic alloy make a recovery compass. It points to your last death in this dimension.\n\nKeep a spare probe and repair supplies.",
+  "book.aeronautics_innerworld.page.23": "Recovery\n\nA compass, two crystals and two relic alloy make a recovery compass. Use it on a powered sounder to navigate to your last mantle death.\n\nKeep a spare probe and repair supplies.",
   "message.aeronautics_innerworld.sonar_home_bearing": "Home %s",
   "message.aeronautics_innerworld.sonar_target_bearing": "Goal %s Y%s",
   "message.aeronautics_innerworld.sonar_waypoint": "Active waypoint: %s, %s, %s",
@@ -221,8 +221,8 @@
   "block.aeronautics_innerworld.mantle_ballast.tooltip.behaviour1": "Cycle speed control, ascent and descent. Use matching modes on both sides.",
   "block.aeronautics_innerworld.cabin_regulator.tooltip.summary": "Point the vent _into a dry, enclosed cabin_. Supply at least _16 RPM_ from the back and close all hatches. Use coolant cells on the regulator to replenish cooling.",
   "block.aeronautics_innerworld.echo_sounder.tooltip.summary": "Supply at least _16 RPM_ from the back. Finds nearby ore and ruins, marks lava creatures and guides the probe home.",
-  "block.aeronautics_innerworld.echo_sounder.tooltip.condition1": "Use with a compass",
-  "block.aeronautics_innerworld.echo_sounder.tooltip.behaviour1": "Record a route or load an existing route compass. Sneak-use empty-handed to cancel the active route.",
+  "block.aeronautics_innerworld.echo_sounder.tooltip.condition1": "Use with a compass or recovery compass",
+  "block.aeronautics_innerworld.echo_sounder.tooltip.behaviour1": "Record or load a route. A recovery compass loads your last death. Sneak-use empty-handed to cancel.",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.summary": "Glue onto the probe and power from the _back_. Collects ore, calm grazer samples and loose cargo within _4 blocks_ ahead. Keep moving targets in front of the intake.",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.condition1": "Empty-hand use",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.behaviour1": "Unload one cargo stack. Select an empty hotbar slot before repeating. Sneak-use to inspect cargo.",
@@ -240,5 +240,6 @@
   "death.attack.core_heat": "%1$s was overwhelmed by %2$s's heat leak",
   "book.aeronautics_innerworld.page.27": "Heat leaks\n\nFrom phase two, leave orange rings before blue fire ignites.\n\nValves extinguish heat. Heatweave gear reduces it; shields and ordinary armor do not.",
   "message.aeronautics_innerworld.sampler_salvaging": "Recovering loose cargo; any remainder stays outside when cargo is full.",
-  "book.aeronautics_innerworld.page.28": "Salvage\n\nPower the sampler. Face loose loot within 4 blocks and keep the intake clear.\n\nEmpty-hand use unloads one stack. Select another empty slot to repeat. Full cargo leaves the remainder outside."
+  "book.aeronautics_innerworld.page.28": "Salvage\n\nPower the sampler. Face loose loot within 4 blocks and keep the intake clear.\n\nEmpty-hand use unloads one stack. Select another empty slot to repeat. Full cargo leaves the remainder outside.",
+  "message.aeronautics_innerworld.sonar_no_death": "No death location is recorded for rescue navigation."
 }
