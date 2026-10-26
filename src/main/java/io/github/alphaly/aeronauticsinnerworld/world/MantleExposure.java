@@ -19,6 +19,8 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 @EventBusSubscriber(modid = AeronauticsInnerworld.MOD_ID)
 public final class MantleExposure {
+    private static final int MAX_EXPOSURE = 30;
+
     @SubscribeEvent
     public static void tick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.tickCount % 20 != 0) {
@@ -36,7 +38,8 @@ public final class MantleExposure {
         boolean helmet = player.getItemBySlot(EquipmentSlot.HEAD).is(AeronauticsInnerworld.HEATWEAVE_HELMET.get());
         boolean chest = player.getItemBySlot(EquipmentSlot.CHEST).is(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get());
         int limit = 5 + (helmet ? 10 : 0) + (chest ? 10 : 0);
-        data.putInt("InnerworldHeatExposure", Math.min(limit + 5, seconds));
+        // Changing gear must not lower accumulated heat and restart its protection window.
+        data.putInt("InnerworldHeatExposure", Math.min(MAX_EXPOSURE, seconds));
         if (helmet && chest && seconds < limit) {
             player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, false, true));
         }

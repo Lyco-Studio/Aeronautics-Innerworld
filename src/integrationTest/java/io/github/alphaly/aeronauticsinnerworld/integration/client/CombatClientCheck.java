@@ -104,7 +104,7 @@ public final class CombatClientCheck {
                 return;
             }
             scene = setup.join();
-            if (scene.ticks >= 310 && lootUnloadsSent == 0 || scene.ticks >= 315 && lootUnloadsSent == 1) {
+            if (scene.ticks >= 360 && lootUnloadsSent == 0 || scene.ticks >= 365 && lootUnloadsSent == 1) {
                 int emptySlot = -1;
                 for (int slot = 0; slot < 9; slot++) {
                     if (client.player.getInventory().getItem(slot).isEmpty()) {emptySlot = slot;break;}
@@ -351,26 +351,38 @@ public final class CombatClientCheck {
                 if (player.getHealth() >= protectedHealth) {
                     throw new IllegalStateException("Heatweave suit granted unlimited mantle heat immunity");
                 }
+                player.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+                player.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+                player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200, 0, false, false, true));
+            }
+            if (ticks == 295) {
+                if (player.getPersistentData().getInt("InnerworldHeatExposure") < 25)
+                    throw new IllegalStateException("Removing heatweave gear lowered accumulated heat");
+                player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(AeronauticsInnerworld.HEATWEAVE_HELMET.get()));
+            }
+            if (ticks == 310) {
+                if (player.getPersistentData().getInt("InnerworldHeatExposure") < 25)
+                    throw new IllegalStateException("Re-equipping the mask restarted its heat protection");
                 var inside = rig.world(new BlockPos(1, 1, 2)).add(0, -.45, 0);
                 player.teleportTo(rig.level, inside.x, inside.y, inside.z, 180, 0);
                 player.getPersistentData().putInt("InnerworldHeatExposure", 0);
                 player.clearFire();
             }
-            if (ticks == 290) {
+            if (ticks == 340) {
                 expectedLoot = remains.stream().mapToInt(item -> item.getItem().getCount()).sum();
                 if (expectedLoot < 2 || expectedLoot > 4 || remains.stream().anyMatch(item -> !item.isAlive()))
                     throw new IllegalStateException("The cannon encounter lost its normal scale drops");
                 rig.creatureSamplingTarget();rig.motor(ProbeTestRig.SAMPLER, 32);
                 player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();
             }
-            if (ticks >= 290 && ticks <= 305) {
+            if (ticks >= 340 && ticks <= 355) {
                 var direction = rig.subLevel.logicalPose().transformNormal(new Vec3(0, 0, -1));
                 for (var item : remains) if (item.isAlive()) {
                     item.setPos(rig.world(ProbeTestRig.SAMPLER).add(direction.scale(3)).add(0, -.125, 0));
                     item.setDeltaMovement(Vec3.ZERO);
                 }
             }
-            if (ticks == 305) {
+            if (ticks == 355) {
                 int cargo = java.util.stream.IntStream.range(0, 9).mapToObj(rig.sampler().inventory::getStackInSlot)
                         .filter(stack -> stack.is(AeronauticsInnerworld.MOLTEN_SCALE.get())).mapToInt(ItemStack::getCount).sum();
                 if (cargo != expectedLoot || remains.stream().anyMatch(ItemEntity::isAlive))
@@ -378,7 +390,7 @@ public final class CombatClientCheck {
                             + ", cargo=" + cargo + ", status=" + rig.sampler().getStatus());
                 rig.motor(ProbeTestRig.SAMPLER, 0);
             }
-            if (ticks == 325) {
+            if (ticks == 375) {
                 if (player.getInventory().countItem(AeronauticsInnerworld.MOLTEN_SCALE.get()) != expectedLoot
                         || player.getInventory().countItem(Items.COPPER_INGOT) != 17
                         || !rig.sampler().inventory.getStackInSlot(0).isEmpty() || !rig.sampler().inventory.getStackInSlot(1).isEmpty())
@@ -389,7 +401,7 @@ public final class CombatClientCheck {
                             + ", clicks=" + lootUnloadsSent + ", hand=" + player.getMainHandItem());
                 salvageVerified = true;
             }
-            return ticks >= 335 && checkedRecoveredInventory;
+            return ticks >= 385 && checkedRecoveredInventory;
         }
 
         private void positionTarget() {
