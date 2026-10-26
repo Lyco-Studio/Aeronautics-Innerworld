@@ -54,6 +54,7 @@ public final class ConstructionClientCheck {
     private static RuntimeException failure;
     private static int ticks, observed = -1, frames;
     private static boolean capturedPause, oldPause, finished, inputs;
+    private static boolean engineProduction() {return Boolean.getBoolean("innerworld.constructionEngine");}
 
     @SubscribeEvent
     public static void tick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
@@ -66,26 +67,32 @@ public final class ConstructionClientCheck {
                 finished = true;
                 try {cleanup.join();} finally {client.options.pauseOnLostFocus = oldPause;client.options.save();}
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("construction-check.result"), "verified");
+                Files.writeString(client.gameDirectory.toPath().resolve("construction-check.result"), engineProduction() ? "engine-verified" : "verified");
                 LogUtils.getLogger().info("Native survival construction passed: workbench recipes, placement, fuel, glue, excavation and unloading");
                 client.stop();return;
             }
-            if (++ticks > 5000) throw new IllegalStateException("Construction timed out at " + observed);
+            if (++ticks > (engineProduction() ? 21000 : 5000)) throw new IllegalStateException("Construction timed out at " + observed);
             if (client.level == null || client.player == null || client.getSingleplayerServer() == null || ticks < 100) return;
             var server = client.getSingleplayerServer();
             if (setup == null) {var id = client.player.getUUID();setup = server.submit(() -> new Scene(server.getPlayerList().getPlayer(id)));return;}
             if (!setup.isDone()) return;
             scene = setup.join();
+            if (scene.stage == -1) {
+                scene.workshop.tickClient(client);
+                if (step != null) {if (!step.isDone()) return;step.join();step = null;}
+                step = server.submit(() -> scene.advance(0));return;
+            }
             if (observed != scene.stage) {
                 release(client);observed = scene.stage;frames = 0;inputs = false;
                 if (client.player.containerMenu != client.player.inventoryMenu) client.player.closeContainer();
             }
             frames++;
             if (frames > 1200) throw new IllegalStateException("Construction stage timed out: " + observed);
-            if (observed == 0 || observed == 1) craft(client);
+            if (observed == -2) scene.walk.tickClient(client);
+            else if (observed == 0 || observed == 1) craft(client);
             else if (observed == 4 || observed == 8 || observed == 10 || observed == 12 || observed == 18) scene.walk.tickClient(client);
             else if (observed == 2) place(client, AeronauticsInnerworld.DRILL_CONTROLLER.get().asItem(), scene.controller.below(), Direction.UP, true);
-            else if (observed == 3) place(client, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).asItem(), scene.controller, Direction.NORTH, false);
+            else if (observed == 3) place(client, scene.engineItem, scene.controller, Direction.NORTH, false);
             else if (observed == 5) place(client, AeronauticsInnerworld.MULTI_AXIS_CUTTER.get().asItem(), scene.controller, Direction.SOUTH, true);
             else if (observed == 6) place(client, Items.CHEST, scene.root, Direction.EAST, true);
             else if (observed == 7) chest(client, false);
@@ -212,6 +219,8 @@ public final class ConstructionClientCheck {
         private final Map<BlockPos, BlockState> terrain = new HashMap<>();
         private final Set<UUID> oldGlue = new HashSet<>();
         private final BoundingBox bounds;
+        private final EngineWorkshop workshop;
+        private final Item engineItem;
         private final long started;
         private volatile int stage;
         private volatile CoreMazeWalk walk;
@@ -238,11 +247,16 @@ public final class ConstructionClientCheck {
             player.setGameMode(GameType.SURVIVAL);player.getInventory().clearContent();player.getInventory().selected = 0;
             player.getInventory().setItem(1, com.simibubi.create.AllBlocks.ANDESITE_CASING.asStack(2));
             player.getInventory().setItem(2, new ItemStack(Items.IRON_INGOT, 5));player.getInventory().setItem(3, com.simibubi.create.AllBlocks.SHAFT.asStack(2));
-            player.getInventory().setItem(4, new ItemStack(Items.REDSTONE));player.getInventory().setItem(5, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).asStack());
+            player.getInventory().setItem(4, new ItemStack(Items.REDSTONE));
+            engineItem = SimBlocks.PORTABLE_ENGINES.get(engineProduction() ? DyeColor.RED : DyeColor.BROWN).asItem();
+            if (!engineProduction()) player.getInventory().setItem(5, new ItemStack(engineItem));
+            else {player.getInventory().setItem(11, new ItemStack(Items.IRON_INGOT, 64));player.getInventory().setItem(12, new ItemStack(Items.BLAST_FURNACE));}
             player.getInventory().setItem(6, new ItemStack(Items.CHEST));player.getInventory().setItem(7, AllItems.SUPER_GLUE.asStack());
             player.getInventory().setItem(8, new ItemStack(Items.COAL, 4));player.getInventory().setItem(9, AllItems.WRENCH.asStack());
             player.getInventory().setItem(10, new ItemStack(Items.COPPER_INGOT, 17));
             player.teleportTo(level, base.getX() + .5, base.getY(), base.getZ() + .5, 0, 0);player.containerMenu.broadcastChanges();
+            workshop = engineProduction() ? new EngineWorkshop(player, base.offset(-2, 0, 7), bench, bounds) : null;
+            if (workshop != null) stage = -1;
             started = level.getGameTime();
         }
 
@@ -259,10 +273,12 @@ public final class ConstructionClientCheck {
         private void next(int value) {stage = value;LogUtils.getLogger().info("Native construction stage {}: player={}", value, player.position());}
         private void walking(int value, BlockPos destination) {walk = new CoreMazeWalk(level, bounds, player.blockPosition(), destination, false);next(value);}
         private void advance(int frame) {
-            if (!player.isAlive() || level.getGameTime() - started > 4000) throw new IllegalStateException("Construction failed at " + stage);
+            if (!player.isAlive() || level.getGameTime() - started > (engineProduction() ? 20000 : 4000)) throw new IllegalStateException("Construction failed at " + stage);
+            if (stage == -1) {if (workshop.advance()) walking(-2, base);return;}
+            if (stage == -2) {walk.advance(player.position());if (walk.arrived()) next(0);return;}
             if (stage == 0 && player.getInventory().countItem(AeronauticsInnerworld.DRILL_CONTROLLER.get().asItem()) == 1) next(1);
             else if (stage == 1 && player.getInventory().countItem(AeronauticsInnerworld.MULTI_AXIS_CUTTER.get().asItem()) == 1) {
-                if (player.getInventory().countItem(Items.IRON_INGOT) != 0 || player.getInventory().countItem(com.simibubi.create.AllBlocks.ANDESITE_CASING.asItem()) != 0
+                if (player.getInventory().countItem(Items.IRON_INGOT) != (workshop == null ? 0 : workshop.ironRemaining() - 5) || player.getInventory().countItem(com.simibubi.create.AllBlocks.ANDESITE_CASING.asItem()) != 0
                         || player.getInventory().countItem(com.simibubi.create.AllBlocks.SHAFT.asItem()) != 0 || player.getInventory().countItem(Items.REDSTONE) != 0)
                     throw new IllegalStateException("Native workbench did not consume the exact construction ingredients");
                 next(2);
@@ -296,6 +312,7 @@ public final class ConstructionClientCheck {
         }
 
         private void cleanUp() {
+            if (workshop != null) workshop.cleanUp();
             player.closeContainer();
             if (machine() != null) {var head = machine().movedContraption;machine().disassemble();if (head != null) head.discard();}
             terrain.forEach((pos, before) -> {
