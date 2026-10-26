@@ -18,6 +18,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -33,6 +36,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class CoreClientCheck {
+    private static final boolean FULL_COMBAT = Boolean.getBoolean("innerworld.coreFullCombat");
     private static int ticks;
     private static int observedStage = -1;
     private static int frames;
@@ -50,13 +54,15 @@ public final class CoreClientCheck {
         if (!Boolean.getBoolean("innerworld.coreClientCheck") || finished) return;
         var client = Minecraft.getInstance();
         try {
-            if (++ticks > 2400 && cleanup == null) throw new IllegalStateException("Core client timed out at stage " + observedStage);
+            if (++ticks > (FULL_COMBAT ? 7200 : 2400) && cleanup == null) throw new IllegalStateException("Core client timed out at stage " + observedStage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
                 cleanup.join();finished = true;
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("core-check.result"), "verified");
-                LogUtils.getLogger().info("Core client check passed: natural maze, surveyor, Warden renderer, attack warning, dodge, damage, network cooling, melee victory, story advancement and actual core/mantle supply round trip");
+                Files.writeString(client.gameDirectory.toPath().resolve(FULL_COMBAT ? "core-combat-check.result" : "core-check.result"), "verified");
+                LogUtils.getLogger().info(FULL_COMBAT
+                        ? "Core survival combat check passed: full-health active Warden, ordinary armor and weapons, network combat controls, victory and supply round trip"
+                        : "Core client check passed: natural maze, surveyor, Warden renderer, attack warning, dodge, damage, network cooling, melee victory, story advancement and actual core/mantle supply round trip");
                 client.stop();return;
             }
             if (client.level == null || client.player == null || client.getSingleplayerServer() == null || ticks < 100) return;
@@ -67,18 +73,22 @@ public final class CoreClientCheck {
             if (!setup.isDone()) return;
             scene = setup.join();
             if (!client.level.dimension().equals(Core.LEVEL) && scene.stage < 7) return;
-            if (observedStage != scene.stage) {observedStage = scene.stage;frames = 0;clicked = false;}
+            if (observedStage != scene.stage) {
+                if (observedStage == 10) releaseControls(client);
+                observedStage = scene.stage;frames = 0;clicked = false;
+            }
             frames++;
+            if (observedStage == 10) fight(client);
             if (!checkedBooks && frames > 15) {
                 BookLayoutChecks.check(client, scene.manual);BookLayoutChecks.check(client, scene.record);checkedBooks = true;
             }
             if (observedStage == 0 && !clicked && client.player.getMainHandItem().is(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
                 client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);clicked = true;
             }
-            if (observedStage == 1 && frames == 20) {
+            if ((observedStage == 1 || observedStage == 10) && frames == 20) {
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.CORE_CONSOLE.get().defaultBlockState()) == client.getModelManager().getMissingModel())
                     throw new IllegalStateException("Core console model is missing");
-                Screenshot.grab(client.gameDirectory, "core-warden-arena.png", client.getMainRenderTarget(),
+                Screenshot.grab(client.gameDirectory, FULL_COMBAT ? "core-warden-survival-duel.png" : "core-warden-arena.png", client.getMainRenderTarget(),
                         text -> LogUtils.getLogger().info("Core arena screenshot: {}", text.getString()));
             }
             if (observedStage == 4 && !clicked && frames > 8 && client.player.getMainHandItem().isEmpty()) {
@@ -98,7 +108,7 @@ public final class CoreClientCheck {
                 client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                         new BlockHitResult(Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false));clicked = true;
             }
-            if (observedStage == 9 && frames > 15) {cleanup = server.submit(scene::cleanUp);return;}
+            if (observedStage == 9 && frames > 15) {releaseControls(client);cleanup = server.submit(scene::cleanUp);return;}
             if (action != null) {
                 if (!action.isDone()) return;
                 action.join();action = null;
@@ -107,8 +117,51 @@ public final class CoreClientCheck {
         } catch (Exception e) {
             if (finished || cleanup != null && cleanup.isDone()) {finished = true;throw new IllegalStateException("Core client check failed", e);}
             failure = new IllegalStateException("Core client check failed", e);
+            releaseControls(client);
             cleanup = client.getSingleplayerServer().submit(() -> {if (scene != null) scene.cleanUp();});
         }
+    }
+
+    private static void fight(Minecraft client) {
+        CoreWarden target = null;
+        for (var entity : client.level.entitiesForRendering()) {
+            if (entity instanceof CoreWarden warden && warden.getUUID().equals(scene.warden.getUUID())) { target = warden; break; }
+        }
+        if (target == null || !target.isAlive()) {releaseControls(client);return;}
+        if (!clicked && frames > 8) {
+            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(scene.valve), net.minecraft.core.Direction.UP, scene.valve, false));
+            clicked = true;
+        }
+        var offset = target.position().add(0, 1.5, 0).subtract(client.player.getEyePosition());
+        client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
+        client.player.setXRot((float)-Math.toDegrees(Math.atan2(offset.y, Math.sqrt(offset.x * offset.x + offset.z * offset.z))));
+        double distance = client.player.position().distanceTo(target.position());
+        boolean eat = client.player.getFoodData().getFoodLevel() <= 16;
+        client.options.keyUp.setDown(!eat && distance > 2.2);
+        client.options.keyDown.setDown(eat && distance < 9);
+        int selected = eat ? 1 : 0;
+        if (client.player.getInventory().selected != selected && client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
+        client.player.getInventory().selected = selected;
+        if (eat) {
+            client.options.keyUse.setDown(true);
+            if (!client.player.isUsingItem()) client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+        } else if (target.getAttackType() != 0) {
+            client.options.keyUse.setDown(true);
+            if (!client.player.isUsingItem()) client.gameMode.useItem(client.player, InteractionHand.OFF_HAND);
+        } else {
+            client.options.keyUse.setDown(false);
+            if (client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
+            if (distance < 3.2 && client.player.getAttackStrengthScale(0) > .95f) {
+                client.gameMode.attack(client.player, target);client.player.swing(InteractionHand.MAIN_HAND);
+            }
+        }
+    }
+
+    private static void releaseControls(Minecraft client) {
+        if (!FULL_COMBAT) return;
+        client.options.keyUp.setDown(false);client.options.keyDown.setDown(false);client.options.keyUse.setDown(false);
+        if (client.player != null && client.gameMode != null && client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
     }
 
     private static final class Scene {
@@ -119,6 +172,9 @@ public final class CoreClientCheck {
         private final int oldFood, oldExperienceLevel, oldTotalExperience, oldPortalCooldown;
         private final GameType oldMode;
         private final boolean oldFlying, hadVictory;
+        private final Difficulty oldDifficulty;
+        private final int oldSelected;
+        private final java.util.List<MobEffectInstance> oldEffects;
         private final ListTag inventory;
         private final net.minecraft.server.level.ServerLevel level;
         private final CoreConsoleBlockEntity console;
@@ -135,6 +191,8 @@ public final class CoreClientCheck {
         private volatile int stage;
         private long since;
         private float safeHealth;
+        private float minimumHealth = 20;
+        private float lastBossHealth = 240;
 
         private Scene(ServerPlayer player) {
             this.player = player;oldLevel = player.serverLevel();oldPosition = player.position();oldYaw = player.getYRot();oldPitch = player.getXRot();
@@ -142,11 +200,14 @@ public final class CoreClientCheck {
             oldFood = player.getFoodData().getFoodLevel();oldSaturation = player.getFoodData().getSaturationLevel();
             oldExperience = player.experienceProgress;oldExperienceLevel = player.experienceLevel;oldTotalExperience = player.totalExperience;
             oldPortalCooldown = player.getPortalCooldown();
+            oldDifficulty = player.server.getWorldData().getDifficulty();oldSelected = player.getInventory().selected;
+            oldEffects = player.getActiveEffects().stream().map(MobEffectInstance::new).toList();
             inventory = player.getInventory().save(new ListTag());
             var advancement = player.server.getAdvancements().get(id("exploration/core_victory"));
             hadVictory = player.getAdvancements().getOrStartProgress(advancement).isDone();
             level = player.server.getLevel(Core.LEVEL);
-            var located = level.findNearestMapStructure(TagKey.create(Registries.STRUCTURE, id("core_mazes")), new BlockPos(8192, 33, 8192), 4, false);
+            var located = level.findNearestMapStructure(TagKey.create(Registries.STRUCTURE, id("core_mazes")),
+                    FULL_COMBAT ? new BlockPos(16384, 33, 16384) : new BlockPos(8192, 33, 8192), 4, false);
             if (located == null) throw new IllegalStateException("Natural core maze could not be located");
             var structure = level.registryAccess().registryOrThrow(Registries.STRUCTURE).get(id("core_maze"));
             var start = level.getChunkAt(located).getStartForStructure(structure);
@@ -177,7 +238,25 @@ public final class CoreClientCheck {
 
         private void advance() {
             level.resetEmptyTime();
-            if (level.getGameTime() - since > 240) throw new IllegalStateException("Core scene stalled at stage " + stage);
+            if (level.getGameTime() - since > (stage == 10 ? 6000 : 240)) throw new IllegalStateException("Core scene stalled at stage " + stage);
+            if (stage == 10) {
+                minimumHealth = Math.min(minimumHealth, player.getHealth());
+                if (player.getHealth() <= 8) throw new IllegalStateException("Survival duel needs recovery: player=" + player.getHealth() + ", Warden=" + warden.getHealth());
+                if ((int)warden.getHealth() / 20 != (int)lastBossHealth / 20) {
+                    LogUtils.getLogger().info("Survival Warden duel: boss health {}, player health {}, elapsed {} ticks",
+                            warden.getHealth(), player.getHealth(), level.getGameTime() - since);
+                    lastBossHealth = warden.getHealth();
+                }
+                if (!warden.isAlive() && console.getBossId() == null && console.hasVictory()) {
+                    var advancement = player.server.getAdvancements().get(id("exploration/core_victory"));
+                    if (!player.getAdvancements().getOrStartProgress(advancement).isDone()) throw new IllegalStateException("Survival victory was not recorded");
+                    LogUtils.getLogger().info("Full-health Warden survival victory: {} ticks, minimum health {}, sword wear {}, shield wear {}",
+                            level.getGameTime() - since, minimumHealth, player.getInventory().getItem(0).getDamageValue(),
+                            player.getOffhandItem().getDamageValue());
+                    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();next(6);
+                }
+                return;
+            }
             if (stage == 0 && player.getCooldowns().isOnCooldown(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
                 for (long packed : originalConsole.getLongArray("Nodes")) {
                     var pos = BlockPos.of(packed);level.setBlockAndUpdate(pos, level.getBlockState(pos).setValue(LeverBlock.POWERED, true));
@@ -191,6 +270,19 @@ public final class CoreClientCheck {
                 }
                 if (console.getBossId() == null || !(level.getEntity(console.getBossId()) instanceof CoreWarden active)) return;
                 warden = active;player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                if (FULL_COMBAT) {
+                    if (warden.getHealth() != warden.getMaxHealth() || warden.isNoAi()) throw new IllegalStateException("Survival duel requires a fresh active Warden");
+                    player.server.setDifficulty(Difficulty.NORMAL, true);
+                    player.removeAllEffects();player.getInventory().selected = 0;player.getFoodData().setSaturation(5);
+                    player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+                    player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+                    player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+                    player.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+                    player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
+                    player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
+                    player.getInventory().setItem(1, new ItemStack(Items.COOKED_BEEF, 16));player.containerMenu.broadcastChanges();
+                    player.teleportTo(level, valve.getX() - 1.5, valve.getY(), valve.getZ() + .5, -90, 0);next(10);return;
+                }
                 player.teleportTo(level, arena.getX() + .5, arena.getY(), arena.getZ() + 7.5, 180, 0);next(1);
             } else if (stage == 1 && warden.getAttackType() != 0) {
                 safeHealth = player.getHealth();
@@ -235,6 +327,11 @@ public final class CoreClientCheck {
             if (!hadVictory) player.getAdvancements().revoke(player.server.getAdvancements().get(id("exploration/core_victory")), "defeat");
             player.teleportTo(oldLevel, oldPosition.x, oldPosition.y, oldPosition.z, oldYaw, oldPitch);player.setGameMode(oldMode);
             player.getAbilities().flying = oldFlying;player.onUpdateAbilities();player.getInventory().load(inventory);
+            player.getInventory().selected = oldSelected;
+            if (FULL_COMBAT) {
+                player.removeAllEffects();oldEffects.forEach(player::addEffect);
+                player.server.setDifficulty(oldDifficulty, true);
+            }
             player.setHealth(oldHealth);player.getFoodData().setFoodLevel(oldFood);player.getFoodData().setSaturation(oldSaturation);
             player.experienceProgress = oldExperience;player.experienceLevel = oldExperienceLevel;player.totalExperience = oldTotalExperience;
             player.setPortalCooldown(oldPortalCooldown);
