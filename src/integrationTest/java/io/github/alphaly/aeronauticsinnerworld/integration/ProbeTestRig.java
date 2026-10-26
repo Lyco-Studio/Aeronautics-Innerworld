@@ -29,6 +29,7 @@ import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Unit;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -42,6 +43,7 @@ public final class ProbeTestRig {
     public ServerSubLevel subLevel;
     private final Map<BlockPos, BlockState> original = new HashMap<>();
     private final BlockPos origin;
+    private final Rotation rotation;
     private BlockPos plotOrigin;
     private SubLevelData saved;
     private final boolean mobSpawning;
@@ -66,6 +68,11 @@ public final class ProbeTestRig {
     }
 
     public ProbeTestRig(ServerLevel level, BlockPos origin, boolean clearTerrain) {
+        this(level, origin, clearTerrain, Rotation.NONE);
+    }
+
+    public ProbeTestRig(ServerLevel level, BlockPos origin, boolean clearTerrain, Rotation rotation) {
+        this.rotation = rotation;
         this.level = level;
         this.origin = origin;
         mobSpawning = level.getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
@@ -73,10 +80,10 @@ public final class ProbeTestRig {
         level.resetEmptyTime();
         level.getChunkSource().addRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
         removeOldRig();
-        if (clearTerrain) for (var pos : BlockPos.betweenClosed(origin.offset(-6, -12, -6), origin.offset(10, 12, 14))) {
+        if (clearTerrain) for (var pos : BlockPos.betweenClosed(source(-6, -12, -6), source(10, 12, 14))) {
             var state = level.getBlockState(pos);
             if (state.is(Blocks.BASALT) || state.is(Blocks.SMOOTH_BASALT) || state.is(AeronauticsInnerworld.HARMONIC_ORE.get())) {
-                place(pos.subtract(origin), Blocks.LAVA.defaultBlockState());
+                saveAndSet(pos, Blocks.LAVA.defaultBlockState());
             }
         }
         for (int x = 0; x < 5; x++) {
@@ -109,7 +116,7 @@ public final class ProbeTestRig {
     }
 
     private void glue(BlockPos start, BlockPos end) {
-        var entity = new SuperGlueEntity(level, SuperGlueEntity.span(origin.offset(start), origin.offset(end)));
+        var entity = new SuperGlueEntity(level, SuperGlueEntity.span(source(start), source(end)));
         level.addFreshEntity(entity);
         glue.add(entity);
     }
@@ -119,10 +126,10 @@ public final class ProbeTestRig {
         device(SAMPLER, AeronauticsInnerworld.MANTLE_SAMPLER.get(), Direction.NORTH);
         place(SOUNDER.south(), SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
-        ((PortableEngineBlockEntity) level.getBlockEntity(origin.offset(SOUNDER.south()))).inventory.setItem(0,
+        ((PortableEngineBlockEntity) level.getBlockEntity(source(SOUNDER.south()))).inventory.setItem(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, 4));
-        ((EchoSounderBlockEntity) level.getBlockEntity(origin.offset(SOUNDER))).setHome(origin);
-        ((MantleSamplerBlockEntity) level.getBlockEntity(origin.offset(SAMPLER))).inventory.setStackInSlot(0,
+        ((EchoSounderBlockEntity) level.getBlockEntity(source(SOUNDER))).setHome(origin);
+        ((MantleSamplerBlockEntity) level.getBlockEntity(source(SAMPLER))).inventory.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COPPER_INGOT, 17));
     }
 
@@ -173,15 +180,15 @@ public final class ProbeTestRig {
         place(connector.below().south(), Blocks.CHEST.defaultBlockState());
         glue(connector, connector.below());
         glue(connector.below(), connector.below().south());
-        ((MantleSamplerBlockEntity) level.getBlockEntity(origin.offset(SAMPLER))).inventory.setStackInSlot(0,
+        ((MantleSamplerBlockEntity) level.getBlockEntity(source(SAMPLER))).inventory.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get(), 17));
     }
 
     public void combatEquipment() {
         workEquipment();
         device(CANNON, AeronauticsInnerworld.PRESSURE_CANNON.get(), Direction.NORTH);
-        ((CreativeMotorBlockEntity) level.getBlockEntity(origin.offset(CANNON.south()))).generatedSpeed.setValue(0);
-        ((PressureCannonBlockEntity) level.getBlockEntity(origin.offset(CANNON))).ammunition.setStackInSlot(0,
+        ((CreativeMotorBlockEntity) level.getBlockEntity(source(CANNON.south()))).generatedSpeed.setValue(0);
+        ((PressureCannonBlockEntity) level.getBlockEntity(source(CANNON))).ammunition.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(AeronauticsInnerworld.PRESSURE_BOLT.get(), 9));
     }
 
@@ -192,13 +199,13 @@ public final class ProbeTestRig {
     private void engine(BlockPos pos, Direction facing) {
         place(pos, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
-        ((PortableEngineBlockEntity) level.getBlockEntity(origin.offset(pos))).inventory.setItem(0,
+        ((PortableEngineBlockEntity) level.getBlockEntity(source(pos))).inventory.setItem(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, 4));
     }
 
     public BlockPos mineralTarget() {
-        var point = subLevel == null ? Vec3.atCenterOf(origin.offset(3, 1, -2))
-                : world(SAMPLER).add(subLevel.logicalPose().transformNormal(new Vec3(0, 0, -2)));
+        var point = subLevel == null ? Vec3.atCenterOf(source(3, 1, -2))
+                : world(SAMPLER).add(subLevel.logicalPose().transformNormal(Vec3.atLowerCornerOf(rotation.rotate(Direction.NORTH).getNormal()).scale(2)));
         var pos = BlockPos.containing(point);
         original.putIfAbsent(pos, level.getBlockState(pos));
         level.setBlockAndUpdate(pos, AeronauticsInnerworld.HARMONIC_ORE.get().defaultBlockState());
@@ -207,7 +214,7 @@ public final class ProbeTestRig {
 
     public Vec3 creatureSamplingTarget() {
         var origin = world(SAMPLER);
-        var direction = subLevel.logicalPose().transformNormal(new Vec3(0, 0, -1));
+        var direction = subLevel.logicalPose().transformNormal(Vec3.atLowerCornerOf(rotation.rotate(Direction.NORTH).getNormal()));
         for (int i = 1; i <= 4; i++) {
             var pos = BlockPos.containing(origin.add(direction.scale(i)));
             original.putIfAbsent(pos, level.getBlockState(pos));
@@ -233,7 +240,7 @@ public final class ProbeTestRig {
     public boolean ready() {
         removeOldRig();
         return level.getEntitiesOfClass(SuperGlueEntity.class,
-                SuperGlueEntity.span(origin.offset(-2, -2, -2), origin.offset(7, 6, 9))).containsAll(glue);
+                SuperGlueEntity.span(source(-2, -2, -2), source(7, 6, 9))).containsAll(glue);
     }
 
     public int sourceCopperDrops() {
@@ -242,8 +249,8 @@ public final class ProbeTestRig {
 
     public int sourceDrops(net.minecraft.world.item.Item item) {
         return level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
-                new AABB(Vec3.atLowerCornerOf(origin.offset(-2, -2, -2)),
-                        Vec3.atLowerCornerOf(origin.offset(7, 6, 9))))
+                new AABB(Vec3.atLowerCornerOf(source(-2, -2, -2)),
+                        Vec3.atLowerCornerOf(source(7, 6, 9))))
                 .stream().filter(entity -> entity.getItem().is(item))
                 .mapToInt(entity -> entity.getItem().getCount()).sum();
     }
@@ -268,8 +275,8 @@ public final class ProbeTestRig {
         var container = SubLevelContainer.getContainer(level);
         var assemblerPos = new BlockPos(2, 4, 3);
         try {
-            var result = SimAssemblyHelper.assembleFromSingleBlock(level, origin.offset(assemblerPos),
-                    origin.offset(assemblerPos.below()), true, true);
+            var result = SimAssemblyHelper.assembleFromSingleBlock(level, source(assemblerPos),
+                    source(assemblerPos.below()), true, true);
             if (result == null) {
                 throw new IllegalStateException("Native probe assembly returned no structure");
             }
@@ -287,7 +294,7 @@ public final class ProbeTestRig {
         var relative = new BlockPos(2, 1, 1);
         place(relative, SimBlocks.PHYSICS_ASSEMBLER.getDefaultState()
                 .setValue(BlockStateProperties.ATTACH_FACE, AttachFace.FLOOR));
-        return origin.offset(relative);
+        return source(relative);
     }
 
     public void acceptClientAssembly(ServerSubLevel assembled) {
@@ -317,7 +324,7 @@ public final class ProbeTestRig {
         for (var pos : BlockPos.betweenClosed(bounds.minX(), bounds.minY(), bounds.minZ(),
                 bounds.maxX(), bounds.maxY(), bounds.maxZ())) {
             if (level.getBlockEntity(pos) instanceof CabinRegulatorBlockEntity) {
-                plotOrigin = pos.subtract(CABIN).immutable();
+                plotOrigin = pos.subtract(CABIN.rotate(rotation)).immutable();
                 return;
             }
         }
@@ -325,9 +332,19 @@ public final class ProbeTestRig {
     }
 
     private void place(BlockPos relative, BlockState state) {
-        var pos = origin.offset(relative);
-        original.putIfAbsent(pos, level.getBlockState(pos));
-        level.setBlockAndUpdate(pos, state);
+        saveAndSet(source(relative), state.rotate(rotation));
+    }
+
+    public BlockPos source(BlockPos relative) {
+        return origin.offset(relative.rotate(rotation));
+    }
+
+    private BlockPos source(int x, int y, int z) {
+        return source(new BlockPos(x, y, z));
+    }
+
+    private void saveAndSet(BlockPos pos, BlockState state) {
+        original.putIfAbsent(pos.immutable(), level.getBlockState(pos));level.setBlockAndUpdate(pos, state);
     }
 
     private void device(BlockPos pos, ProbeDeviceBlock block, Direction facing) {
@@ -337,7 +354,7 @@ public final class ProbeTestRig {
     }
 
     public BlockPos local(BlockPos relative) {
-        return plotOrigin.offset(relative);
+        return plotOrigin.offset(relative.rotate(rotation));
     }
 
     public Vec3 world(BlockPos relative) {

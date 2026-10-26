@@ -20,6 +20,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -31,6 +32,7 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 final class DockPortcullis {
     private final ServerLevel level;
     private final FakePlayer player;
+    private final Rotation rotation;
     private final BlockPos origin, piston, engine, clutchLever, reverseLever;
     private final Map<BlockPos, BlockState> original = new LinkedHashMap<>();
     private final AABB glueBounds;
@@ -38,34 +40,39 @@ final class DockPortcullis {
     private boolean closing = true;
 
     DockPortcullis(ServerLevel level, BlockPos origin, FakePlayer player) {
-        this.level = level;this.origin = origin;this.player = player;
-        glueBounds = SuperGlueEntity.span(origin.offset(-1, -1, 8), origin.offset(8, 14, 8));
+        this(level, origin, player, Rotation.NONE);
+    }
+
+    DockPortcullis(ServerLevel level, BlockPos origin, FakePlayer player, Rotation rotation) {
+        this.level = level;this.origin = origin;this.player = player;this.rotation = rotation;
+        glueBounds = SuperGlueEntity.span(at(-1, -1, 8), at(8, 14, 8));
         level.getEntitiesOfClass(SuperGlueEntity.class, glueBounds).forEach(entity -> previousGlue.add(entity.getUUID()));
-        piston = origin.offset(8, 6, 8);engine = piston.north(3);
-        clutchLever = piston.north(2).west();reverseLever = piston.north().west();
-        for (var pos : BlockPos.betweenClosed(origin.offset(6, 5, 4), origin.offset(9, 7, 8))) {
-            var local = pos.subtract(origin);
+        var anchor = new BlockPos(8, 6, 8);
+        piston = at(anchor);engine = at(anchor.north(3));
+        clutchLever = at(anchor.north(2).west());reverseLever = at(anchor.north().west());
+        for (var pos : BlockPos.betweenClosed(new BlockPos(6, 5, 4), new BlockPos(9, 7, 8))) {
+            var local = pos;
             boolean wall = local.getX() == 6 || local.getX() == 9 || local.getY() != 6
                     || local.getZ() == 4 || local.getZ() == 8;
-            set(pos, wall ? Blocks.DEEPSLATE_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            set(at(pos), wall ? Blocks.DEEPSLATE_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState());
         }
-        for (var pos : BlockPos.betweenClosed(origin.offset(-1, 8, 8), origin.offset(8, 14, 8)))
-            set(pos, Blocks.AIR.defaultBlockState());
-        for (var pos : BlockPos.betweenClosed(origin.offset(-1, -1, 8), origin.offset(5, 7, 8)))
-            set(pos, Blocks.DEEPSLATE_BRICKS.defaultBlockState());
-        for (int x = 6; x <= 8; x++) set(origin.offset(x, 7, 8), Blocks.DEEPSLATE_BRICKS.defaultBlockState());
+        for (var pos : BlockPos.betweenClosed(new BlockPos(-1, 8, 8), new BlockPos(8, 14, 8)))
+            set(at(pos), Blocks.AIR.defaultBlockState());
+        for (var pos : BlockPos.betweenClosed(new BlockPos(-1, -1, 8), new BlockPos(5, 7, 8)))
+            set(at(pos), Blocks.DEEPSLATE_BRICKS.defaultBlockState());
+        for (int x = 6; x <= 8; x++) set(at(x, 7, 8), Blocks.DEEPSLATE_BRICKS.defaultBlockState());
         set(piston, AllBlocks.STICKY_MECHANICAL_PISTON.getDefaultState().setValue(BlockStateProperties.FACING, Direction.UP)
                 .setValue(DirectionalAxisKineticBlock.AXIS_ALONG_FIRST_COORDINATE, false));
         for (int length = 1; length <= 7; length++)
-            set(piston.below(length), AllBlocks.PISTON_EXTENSION_POLE.getDefaultState().setValue(BlockStateProperties.FACING, Direction.UP));
-        set(piston.north(), AllBlocks.GEARSHIFT.getDefaultState().setValue(BlockStateProperties.AXIS, Direction.Axis.Z));
-        set(piston.north(2), AllBlocks.CLUTCH.getDefaultState().setValue(BlockStateProperties.AXIS, Direction.Axis.Z));
+            set(at(anchor.below(length)), AllBlocks.PISTON_EXTENSION_POLE.getDefaultState().setValue(BlockStateProperties.FACING, Direction.UP));
+        set(at(anchor.north()), AllBlocks.GEARSHIFT.getDefaultState().setValue(BlockStateProperties.AXIS, Direction.Axis.Z));
+        set(at(anchor.north(2)), AllBlocks.CLUTCH.getDefaultState().setValue(BlockStateProperties.AXIS, Direction.Axis.Z));
         set(reverseLever, lever(true));set(clutchLever, lever(true));
         set(engine, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH));
         ((PortableEngineBlockEntity) level.getBlockEntity(engine)).inventory.setItem(0, new ItemStack(Items.COAL, 4));
-        glue(origin.offset(-1, -1, 8), origin.offset(5, 7, 8));
-        glue(origin.offset(-1, 7, 8), origin.offset(8, 7, 8));
+        glue(at(-1, -1, 8), at(5, 7, 8));
+        glue(at(-1, 7, 8), at(8, 7, 8));
     }
 
     private static BlockState lever(boolean powered) {
@@ -73,8 +80,11 @@ final class DockPortcullis {
                 .setValue(LeverBlock.FACING, Direction.WEST).setValue(LeverBlock.POWERED, powered);
     }
 
+    private BlockPos at(BlockPos relative) {return origin.offset(relative.rotate(rotation));}
+    private BlockPos at(int x, int y, int z) {return at(new BlockPos(x, y, z));}
+
     private void set(BlockPos pos, BlockState state) {
-        original.putIfAbsent(pos.immutable(), level.getBlockState(pos));level.setBlockAndUpdate(pos, state);
+        original.putIfAbsent(pos.immutable(), level.getBlockState(pos));level.setBlockAndUpdate(pos, state.rotate(rotation));
     }
 
     private void glue(BlockPos from, BlockPos to) {
@@ -89,11 +99,11 @@ final class DockPortcullis {
 
     boolean atRequestedPosition() {
         int lift = closing ? 0 : 7;
-        for (var pos : BlockPos.betweenClosed(origin.offset(-1, -1 + lift, 8), origin.offset(5, 7 + lift, 8)))
+        for (var pos : BlockPos.betweenClosed(at(-1, -1 + lift, 8), at(5, 7 + lift, 8)))
             if (!level.getBlockState(pos).is(Blocks.DEEPSLATE_BRICKS)) return false;
         for (int x = 6; x <= 8; x++)
-            if (!level.getBlockState(origin.offset(x, 7 + lift, 8)).is(Blocks.DEEPSLATE_BRICKS)) return false;
-        return closing || !level.getBlockState(origin.offset(2, -1, 8)).is(Blocks.DEEPSLATE_BRICKS);
+            if (!level.getBlockState(at(x, 7 + lift, 8)).is(Blocks.DEEPSLATE_BRICKS)) return false;
+        return closing || !level.getBlockState(at(2, -1, 8)).is(Blocks.DEEPSLATE_BRICKS);
     }
 
     boolean consumedFuel() {
@@ -111,7 +121,7 @@ final class DockPortcullis {
         if (state.getValue(LeverBlock.POWERED) == powered) return;
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
-                new BlockHitResult(Vec3.atCenterOf(pos), Direction.WEST, pos, false));
+                new BlockHitResult(Vec3.atCenterOf(pos), rotation.rotate(Direction.WEST), pos, false));
     }
 
     void cleanUp() {

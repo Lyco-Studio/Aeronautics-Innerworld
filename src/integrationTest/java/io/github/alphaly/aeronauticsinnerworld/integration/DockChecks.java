@@ -155,7 +155,7 @@ public final class DockChecks {
         return (ProbeDriveBlockEntity) rig.level.getBlockEntity(rig.local(new BlockPos(1, 0, 2)));
     }
 
-    private static void trim(ProbeTestRig rig, FakePlayer player, int mode) {
+    static void trim(ProbeTestRig rig, FakePlayer player, int mode) {
         player.setShiftKeyDown(true);
         try {
             for (int x : new int[] {1, 3}) {
@@ -167,7 +167,7 @@ public final class DockChecks {
         } finally {player.setShiftKeyDown(false);}
     }
 
-    private static void propulsion(ProbeTestRig rig, FakePlayer player, boolean on, boolean reverse) {
+    static void propulsion(ProbeTestRig rig, FakePlayer player, boolean on, boolean reverse) {
         for (var relative : java.util.List.of(ProbeTestRig.LEFT_REVERSE, ProbeTestRig.RIGHT_REVERSE,
                 ProbeTestRig.LEFT_THROTTLE, ProbeTestRig.RIGHT_THROTTLE)) {
             var pos = rig.local(relative);
