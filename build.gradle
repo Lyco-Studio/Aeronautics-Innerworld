@@ -342,11 +342,16 @@ neoForge.runs.create('relayEntryTestClient') {
     gameDirectory = project.file('run/client')
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.relayEntryClientCheck', 'true'
+    systemProperty 'innerworld.relayVoyage', providers.gradleProperty('relayVoyage').getOrElse('false')
+    systemProperty 'innerworld.relayTransfer', providers.gradleProperty('relayTransfer').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
 tasks.named('runRelayEntryTestClient') {
     def result = layout.projectDirectory.file('run/client/relay-entry-check.result')
+    def transfer = providers.gradleProperty('relayTransfer').getOrElse('false') == 'true'
+    def voyage = providers.gradleProperty('relayVoyage').getOrElse('false') == 'true'
+    def expected = transfer ? 'transfer-verified' : voyage ? 'voyage-verified' : 'verified'
     doFirst {
         if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
             throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
@@ -354,7 +359,7 @@ tasks.named('runRelayEntryTestClient') {
         result.asFile.delete()
     }
     doLast {
-        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+        if (!result.asFile.isFile() || result.asFile.text != expected) {
             throw new GradleException('Relay intake check failed; inspect the client diagnostics.')
         }
     }

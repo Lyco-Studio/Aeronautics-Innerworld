@@ -27,6 +27,10 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.level.GameRules;
@@ -43,11 +47,14 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class RelayEntryClientCheck {
     private static int ticks, phase = -1, frames;
-    private static boolean capturedOptions, oldPause, clicked, finished;
+    private static boolean capturedOptions, oldPause, clicked, finished, returning;
     private static CompletableFuture<Scene> setup;
     private static CompletableFuture<Void> step, cleanup;
     private static Scene scene;
     private static RuntimeException failure;
+
+    private static boolean voyage() {return Boolean.getBoolean("innerworld.relayVoyage") || Boolean.getBoolean("innerworld.relayTransfer");}
+    private static boolean transfer() {return voyage() && Boolean.getBoolean("innerworld.relayTransfer");}
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -56,13 +63,15 @@ public final class RelayEntryClientCheck {
         if (!capturedOptions) {oldPause = client.options.pauseOnLostFocus;capturedOptions = true;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > 1800 && cleanup == null) throw new IllegalStateException("Relay intake timed out at phase " + phase);
+            if (++ticks > (voyage() ? 24000 : 1800) && cleanup == null) throw new IllegalStateException("Relay intake timed out at phase " + phase);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
                 cleanup.join();finished = true;client.options.pauseOnLostFocus = oldPause;
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("relay-entry-check.result"), "verified");
-                LogUtils.getLogger().info("Relay intake check passed: native swim and first alloy recovery with ordinary fire resistance");
+                Files.writeString(client.gameDirectory.toPath().resolve("relay-entry-check.result"), voyage() ? transfer() ? "transfer-verified" : "voyage-verified" : "verified");
+                LogUtils.getLogger().info(transfer() ? "Relay transfer passed: native boat exit, first alloy recovery and reboarding"
+                        : voyage() ? "Natural relay voyage passed: fueled native controls, gallery recovery and dry outpost return"
+                        : "Relay intake check passed: native swim and first alloy recovery with ordinary fire resistance");
                 client.stop();return;
             }
             if (client.level == null || client.player == null || client.getSingleplayerServer() == null || ticks < 100) return;
@@ -72,6 +81,7 @@ public final class RelayEntryClientCheck {
             scene = setup.join();
             if (scene.phase != phase) {release(client);phase = scene.phase;frames = 0;clicked = false;}
             frames++;
+            if (phase == 0 || phase == 5) scene.expedition.tickClient(client);
             if (phase == 1) {
                 var offset = Vec3.atBottomCenterOf(scene.landing).add(0, .5, 0).subtract(client.player.position());
                 client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));client.player.setXRot(-25);
@@ -91,6 +101,16 @@ public final class RelayEntryClientCheck {
                 if (!clicked) {client.player.closeContainer();clicked = true;}
                 if (frames == 8) Screenshot.grab(client.gameDirectory, "relay-first-recovery.png", client.getMainRenderTarget(),
                         message -> LogUtils.getLogger().info("First relay recovery screenshot: {}", message.getString()));
+                if (frames > 15) {
+                    if (voyage()) {
+                        if (!returning) {returning = true;step = server.submit(scene::beginReturn);}
+                    } else cleanup = server.submit(scene::cleanUp);
+                    return;
+                }
+            }
+            if (phase == 6) {
+                if (frames == 8) Screenshot.grab(client.gameDirectory, transfer() ? "relay-transfer-return.png" : "relay-natural-voyage.png", client.getMainRenderTarget(),
+                        message -> LogUtils.getLogger().info("Natural relay cargo return screenshot: {}", message.getString()));
                 if (frames > 15) {cleanup = server.submit(scene::cleanUp);return;}
             }
             if (step != null) {if (!step.isDone()) return;step.join();step = null;}
@@ -107,6 +127,8 @@ public final class RelayEntryClientCheck {
 
     private static void release(Minecraft client) {
         client.options.keyUp.setDown(false);client.options.keyJump.setDown(false);client.options.keyShift.setDown(false);
+        client.options.keyUse.setDown(false);
+        if (client.player != null && client.gameMode != null && client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
     }
 
     private static final class Scene {
@@ -124,6 +146,7 @@ public final class RelayEntryClientCheck {
         private volatile int phase = 1;
         private volatile CoreMazeWalk walk;
         private final long started;
+        private RelayVoyage expedition;
 
         private Scene(ServerPlayer player) {
             this.player = player;oldPlayer = TeamPlayerState.capture(player);oldSlot = player.getInventory().selected;
@@ -167,10 +190,28 @@ public final class RelayEntryClientCheck {
             level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, player.server);
             player.setGameMode(GameType.SURVIVAL);player.getAbilities().flying = false;player.onUpdateAbilities();
             player.getInventory().clearContent();player.getInventory().selected = 2;
-            player.removeAllEffects();player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 3600));
-            player.setHealth(player.getMaxHealth());player.getFoodData().setFoodLevel(20);player.getFoodData().setSaturation(5);
+            player.removeAllEffects();
+            if (!voyage()) player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 3600));
+            player.setHealth(player.getMaxHealth());
+            var food = new CompoundTag();new net.minecraft.world.food.FoodData().addAdditionalSaveData(food);player.getFoodData().readAdditionalSaveData(food);
             player.getPersistentData().putInt("InnerworldHeatExposure", 0);
             var point = Vec3.atBottomCenterOf(intake);
+            if (voyage()) {
+                try {
+                    expedition = new RelayVoyage(player, level, intake, landing, bounds);expedition.build();
+                    player.getInventory().setItem(0, new ItemStack(AeronauticsInnerworld.COOLANT_CELL.get(), 8));
+                    player.getInventory().setItem(1, new ItemStack(Items.COOKED_BEEF, 8));
+                    player.getInventory().setItem(5, new ItemStack(Items.COMPASS));
+                    player.getInventory().setItem(6, new ItemStack(AeronauticsInnerworld.MOLTEN_SCALE.get(), 3));
+                    player.getInventory().setItem(7, new ItemStack(com.simibubi.create.AllItems.COPPER_SHEET.get(), 2));
+                    player.getInventory().setItem(8, new ItemStack(Items.GLASS));
+                    for (int slot : new int[] {3, 4}) {
+                        var potion = new ItemStack(Items.POTION);potion.set(net.minecraft.core.component.DataComponents.POTION_CONTENTS, new PotionContents(Potions.LONG_FIRE_RESISTANCE));
+                        player.getInventory().setItem(slot, potion);
+                    }
+                    point = expedition.initialPosition();phase = 0;
+                } catch (RuntimeException error) {cleanUp();throw error;}
+            }
             player.teleportTo(level, point.x, point.y, point.z, 0, -25);player.containerMenu.broadcastChanges();
             started = level.getGameTime();
             LogUtils.getLogger().info("Natural relay intake starts at {}, dry landing={}, first alloy={}", intake, landing, alloy);
@@ -178,12 +219,22 @@ public final class RelayEntryClientCheck {
 
         private void advance() {
             level.resetEmptyTime();
-            if (level.getGameTime() - started > 1200 || player.getHealth() < 6 || !player.isAlive())
+            if (level.getGameTime() - started > (voyage() ? 18000 : 1200) || !voyage() && player.getHealth() < 6 || !player.isAlive())
                 throw new IllegalStateException("First relay approach failed at phase " + phase + ", position=" + player.position()
                         + ", heat=" + player.getPersistentData().getInt("InnerworldHeatExposure") + ", health=" + player.getHealth()
                         + ", alloy=" + player.getInventory().countItem(AeronauticsInnerworld.RELIC_ALLOY.get()) + "/" + alloy
                         + ", chest=" + count((ChestBlockEntity) level.getBlockEntity(chest)) + ", menu=" + player.containerMenu.getClass().getSimpleName());
             if (!player.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) throw new IllegalStateException("First alloy recovery used late expedition armor");
+            if (phase == 0 || phase == 5) {
+                expedition.advance();
+                if (phase == 0 && expedition.atRelay()) phase = 1;
+                else if (phase == 5 && expedition.returned()) {
+                    if (player.getInventory().countItem(AeronauticsInnerworld.RELIC_ALLOY.get()) != alloy)
+                        throw new IllegalStateException("Natural voyage lost its recovered alloy before reaching the outpost");
+                    phase = 6;
+                }
+                return;
+            }
             if (phase == 1 && player.getY() >= landing.getY() && player.position().subtract(Vec3.atBottomCenterOf(landing)).horizontalDistanceSqr() < .3
                     && level.getFluidState(BlockPos.containing(player.getEyePosition())).isEmpty()) {
                 LogUtils.getLogger().info("Native first relay landing reached: heat={}, health={}",
@@ -196,7 +247,8 @@ public final class RelayEntryClientCheck {
                 } else if (phase == 3 && player.getInventory().countItem(AeronauticsInnerworld.RELIC_ALLOY.get()) == alloy) {
                     if (count((ChestBlockEntity) level.getBlockEntity(chest)) != 0)
                         throw new IllegalStateException("First alloy recovery duplicated the chest contents");
-                    LogUtils.getLogger().info("Native first relay recovery completed: alloy={}, ordinary fire resistance, health={}", alloy, player.getHealth());phase = 4;
+                    LogUtils.getLogger().info("Native first relay recovery completed: alloy={}, early mask={}, health={}", alloy,
+                            player.getItemBySlot(EquipmentSlot.HEAD).is(AeronauticsInnerworld.HEATWEAVE_HELMET.get()), player.getHealth());phase = 4;
                 }
             }
         }
@@ -207,7 +259,10 @@ public final class RelayEntryClientCheck {
             return count;
         }
 
+        private void beginReturn() {expedition.beginReturn();phase = 5;}
+
         private void cleanUp() {
+            if (expedition != null) expedition.cleanUp();
             player.closeContainer();hatches.forEach(level::setBlockAndUpdate);
             containers.forEach((pos, tag) -> {
                 var entity = level.getBlockEntity(pos);entity.loadWithComponents(tag, level.registryAccess());entity.setChanged();

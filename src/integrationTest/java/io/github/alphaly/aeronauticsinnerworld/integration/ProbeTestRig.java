@@ -62,6 +62,10 @@ public final class ProbeTestRig {
     public static final BlockPos CANNON = new BlockPos(1, 1, 0);
 
     public ProbeTestRig(ServerLevel level, BlockPos origin) {
+        this(level, origin, true);
+    }
+
+    public ProbeTestRig(ServerLevel level, BlockPos origin, boolean clearTerrain) {
         this.level = level;
         this.origin = origin;
         mobSpawning = level.getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
@@ -69,7 +73,7 @@ public final class ProbeTestRig {
         level.resetEmptyTime();
         level.getChunkSource().addRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
         removeOldRig();
-        for (var pos : BlockPos.betweenClosed(origin.offset(-6, -12, -6), origin.offset(10, 12, 14))) {
+        if (clearTerrain) for (var pos : BlockPos.betweenClosed(origin.offset(-6, -12, -6), origin.offset(10, 12, 14))) {
             var state = level.getBlockState(pos);
             if (state.is(Blocks.BASALT) || state.is(Blocks.SMOOTH_BASALT) || state.is(AeronauticsInnerworld.HARMONIC_ORE.get())) {
                 place(pos.subtract(origin), Blocks.LAVA.defaultBlockState());
