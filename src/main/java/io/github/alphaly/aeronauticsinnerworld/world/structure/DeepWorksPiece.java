@@ -87,7 +87,7 @@ public final class DeepWorksPiece extends StructurePiece {
                 spawner.setEntityId(EntityType.MAGMA_CUBE, random);
             }
         }
-        placeBlock(level, AeronauticsInnerworld.RELAY_BEACON.get().defaultBlockState(), 12, 5, 26, bounds);
+        placeBlock(level, AeronauticsInnerworld.RELAY_BEACON.get().defaultBlockState(), 13, 4, 26, bounds);
         createChest(level, bounds, random, 2, 4, 10, SUPPLIES);
         createChest(level, bounds, random, 12, 4, 26, RECOVERY);
     }

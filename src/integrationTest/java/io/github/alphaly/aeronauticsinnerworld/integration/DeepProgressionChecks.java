@@ -59,6 +59,8 @@ public final class DeepProgressionChecks {
         var dryPositions = new java.util.ArrayList<BlockPos>();
         for (var pos : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
             if (level.getBlockEntity(pos) instanceof ChestBlockEntity chest) {
+                helper.assertTrue(level.getBlockState(pos).getMenuProvider(level, pos) != null,
+                        "Deep works chest cannot open its native container");
                 dryPositions.add(pos.above().immutable());
                 for (int slot = 0; slot < chest.getContainerSize(); slot++) {
                     var stack = chest.getItem(slot);

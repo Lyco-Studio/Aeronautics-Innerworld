@@ -272,6 +272,29 @@ tasks.named('runCombatTestClient') {
         }
     }
 }
+neoForge.runs.create('deepUpgradeTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.deepUpgradeClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runDeepUpgradeTestClient') {
+    def result = layout.projectDirectory.file('run/client/deep-upgrade-check.result')
+    doFirst {
+        if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
+            throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
+        }
+        result.asFile.delete()
+    }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Deep recovery and upgrade check failed; inspect the client diagnostics.')
+        }
+    }
+}
 neoForge.runs.create('coreTestClient') {
     client()
     sourceSet = sourceSets.integrationTest
