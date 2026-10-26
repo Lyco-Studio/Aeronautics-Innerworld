@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.renderer.item.CompassItemPropertyFunction;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.core.BlockPos;
@@ -74,6 +75,7 @@ public final class RecoveryClientCheck {
     private static Scene scene;
     private static RuntimeException failure;
     private static boolean movingBearingSeen, wreckHudSeen, wrongWreckHud;
+    private static boolean optionsCaptured, oldPause;
 
     @SubscribeEvent
     public static void recordHud(ClientChatReceivedEvent.System event) {
@@ -111,14 +113,17 @@ public final class RecoveryClientCheck {
     public static void tick(ClientTickEvent.Post event) {
         if (!enabled() || finished) return;
         var client = Minecraft.getInstance();
+        if (!optionsCaptured) {oldPause = client.options.pauseOnLostFocus;optionsCaptured = true;client.options.pauseOnLostFocus = false;}
+        if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
             if (++ticks > (voyage() ? 7200 : 3600) && cleanup == null) throw new IllegalStateException("Recovery client timed out at " + observedStage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
-                cleanup.join();finished = true;
+                cleanup.join();finished = true;client.options.pauseOnLostFocus = oldPause;
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("recovery-check.result"), "verified");
-                LogUtils.getLogger().info("Recovery client check passed: native heat deaths, keep/drop inventory rules, charged anchor respawns, recovery compass target, actual item pickup and rescue navigation");
+                Files.writeString(client.gameDirectory.toPath().resolve("recovery-check.result"), entryOnly() ? "entry-verified" : "verified");
+                LogUtils.getLogger().info(entryOnly() ? "Recovery entry check passed: native lava transfer into the dry base with cargo"
+                        : "Recovery client check passed: native heat deaths, keep/drop inventory rules, charged anchor respawns, recovery compass target, actual item pickup and rescue navigation");
                 client.stop();return;
             }
             if (client.level == null || client.player == null || client.getSingleplayerServer() == null || ticks < 100) return;
@@ -192,18 +197,7 @@ public final class RecoveryClientCheck {
                 if (observedStage == 14 && !clicked) {
                     use(client, scene.rescue, ProbeTestRig.LEFT_THROTTLE);use(client, scene.rescue, ProbeTestRig.RIGHT_THROTTLE);clicked = true;
                 }
-                if (observedStage == 14 && frames % 10 == 0 && scene.trimRequest != scene.currentTrim) {
-                    int mode = scene.currentTrim;
-                    int requested = scene.trimRequest;
-                    client.player.setShiftKeyDown(true);
-                    client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY));
-                    while (mode != requested) {
-                        use(client, scene.rescue, new BlockPos(1, 0, 2));use(client, scene.rescue, new BlockPos(3, 0, 2));
-                        mode = mode == 0 ? 1 : mode == 1 ? -1 : 0;
-                    }
-                    client.player.setShiftKeyDown(false);
-                    client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
-                }
+                if (observedStage == 14) trim(client, scene.rescue);
                 if (observedStage == 15 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
                 if (observedStage == 17 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
                 if (observedStage == 18 && !clicked) {use(client, scene.rig, new BlockPos(0, 2, 2));clicked = true;}
@@ -216,12 +210,17 @@ public final class RecoveryClientCheck {
                         new BlockHitResult(Vec3.atCenterOf(pos), Direction.NORTH, pos, false));
                 clicked = true;
             }
+            if (observedStage >= 21 && observedStage <= 37) returnHome(client);
+            if (observedStage == 10 && voyage() && frames == 8) Screenshot.grab(client.gameDirectory, "rescue-return.png", client.getMainRenderTarget(),
+                    message -> LogUtils.getLogger().info("Cargo return screenshot: {}", message.getString()));
             if (observedStage == 10 && frames > 15) {release(client);cleanup = server.submit(scene::cleanUp);return;}
             if (step != null) {if (!step.isDone()) return;step.join();step = null;}
             step = server.submit(scene::advance);
         } catch (Exception e) {
             release(client);client.setScreen(null);
-            if (finished || cleanup != null && cleanup.isDone()) {finished = true;throw new IllegalStateException("Recovery check failed", e);}
+            if (finished || cleanup != null && cleanup.isDone()) {
+                finished = true;client.options.pauseOnLostFocus = oldPause;throw new IllegalStateException("Recovery check failed", e);
+            }
             failure = new IllegalStateException("Recovery check failed", e);
             cleanup = client.getSingleplayerServer().submit(() -> {if (scene != null) scene.cleanUp();});
         }
@@ -237,12 +236,77 @@ public final class RecoveryClientCheck {
     }
 
     private static boolean enabled() {return Boolean.getBoolean("innerworld.recoveryClientCheck");}
-    private static boolean voyage() {return Boolean.getBoolean("innerworld.recoveryVoyage");}
+    private static boolean voyage() {return Boolean.getBoolean("innerworld.recoveryVoyage") || entryOnly();}
+    private static boolean entryOnly() {return Boolean.getBoolean("innerworld.recoveryEntry");}
 
     private static void use(Minecraft client, ProbeTestRig rig, BlockPos relative) {
         var pos = rig.local(relative);
         client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+    }
+
+    private static void trim(Minecraft client, ProbeTestRig boat) {
+        if (frames % 10 != 0 || scene.trimRequest == scene.currentTrim) return;
+        int mode = scene.currentTrim;
+        int requested = scene.trimRequest;
+        client.player.getInventory().selected = 8;
+        client.player.setShiftKeyDown(true);
+        client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY));
+        while (mode != requested) {
+            use(client, boat, new BlockPos(1, 0, 2));use(client, boat, new BlockPos(3, 0, 2));
+            mode = mode == 0 ? 1 : mode == 1 ? -1 : 0;
+        }
+        client.player.setShiftKeyDown(false);
+        client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
+    }
+
+    private static void returnHome(Minecraft client) {
+        int stage = observedStage;
+        if (stage == 21) {
+            for (int slot = 0; slot < 9; slot++) {
+                if (client.player.getInventory().getItem(slot).is(Items.NETHERITE_PICKAXE)) client.player.getInventory().selected = slot;
+            }
+            var pos = scene.rig.local(new BlockPos(0, 1, 2));
+            if (!clicked) {client.gameMode.startDestroyBlock(pos, Direction.EAST);clicked = true;}
+            else client.gameMode.continueDestroyBlock(pos, Direction.EAST);
+        }
+        if (stage == 22) {
+            client.player.getInventory().selected = 4;client.player.setYRot(-90);
+            if (!clicked && frames > 4) {
+                var floor = scene.rig.local(new BlockPos(0, 0, 2));
+                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(floor).add(0, .5, 0), Direction.UP, floor, false));clicked = true;
+            }
+        }
+        if (stage == 23 && !clicked) {client.player.getInventory().selected = 8;use(client, scene.rig, new BlockPos(0, 1, 2));clicked = true;}
+        if (stage == 25 && !clicked) {use(client, scene.rig, new BlockPos(0, 1, 2));clicked = true;}
+        if (stage == 26 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
+        if (stage == 28 && !clicked) {
+            use(client, scene.rescue, RESCUE_HATCH);
+            client.player.getInventory().selected = 2;use(client, scene.rescue, ProbeTestRig.CABIN);
+            client.player.getInventory().selected = 8;client.player.setShiftKeyDown(true);
+            client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY));
+            use(client, scene.rescue, ProbeTestRig.SOUNDER);
+            client.player.setShiftKeyDown(false);
+            client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));clicked = true;
+        }
+        if (stage == 29 && !clicked) {
+            use(client, scene.rescue, ProbeTestRig.LEFT_REVERSE);use(client, scene.rescue, ProbeTestRig.RIGHT_REVERSE);
+            use(client, scene.rescue, ProbeTestRig.LEFT_THROTTLE);use(client, scene.rescue, ProbeTestRig.RIGHT_THROTTLE);clicked = true;
+        }
+        if (stage == 30) {
+            if (!clicked) {use(client, scene.rescue, ProbeTestRig.LEFT_THROTTLE);use(client, scene.rescue, ProbeTestRig.RIGHT_THROTTLE);clicked = true;}
+            trim(client, scene.rescue);
+        }
+        if (stage == 31 && !clicked) {use(client, scene.rescue, ProbeTestRig.BOARDING_HATCH);clicked = true;}
+        if (stage == 33 && !clicked) {use(client, scene.rescue, ProbeTestRig.BOARDING_HATCH);clicked = true;}
+        if ((stage == 34 || stage == 36) && !clicked) {
+            var pos = scene.baseHatch();
+            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(pos), Direction.EAST, pos, false));clicked = true;
+        }
+        if (stage == 24 || stage == 25 || stage == 27 || stage == 32 || stage == 33 || stage == 35) walk(client, scene.walkTarget);
+        if (stage == 37) trim(client, scene.rig);
     }
 
     private static void walk(Minecraft client, Vec3 target) {
@@ -324,6 +388,8 @@ public final class RecoveryClientCheck {
                 rescue = new ProbeTestRig(level, rescueOrigin);rescue.workEquipment();rescue.survivalPower();
                 for (int y = 1; y <= 2; y++) level.setBlockAndUpdate(rescueOrigin.offset(4, y, 2),
                         AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState().setValue(PressureHatchBlock.FACING, Direction.EAST));
+                ((io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity) level.getBlockEntity(rescueOrigin.offset(ProbeTestRig.SOUNDER)))
+                        .setHome(rescueOrigin.offset(2, 6, 2));
             } else rescue = null;
             var baseOrigin = voyage() ? rescueOrigin : origin;
             for (int x = -9; x <= -3; x++) for (int y = 5; y <= 9; y++) for (int z = 0; z <= 6; z++) {
@@ -332,6 +398,8 @@ public final class RecoveryClientCheck {
                         ? AeronauticsInnerworld.REFRACTORY_HULL.get().defaultBlockState() : Blocks.AIR.defaultBlockState());
             }
             anchor = baseOrigin.offset(-6, 6, 3);level.setBlockAndUpdate(anchor, Blocks.RESPAWN_ANCHOR.defaultBlockState());
+            if (voyage()) for (int y = 6; y <= 7; y++) level.setBlockAndUpdate(baseOrigin.offset(-3, y, 2),
+                    AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState().setValue(PressureHatchBlock.FACING, Direction.EAST));
             level.setBlockAndUpdate(anchor.above(3), Blocks.SEA_LANTERN.defaultBlockState());
             cargo = new ItemStack(AeronauticsInnerworld.MOLTEN_SCALE.get(), 3);cargo.set(DataComponents.CUSTOM_NAME, Component.literal("Rescue cargo"));
             tool = new ItemStack(Items.NETHERITE_PICKAXE);tool.setDamageValue(17);
@@ -356,6 +424,16 @@ public final class RecoveryClientCheck {
                 if (rescue != null) {rescue.assemble();rescue.sampler().clearContent();}
                 player.setGameMode(GameType.SURVIVAL);player.getAbilities().flying = false;player.onUpdateAbilities();
                 player.getInventory().clearContent();player.getInventory().selected = 0;
+                if (entryOnly()) {
+                    player.setHealth(player.getMaxHealth());
+                    player.getInventory().setItem(0, cargo.copy());
+                    var usedTool = tool.copy();usedTool.setDamageValue(tool.getDamageValue() + 1);
+                    player.getInventory().setItem(1, usedTool);player.getInventory().selected = 8;
+                    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(AeronauticsInnerworld.HEATWEAVE_HELMET.get()));
+                    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get()));
+                    var point = Vec3.atCenterOf(baseHatch().east()).add(0, -.53, 0);
+                    player.teleportTo(level, point.x, point.y, point.z, 90, -10);player.containerMenu.broadcastChanges();next(34);return;
+                }
                 player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.GLOWSTONE, 3));
                 player.teleportTo(level, anchor.getX() - .5, anchor.getY(), anchor.getZ() + .5, -90, 30);player.containerMenu.broadcastChanges();next(0);
             } else if (stage == 0 && level.getBlockState(anchor).getValue(RespawnAnchorBlock.CHARGE) == 3) {
@@ -405,6 +483,7 @@ public final class RecoveryClientCheck {
                 if (rescue != null) {
                     player.getInventory().setItem(2, new ItemStack(AeronauticsInnerworld.COOLANT_CELL.get(), 3));
                     player.getInventory().setItem(3, new ItemStack(AeronauticsInnerworld.REPAIR_KIT.get(), REPAIR_STOCK));
+                    player.getInventory().setItem(4, new ItemStack(AeronauticsInnerworld.PRESSURE_HATCH.get(), 2));
                 }
                 var boarding = rescue == null ? rig : rescue;
                 var point = boarding.world(new BlockPos(2, 1, 2)).add(0, -.45, 0);
@@ -435,7 +514,7 @@ public final class RecoveryClientCheck {
                         || player.getMainHandItem().has(DataComponents.LODESTONE_TRACKER)
                         || !WRECK_ORIGIN.equals(rig.sounder().getHome()))
                     throw new IllegalStateException("Recovery navigation modified the compass or home berth");
-                LogUtils.getLogger().info("Native recovery compass loaded the current wreck position into probe navigation; vanilla death={}", lastDeath.pos());next(10);
+                LogUtils.getLogger().info("Native recovery compass loaded the current wreck position into probe navigation; vanilla death={}", lastDeath.pos());next(rescue == null ? 10 : 37);
             } else if (stage == 20) {
                 if (wrongWreckHud) throw new IllegalStateException("The rescue probe overwrote the wreck crew HUD");
                 if (!wreckHudSeen || !movingBearingSeen) return;
@@ -449,6 +528,81 @@ public final class RecoveryClientCheck {
                 }
             } else if (stage >= 11 && stage <= 19) {
                 advanceVoyage();
+            } else if (stage >= 21 && stage <= 37) {
+                advanceReturn();
+            }
+        }
+
+        private BlockPos baseHatch() {return RESCUE_ORIGIN.offset(-3, 6, 2);}
+
+        private void advanceReturn() {
+            var player = player();
+            if (!player.isAlive() || player.getHealth() < 6) throw new IllegalStateException("Return voyage lost its recovered crew");
+            if ((level.getGameTime() - since) % 100 == 0) LogUtils.getLogger().info("Cargo return stage={}, crew={}, rescue={}, coolant={}",
+                    stage, player.position(), rescue.world(new BlockPos(2, 1, 2)), rescue.cabin().getCoolant());
+            if (stage == 21 && level.getBlockState(rig.local(new BlockPos(0, 1, 2))).isAir()) next(22);
+            else if (stage == 22 && level.getBlockState(rig.local(new BlockPos(0, 1, 2))).is(AeronauticsInnerworld.PRESSURE_HATCH.get())) {
+                if (player.getInventory().countItem(AeronauticsInnerworld.PRESSURE_HATCH.asItem()) != 1)
+                    throw new IllegalStateException("Replacing the temporary hatch patch consumed incorrect supplies");
+                if (level.getBlockState(rig.local(new BlockPos(0, 1, 2))).getValue(PressureHatchBlock.FACING) != Direction.WEST)
+                    throw new IllegalStateException("Replacement hatch was not aligned with the existing upper hatch");
+                next(23);
+            } else if (stage == 23 && level.getBlockState(rig.local(new BlockPos(0, 1, 2))).getValue(PressureHatchBlock.OPEN)) next(24);
+            else if (stage == 24 || stage == 25 || stage == 27 || stage == 32 || stage == 33 || stage == 35) {
+                if (stage == 24) walkTarget = rig.world(new BlockPos(-1, 1, 2)).add(0, -.45, 0);
+                if (stage == 25) walkTarget = rescue.world(RESCUE_HATCH.east()).add(0, -.45, 0);
+                if (stage == 27) walkTarget = rescue.world(new BlockPos(2, 1, 2)).add(0, -.45, 0);
+                if (stage == 32) walkTarget = rescue.world(ProbeTestRig.BOARDING_HATCH.west()).add(0, -.45, 0);
+                if (stage == 33) walkTarget = Vec3.atCenterOf(baseHatch().east()).add(0, -.45, 0);
+                if (stage == 35) walkTarget = Vec3.atCenterOf(baseHatch().west());
+                boolean arrived = stage == 35 ? player.position().subtract(walkTarget).horizontalDistanceSqr() < .15 * .15
+                        && player.getBoundingBox().maxX <= baseHatch().getX()
+                        && player.getY() >= baseHatch().getY()
+                        : player.position().distanceTo(walkTarget) < (stage == 24 || stage == 32 ? .2 : .7);
+                if (arrived) {
+                    if (stage == 27 && !ProbeRecovery.contains(rescue.subLevel, player)) return;
+                    next(stage + 1);
+                }
+            } else if (stage == 26 && level.getBlockState(rescue.local(RESCUE_HATCH)).getValue(PressureHatchBlock.OPEN)) next(27);
+            else if (stage == 28 && rescue.cabin().isSealed() && rescue.sounder().getWaypoint() == null) {
+                if (player.getInventory().countItem(AeronauticsInnerworld.COOLANT_CELL.get()) != 1)
+                    throw new IllegalStateException("Return preparation consumed incorrect coolant supplies");
+                departureZ = rescue.world(new BlockPos(2, 1, 2)).z;next(29);
+            } else if (stage == 29 && rescue.world(new BlockPos(2, 1, 2)).z >= rescue.sounder().getHome().getZ() + .5) {
+                if (rescue.world(new BlockPos(2, 1, 2)).z - departureZ < 28 || !rescue.cabin().isSealed())
+                    throw new IllegalStateException("Cargo did not return aboard a sealed native voyage");
+                next(30);
+            } else if (stage == 30) {
+                var ballast = (ProbeDriveBlockEntity) level.getBlockEntity(rescue.local(new BlockPos(1, 0, 2)));
+                currentTrim = ballast.getTrimMode();
+                double delta = rescue.sounder().getHome().getY() + .5 - rescue.world(ProbeTestRig.BOARDING_HATCH).y;
+                trimRequest = delta < -.65 ? -1 : delta > .65 ? 1 : 0;
+                var velocity = RigidBodyHandle.of(rescue.subLevel).getLinearVelocity();
+                if (Math.abs(delta) <= .65 && currentTrim == 0 && Math.abs(velocity.y()) < .15
+                        && Math.hypot(velocity.x(), velocity.z()) < .05) next(31);
+            } else if (stage == 31 && level.getBlockState(rescue.local(ProbeTestRig.BOARDING_HATCH)).getValue(PressureHatchBlock.OPEN)) next(32);
+            else if (stage == 34 && level.getBlockState(baseHatch()).getValue(PressureHatchBlock.OPEN) && level.getGameTime() - since >= 40) {
+                walkTarget = Vec3.atCenterOf(baseHatch().west());next(35);
+            }
+            else if (stage == 36 && !level.getBlockState(baseHatch()).getValue(PressureHatchBlock.OPEN)) {
+                var usedTool = tool.copy();usedTool.setDamageValue(tool.getDamageValue() + 1);
+                if (!level.getFluidState(BlockPos.containing(player.getEyePosition())).isEmpty()
+                        || player.getBoundingBox().maxX > baseHatch().getX()
+                        || player.getInventory().countItem(AeronauticsInnerworld.MOLTEN_SCALE.get()) != 3
+                        || player.getInventory().countItem(Items.NETHERITE_PICKAXE) != 1
+                        || player.getInventory().items.stream().noneMatch(stack -> ItemStack.isSameItemSameComponents(stack, cargo))
+                        || player.getInventory().items.stream().noneMatch(stack -> ItemStack.isSameItemSameComponents(stack, usedTool)))
+                    throw new IllegalStateException("Dry-base return lost recovered cargo or changed the serviced tool incorrectly");
+                LogUtils.getLogger().info("Native cargo return reached the dry base: scales=3, tool wear=1, health={}, coolant={}",
+                        player.getHealth(), rescue.cabin().getCoolant());next(10);
+            } else if (stage == 37) {
+                var ballast = (ProbeDriveBlockEntity) level.getBlockEntity(rig.local(new BlockPos(1, 0, 2)));
+                currentTrim = ballast.getTrimMode();
+                double delta = rescue.world(RESCUE_HATCH).y - rig.world(new BlockPos(0, 1, 2)).y;
+                trimRequest = delta < -.65 ? -1 : delta > .65 ? 1 : 0;
+                if (Math.abs(delta) <= .65 && currentTrim == 0 && Math.abs(RigidBodyHandle.of(rig.subLevel).getLinearVelocity().y()) < .15) {
+                    LogUtils.getLogger().info("Repaired wreck ballast aligned the return hatches: delta={}", delta);next(21);
+                }
             }
         }
 

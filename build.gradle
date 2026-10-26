@@ -218,6 +218,7 @@ neoForge.runs.create('recoveryTestClient') {
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.recoveryClientCheck', 'true'
     systemProperty 'innerworld.recoveryVoyage', providers.gradleProperty('recoveryVoyage').getOrElse('false')
+    systemProperty 'innerworld.recoveryEntry', providers.gradleProperty('recoveryEntry').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -230,7 +231,8 @@ tasks.named('runRecoveryTestClient') {
         result.asFile.delete()
     }
     doLast {
-        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+        def expected = Boolean.parseBoolean(providers.gradleProperty('recoveryEntry').getOrElse('false')) ? 'entry-verified' : 'verified'
+        if (!result.asFile.isFile() || result.asFile.text != expected) {
             throw new GradleException('Recovery client check failed; inspect the client diagnostics.')
         }
     }

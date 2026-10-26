@@ -11,18 +11,22 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public final class PressureHatchBlock extends HorizontalDirectionalBlock implements IWrenchable {
+public final class PressureHatchBlock extends HorizontalDirectionalBlock implements IWrenchable, LiquidBlockContainer {
     private static final MapCodec<PressureHatchBlock> CODEC = simpleCodec(PressureHatchBlock::new);
     public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
 
@@ -49,6 +53,17 @@ public final class PressureHatchBlock extends HorizontalDirectionalBlock impleme
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+    }
+
+    @Override
+    public boolean canPlaceLiquid(Player player, BlockGetter level, BlockPos pos, BlockState state, Fluid fluid) {
+        // Flowing fluids otherwise replace the empty collision shape of an open hatch.
+        return false;
+    }
+
+    @Override
+    public boolean placeLiquid(LevelAccessor level, BlockPos pos, BlockState state, FluidState fluid) {
+        return false;
     }
 
     @Override
