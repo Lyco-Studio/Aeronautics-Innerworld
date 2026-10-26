@@ -22,5 +22,8 @@
       }
     }
   },
-  "parent": "aeronautics_innerworld:expedition/root"
+  "parent": "aeronautics_innerworld:expedition/root",
+  "rewards": {
+    "experience": 20
+  }
 }

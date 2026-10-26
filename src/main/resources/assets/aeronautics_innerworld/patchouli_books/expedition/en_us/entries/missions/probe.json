@@ -1,0 +1,39 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.probe.name",
+  "icon": "aeronautics_innerworld:echo_sounder",
+  "category": "aeronautics_innerworld:missions",
+  "sortnum": 3,
+  "turnin": "aeronautics_innerworld:expedition/probe",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.probe.text"
+    },
+    {
+      "type": "patchouli:quest",
+      "title": "book.aeronautics_innerworld.tasks.objective",
+      "trigger": "aeronautics_innerworld:expedition/probe",
+      "text": "book.aeronautics_innerworld.tasks.progress"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:echo_sounder",
+      "recipe2": "aeronautics_innerworld:cabin_regulator"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:molten_thruster",
+      "recipe2": "aeronautics_innerworld:mantle_ballast"
+    },
+    {
+      "type": "patchouli:relations",
+      "title": "book.aeronautics_innerworld.tasks.next",
+      "entries": [
+        "aeronautics_innerworld:missions/sample",
+        "aeronautics_innerworld:missions/defense",
+        "aeronautics_innerworld:reference/probe"
+      ]
+    }
+  ],
+  "advancement": "aeronautics_innerworld:expedition/mantle"
+}

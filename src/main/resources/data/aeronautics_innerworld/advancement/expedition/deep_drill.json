@@ -1,0 +1,33 @@
+{
+  "display": {
+    "icon": {
+      "id": "aeronautics_innerworld:deep_bore_coupler"
+    },
+    "title": {
+      "translate": "book.aeronautics_innerworld.tasks.deep_drill.name"
+    },
+    "description": {
+      "translate": "book.aeronautics_innerworld.tasks.deep_drill.text"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "aeronautics_innerworld:deep_bore_coupler"
+          }
+        ]
+      }
+    }
+  },
+  "parent": "aeronautics_innerworld:expedition/deep_works",
+  "rewards": {
+    "experience": 50
+  }
+}

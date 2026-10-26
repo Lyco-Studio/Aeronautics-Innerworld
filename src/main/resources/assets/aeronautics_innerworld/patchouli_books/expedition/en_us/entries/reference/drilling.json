@@ -1,0 +1,28 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.reference.drilling",
+  "icon": "aeronautics_innerworld:drill_controller",
+  "category": "aeronautics_innerworld:reference",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.1"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.2"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.3"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.4"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.5"
+    }
+  ]
+}

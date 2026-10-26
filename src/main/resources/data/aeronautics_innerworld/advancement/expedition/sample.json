@@ -26,5 +26,8 @@
       }
     }
   },
-  "parent": "aeronautics_innerworld:expedition/probe"
+  "parent": "aeronautics_innerworld:expedition/probe",
+  "rewards": {
+    "experience": 20
+  }
 }

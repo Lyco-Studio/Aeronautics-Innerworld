@@ -1,0 +1,20 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.reference.repairs",
+  "icon": "aeronautics_innerworld:repair_kit",
+  "category": "aeronautics_innerworld:reference",
+  "sortnum": 4,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.12"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.13"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.14"
+    }
+  ]
+}

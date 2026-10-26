@@ -1,0 +1,124 @@
+{
+  "components": [
+    {
+      "type": "patchouli:image",
+      "image": "aeronautics_innerworld:textures/gui/tree_deep.png",
+      "width": 116,
+      "height": 156,
+      "texture_width": 128,
+      "texture_height": 256
+    },
+    {
+      "type": "patchouli:header",
+      "text": "book.aeronautics_innerworld.tasks.tree_deep",
+      "x": -1,
+      "y": 0,
+      "scale": 0.8
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:relic_alloy",
+      "x": 50,
+      "y": 12
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.relay.label",
+      "x": 38,
+      "y": 30,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 16,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/relay"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:pressure_matrix",
+      "x": 50,
+      "y": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.deep_works.label",
+      "x": 38,
+      "y": 58,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 44,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/deep_works"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:deep_bore_coupler",
+      "x": 50,
+      "y": 68
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.deep_drill.label",
+      "x": 38,
+      "y": 86,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 72,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/deep_drill"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:core_surveyor",
+      "x": 50,
+      "y": 96
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.core.label",
+      "x": 38,
+      "y": 114,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 100,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/core"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:core_heart",
+      "x": 50,
+      "y": 124
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.victory.label",
+      "x": 38,
+      "y": 142,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 128,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:exploration/core_victory"
+    }
+  ]
+}

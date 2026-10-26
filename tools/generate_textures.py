@@ -58,6 +58,43 @@ def plate():
 
 
 def generate():
+    c = Canvas(32)
+    c.rect(5, 3, 26, 28, DARK)
+    c.rect(6, 4, 25, 27, COPPER)
+    c.rect(9, 5, 24, 25, STEEL)
+    c.rect(7, 5, 8, 26, BRASS)
+    c.rect(10, 26, 24, 27, (220, 202, 157, 255))
+    c.rect(16, 9, 17, 19, BRASS)
+    c.rect(12, 18, 21, 19, BRASS)
+    for x, y in ((15, 8), (11, 18), (19, 18)):
+        c.rect(x, y, x + 3, y + 3, DARK)
+        c.rect(x + 1, y + 1, x + 2, y + 2, AMBER)
+    c.dot(23, 6, EDGE)
+    c.dot(23, 24, EDGE)
+    c.grain()
+    c.save('item/expedition_journal.png')
+
+    def connector(canvas, x, y, next_y, side=1):
+        edge, route = x + 8 * side, x + 25 * side
+        canvas.rect(min(edge, route), y + 8, max(edge, route), y + 8, COPPER)
+        canvas.rect(route, y + 8, route, next_y + 8, COPPER)
+        canvas.rect(min(edge, route), next_y + 8, max(edge, route), next_y + 8, COPPER)
+
+    c = Canvas(128, height=256)
+    connector(c, 58, 12, 40)
+    connector(c, 58, 40, 68)
+    c.rect(25, 76, 50, 76, COPPER)
+    c.rect(66, 76, 91, 76, COPPER)
+    for x in (25, 91):
+        c.rect(x, 76, x, 96, COPPER)
+    connector(c, 25, 96, 124)
+    connector(c, 91, 96, 124, -1)
+    c.save('gui/tree_surface.png')
+    c = Canvas(128, height=256)
+    for y in (12, 40, 68, 96):
+        connector(c, 58, y, y + 28)
+    c.save('gui/tree_deep.png')
+
     c = plate()
     c.rect(2, 3, 13, 12, BRASS)
     c.rect(3, 4, 12, 11, DARK)

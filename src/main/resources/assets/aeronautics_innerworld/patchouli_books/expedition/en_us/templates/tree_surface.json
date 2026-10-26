@@ -1,0 +1,166 @@
+{
+  "components": [
+    {
+      "type": "patchouli:image",
+      "image": "aeronautics_innerworld:textures/gui/tree_surface.png",
+      "width": 116,
+      "height": 156,
+      "texture_width": 128,
+      "texture_height": 256
+    },
+    {
+      "type": "patchouli:header",
+      "text": "book.aeronautics_innerworld.tasks.tree_surface",
+      "x": -1,
+      "y": 0,
+      "scale": 0.8
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:drill_controller",
+      "x": 50,
+      "y": 12
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.drill.label",
+      "x": 38,
+      "y": 30,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 16,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/root"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:bore_station",
+      "x": 50,
+      "y": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.mantle.label",
+      "x": 38,
+      "y": 58,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 44,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/mantle"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:echo_sounder",
+      "x": 50,
+      "y": 68
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.probe.label",
+      "x": 38,
+      "y": 86,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 67,
+      "y": 72,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/probe"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:raw_harmonic",
+      "x": 17,
+      "y": 96
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.sample.label",
+      "x": 5,
+      "y": 114,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 34,
+      "y": 100,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/sample"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:pressure_cannon",
+      "x": 83,
+      "y": 96
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.defense.label",
+      "x": 71,
+      "y": 114,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 100,
+      "y": 100,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/defense"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:harmonic_crystal",
+      "x": 17,
+      "y": 124
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.crystal.label",
+      "x": 5,
+      "y": 142,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 34,
+      "y": 128,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/crystal"
+    },
+    {
+      "type": "patchouli:item",
+      "item": "aeronautics_innerworld:heatweave_helmet",
+      "x": 83,
+      "y": 124
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.protection.label",
+      "x": 71,
+      "y": 142,
+      "max_width": 40
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(#008b1a)✓$()",
+      "x": 100,
+      "y": 128,
+      "max_width": 12,
+      "advancement": "aeronautics_innerworld:expedition/protection"
+    }
+  ]
+}

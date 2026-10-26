@@ -1,0 +1,32 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.deep_drill.name",
+  "icon": "aeronautics_innerworld:deep_bore_coupler",
+  "category": "aeronautics_innerworld:missions",
+  "sortnum": 10,
+  "turnin": "aeronautics_innerworld:expedition/deep_drill",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.deep_drill.text"
+    },
+    {
+      "type": "patchouli:quest",
+      "title": "book.aeronautics_innerworld.tasks.objective",
+      "trigger": "aeronautics_innerworld:expedition/deep_drill",
+      "text": "book.aeronautics_innerworld.tasks.progress"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:deep_bore_coupler"
+    },
+    {
+      "type": "patchouli:relations",
+      "title": "book.aeronautics_innerworld.tasks.next",
+      "entries": [
+        "aeronautics_innerworld:missions/core",
+        "aeronautics_innerworld:reference/core"
+      ]
+    }
+  ],
+  "advancement": "aeronautics_innerworld:expedition/deep_works"
+}

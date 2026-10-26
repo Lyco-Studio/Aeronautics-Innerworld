@@ -51,9 +51,41 @@ def check():
             assert '%' not in re.sub(r'%%|%(?:[1-9]\d*\$)?s', '', text), f'Invalid translation format: {key}'
         assert len(re.findall(r'%(?:\d+\$)?[sdf]', en[key])) == len(re.findall(r'%(?:\d+\$)?[sdf]', zh[key])), key
     data = RESOURCES / 'data/aeronautics_innerworld'
-    unlocks = documents[data / 'advancement/recipes/expedition_equipment.json']['rewards']['recipes']
+    unlocks = {recipe for path in (data / 'advancement/recipes').glob('*.json')
+               for recipe in documents[path].get('rewards', {}).get('recipes', [])}
     for path in (data / 'recipe').glob('*.json'):
         assert 'aeronautics_innerworld:' + path.stem in unlocks, f'Missing recipe unlock: {path.stem}'
+    journal = assets / 'patchouli_books/expedition/en_us'
+    entries = {'aeronautics_innerworld:' + path.relative_to(journal / 'entries').with_suffix('').as_posix(): documents[path]
+               for path in (journal / 'entries').rglob('*.json')}
+    categories = {'aeronautics_innerworld:' + path.stem for path in (journal / 'categories').glob('*.json')}
+    advancements = {'aeronautics_innerworld:' + path.relative_to(data / 'advancement').with_suffix('').as_posix()
+                    for path in (data / 'advancement').rglob('*.json')}
+    templates = {'aeronautics_innerworld:' + path.stem for path in (journal / 'templates').glob('*.json')}
+    for path in (journal / 'templates').glob('*.json'):
+        for component in documents[path]['components']:
+            height = component.get('height', 16 if component['type'] == 'patchouli:item' else 9)
+            assert component.get('y', 0) + height <= 156, f'Journal component exceeds its page: {path.stem}'
+    for name, entry in entries.items():
+        assert entry['category'] in categories, f'Missing journal category: {name}'
+        for field in ('advancement', 'turnin'):
+            assert field not in entry or entry[field] in advancements, f'Missing journal milestone: {name}'
+        for page in entry['pages']:
+            kind = page['type']
+            assert kind.startswith('patchouli:') or kind in templates, f'Missing journal template: {kind}'
+            if kind == 'patchouli:quest':
+                assert page['trigger'] in advancements, f'Missing quest completion: {name}'
+            if kind == 'patchouli:relations':
+                assert set(page['entries']) <= entries.keys(), f'Broken journal task link: {name}'
+            for field in ('recipe', 'recipe2'):
+                if field in page:
+                    recipe = page[field].removeprefix('aeronautics_innerworld:')
+                    assert (data / 'recipe' / (recipe + '.json')) in documents, f'Broken journal recipe: {name}'
+    for key in en:
+        if key.startswith('book.aeronautics_innerworld.tasks.'):
+            for text in (en[key], zh[key]):
+                for target in re.findall(r'\$\(l:([^)]*)\)', text):
+                    assert 'aeronautics_innerworld:' + target in entries, f'Broken translated journal link: {key}'
     for document in documents.values():
         def visit(value):
             if isinstance(value, dict):
@@ -65,8 +97,11 @@ def check():
             elif isinstance(value, list):
                 for item in value:
                     visit(item)
-            elif isinstance(value, str) and value.startswith('{'):
-                visit(json.loads(value))
+            elif isinstance(value, str):
+                if value.startswith('book.aeronautics_innerworld.'):
+                    assert value in en, f'Missing book translation: {value}'
+                elif value.startswith('{'):
+                    visit(json.loads(value))
         visit(document)
     textures = assets / 'textures'
     before = {path.relative_to(textures): pixel_hash(path) for path in textures.rglob('*.png')}

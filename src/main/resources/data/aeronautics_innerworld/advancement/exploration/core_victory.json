@@ -24,5 +24,8 @@
       "defeat"
     ]
   ],
-  "parent": "aeronautics_innerworld:expedition/core"
+  "parent": "aeronautics_innerworld:expedition/core",
+  "rewards": {
+    "experience": 200
+  }
 }

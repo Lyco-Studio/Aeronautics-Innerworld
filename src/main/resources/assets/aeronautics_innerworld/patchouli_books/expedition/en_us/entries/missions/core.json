@@ -1,0 +1,32 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.core.name",
+  "icon": "aeronautics_innerworld:core_surveyor",
+  "category": "aeronautics_innerworld:missions",
+  "sortnum": 11,
+  "turnin": "aeronautics_innerworld:expedition/core",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.core.text"
+    },
+    {
+      "type": "patchouli:quest",
+      "title": "book.aeronautics_innerworld.tasks.objective",
+      "trigger": "aeronautics_innerworld:expedition/core",
+      "text": "book.aeronautics_innerworld.tasks.progress"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:core_surveyor"
+    },
+    {
+      "type": "patchouli:relations",
+      "title": "book.aeronautics_innerworld.tasks.next",
+      "entries": [
+        "aeronautics_innerworld:missions/victory",
+        "aeronautics_innerworld:reference/core"
+      ]
+    }
+  ],
+  "advancement": "aeronautics_innerworld:expedition/deep_drill"
+}

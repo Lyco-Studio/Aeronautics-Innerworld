@@ -1,0 +1,27 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.victory.name",
+  "icon": "aeronautics_innerworld:core_heart",
+  "category": "aeronautics_innerworld:missions",
+  "sortnum": 12,
+  "turnin": "aeronautics_innerworld:exploration/core_victory",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.victory.text"
+    },
+    {
+      "type": "patchouli:quest",
+      "title": "book.aeronautics_innerworld.tasks.objective",
+      "trigger": "aeronautics_innerworld:exploration/core_victory",
+      "text": "book.aeronautics_innerworld.tasks.progress"
+    },
+    {
+      "type": "patchouli:relations",
+      "title": "book.aeronautics_innerworld.tasks.next",
+      "entries": [
+        "aeronautics_innerworld:reference/core"
+      ]
+    }
+  ],
+  "advancement": "aeronautics_innerworld:expedition/core"
+}

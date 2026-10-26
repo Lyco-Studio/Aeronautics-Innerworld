@@ -45,3 +45,10 @@ type = "required"
 versionRange = "[${sable_mod_version},3.0)"
 ordering = "AFTER"
 side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "patchouli"
+type = "optional"
+versionRange = "[1.21.1-93,)"
+ordering = "AFTER"
+side = "BOTH"

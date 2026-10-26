@@ -26,5 +26,8 @@
       }
     }
   },
-  "parent": "aeronautics_innerworld:expedition/mantle"
+  "parent": "aeronautics_innerworld:expedition/mantle",
+  "rewards": {
+    "experience": 15
+  }
 }

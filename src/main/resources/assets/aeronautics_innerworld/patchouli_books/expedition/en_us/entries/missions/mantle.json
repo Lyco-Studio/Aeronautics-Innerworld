@@ -1,0 +1,33 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.mantle.name",
+  "icon": "aeronautics_innerworld:bore_station",
+  "category": "aeronautics_innerworld:missions",
+  "sortnum": 2,
+  "turnin": "aeronautics_innerworld:expedition/mantle",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.mantle.text"
+    },
+    {
+      "type": "patchouli:quest",
+      "title": "book.aeronautics_innerworld.tasks.objective",
+      "trigger": "aeronautics_innerworld:expedition/mantle",
+      "text": "book.aeronautics_innerworld.tasks.progress"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:bore_station",
+      "recipe2": "aeronautics_innerworld:drill_remote"
+    },
+    {
+      "type": "patchouli:relations",
+      "title": "book.aeronautics_innerworld.tasks.next",
+      "entries": [
+        "aeronautics_innerworld:missions/probe",
+        "aeronautics_innerworld:reference/drilling"
+      ]
+    }
+  ],
+  "advancement": "aeronautics_innerworld:expedition/root"
+}

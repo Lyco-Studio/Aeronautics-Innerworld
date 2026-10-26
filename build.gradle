@@ -26,6 +26,7 @@ sourceSets {
 configurations {
     integrationTestImplementation.extendsFrom implementation
     integrationTestCompileOnly.extendsFrom compileOnly
+    integrationTestRuntimeOnly.extendsFrom runtimeOnly
 }
 
 def prepareIntegrationStructures = tasks.register('prepareIntegrationStructures', Copy) {
@@ -221,6 +222,32 @@ neoForge.runs.create('survivalTestClient') {
     systemProperty 'innerworld.survivalDock', providers.gradleProperty('survivalDock').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
+}
+neoForge.runs.create('questBookTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.questBookClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runQuestBookTestClient') {
+    def result = layout.projectDirectory.file('run/client/quest-book-check.result')
+    doFirst {
+        if (!providers.gradleProperty('withPatchouli').getOrElse('false').toBoolean()) {
+            throw new GradleException('Enable the optional journal with -PwithPatchouli=true.')
+        }
+        if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
+            throw new GradleException('Select a dedicated development world with -PcheckWorld=<world folder>.')
+        }
+        result.asFile.delete()
+    }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Quest journal check failed; inspect the client diagnostics.')
+        }
+    }
 }
 neoForge.runs.create('combatTestClient') {
     client()
@@ -463,6 +490,11 @@ def extractEmbeddedModDependencies = tasks.register('extractEmbeddedModDependenc
 }
 
 dependencies {
+    if (providers.gradleProperty('withPatchouli').getOrElse('false').toBoolean()) {
+        runtimeOnly("maven.modrinth:patchouli:${patchouli_version}") {
+            transitive = false
+        }
+    }
     modDistributions("com.simibubi.create:create-${minecraft_version}:${create_version}") {
         transitive = false
     }

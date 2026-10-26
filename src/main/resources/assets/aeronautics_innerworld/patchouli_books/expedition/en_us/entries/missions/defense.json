@@ -1,0 +1,33 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.defense.name",
+  "icon": "aeronautics_innerworld:pressure_cannon",
+  "category": "aeronautics_innerworld:missions",
+  "sortnum": 6,
+  "turnin": "aeronautics_innerworld:expedition/defense",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.tasks.defense.text"
+    },
+    {
+      "type": "patchouli:quest",
+      "title": "book.aeronautics_innerworld.tasks.objective",
+      "trigger": "aeronautics_innerworld:expedition/defense",
+      "text": "book.aeronautics_innerworld.tasks.progress"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:pressure_cannon",
+      "recipe2": "aeronautics_innerworld:pressure_bolt"
+    },
+    {
+      "type": "patchouli:relations",
+      "title": "book.aeronautics_innerworld.tasks.next",
+      "entries": [
+        "aeronautics_innerworld:missions/protection",
+        "aeronautics_innerworld:reference/combat"
+      ]
+    }
+  ],
+  "advancement": "aeronautics_innerworld:expedition/probe"
+}

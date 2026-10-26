@@ -1,0 +1,24 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.reference.industry",
+  "icon": "aeronautics_innerworld:harmonic_crystal",
+  "category": "aeronautics_innerworld:reference",
+  "sortnum": 3,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.29"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.30"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.31"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.page.32"
+    }
+  ]
+}
