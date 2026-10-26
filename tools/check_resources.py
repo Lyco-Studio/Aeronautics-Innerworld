@@ -47,6 +47,8 @@ def check():
     zh = documents[assets / 'lang/zh_cn.json']
     assert en.keys() == zh.keys(), 'Translation keys differ'
     for key in en:
+        for text in (en[key], zh[key]):
+            assert '%' not in re.sub(r'%%|%(?:[1-9]\d*\$)?s', '', text), f'Invalid translation format: {key}'
         assert len(re.findall(r'%(?:\d+\$)?[sdf]', en[key])) == len(re.findall(r'%(?:\d+\$)?[sdf]', zh[key])), key
     data = RESOURCES / 'data/aeronautics_innerworld'
     unlocks = documents[data / 'advancement/recipes/expedition_equipment.json']['rewards']['recipes']
