@@ -1,7 +1,11 @@
 package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity;
+import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
+import dev.simulated_team.simulated.content.blocks.portable_engine.PortableEngineBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.nio.file.Files;
@@ -11,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.renderer.item.CompassItemPropertyFunction;
 import net.minecraft.client.renderer.item.ItemProperties;
@@ -28,6 +33,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -51,6 +57,9 @@ import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class RecoveryClientCheck {
+    private static final BlockPos RESCUE_HATCH = new BlockPos(4, 1, 2);
+    private static final BlockPos WRECK_ORIGIN = new BlockPos(2304, 180, 128);
+    private static final BlockPos RESCUE_ORIGIN = new BlockPos(2297, 180, 160);
     private static int ticks, observedStage = -1, frames;
     private static boolean clicked, compassVerified, finished;
     private static CompletableFuture<Scene> setup;
@@ -79,7 +88,7 @@ public final class RecoveryClientCheck {
         if (!enabled() || finished) return;
         var client = Minecraft.getInstance();
         try {
-            if (++ticks > 3600 && cleanup == null) throw new IllegalStateException("Recovery client timed out at " + observedStage);
+            if (++ticks > (voyage() ? 7200 : 3600) && cleanup == null) throw new IllegalStateException("Recovery client timed out at " + observedStage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
                 cleanup.join();finished = true;
@@ -113,6 +122,8 @@ public final class RecoveryClientCheck {
             }
             if (observedStage == 8) {
                 if (!clicked && client.player.getInventory().getItem(1).is(AeronauticsInnerworld.EMERGENCY_PATCH_ITEM.get())) {
+                    var upper = scene.rig.local(new BlockPos(0, 2, 2));
+                    if (client.level.getBlockState(upper).getValue(PressureHatchBlock.OPEN)) use(client, scene.rig, new BlockPos(0, 2, 2));
                     client.player.getInventory().selected = 1;
                     var floor = scene.rig.local(new BlockPos(0, 0, 2));
                     client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
@@ -130,6 +141,30 @@ public final class RecoveryClientCheck {
                     client.options.keyUp.setDown(offset.horizontalDistanceSqr() > .12);
                     client.options.keyJump.setDown(offset.y > .3);client.options.keyShift.setDown(offset.y < -.5);
                 } else release(client);
+            }
+            if (observedStage >= 11 && observedStage <= 19) {
+                if (observedStage == 13 && frames == 100) Screenshot.grab(client.gameDirectory, "rescue-voyage.png", client.getMainRenderTarget(),
+                        message -> LogUtils.getLogger().info("Rescue voyage screenshot: {}", message.getString()));
+                if (observedStage == 19 && frames == 15) Screenshot.grab(client.gameDirectory, "rescue-entry.png", client.getMainRenderTarget(),
+                        message -> LogUtils.getLogger().info("Rescue entry screenshot: {}", message.getString()));
+                if (observedStage == 11 && !clicked && client.player.getInventory().getItem(2).is(AeronauticsInnerworld.COOLANT_CELL.get())) {
+                    client.player.getInventory().selected = 2;use(client, scene.rescue, ProbeTestRig.CABIN);clicked = true;
+                }
+                if (observedStage == 12 && !clicked) {
+                    client.player.getInventory().selected = 0;use(client, scene.rescue, ProbeTestRig.SOUNDER);clicked = true;
+                }
+                if (observedStage == 13 && !clicked) {
+                    client.player.getInventory().selected = 8;
+                    use(client, scene.rescue, ProbeTestRig.LEFT_REVERSE);use(client, scene.rescue, ProbeTestRig.RIGHT_REVERSE);
+                    use(client, scene.rescue, ProbeTestRig.LEFT_THROTTLE);use(client, scene.rescue, ProbeTestRig.RIGHT_THROTTLE);clicked = true;
+                }
+                if (observedStage == 14 && !clicked) {
+                    use(client, scene.rescue, ProbeTestRig.LEFT_THROTTLE);use(client, scene.rescue, ProbeTestRig.RIGHT_THROTTLE);clicked = true;
+                }
+                if (observedStage == 15 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
+                if (observedStage == 17 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
+                if (observedStage == 18 && !clicked) {use(client, scene.rig, new BlockPos(0, 2, 2));clicked = true;}
+                if (observedStage == 16 || observedStage == 17 || observedStage == 19) walk(client, scene.walkTarget);
             }
             if (observedStage == 9 && !clicked && client.player.getInventory().getItem(0).is(Items.RECOVERY_COMPASS)) {
                 client.player.getInventory().selected = 0;
@@ -159,6 +194,20 @@ public final class RecoveryClientCheck {
     }
 
     private static boolean enabled() {return Boolean.getBoolean("innerworld.recoveryClientCheck");}
+    private static boolean voyage() {return Boolean.getBoolean("innerworld.recoveryVoyage");}
+
+    private static void use(Minecraft client, ProbeTestRig rig, BlockPos relative) {
+        var pos = rig.local(relative);
+        client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+    }
+
+    private static void walk(Minecraft client, Vec3 target) {
+        var offset = target.subtract(client.player.position());
+        client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));client.player.setXRot(-10);
+        client.options.keyUp.setDown(offset.horizontalDistanceSqr() > .015);
+        client.options.keyJump.setDown(offset.y > .02);client.options.keyShift.setDown(false);
+    }
 
     private static final class Scene {
         private final MinecraftServer server;
@@ -174,6 +223,7 @@ public final class RecoveryClientCheck {
         private final boolean oldRespawnForced, oldKeepInventory;
         private final Optional<GlobalPos> oldLastDeath;
         private final ProbeTestRig rig;
+        private final ProbeTestRig rescue;
         private final ServerLevel level;
         private final BlockPos anchor;
         private final HashMap<BlockPos, BlockState> base = new HashMap<>();
@@ -184,6 +234,8 @@ public final class RecoveryClientCheck {
         private boolean diedFromHeat;
         private Vec3 deathPoint;
         private GlobalPos lastDeath;
+        private Vec3 walkTarget;
+        private double departureZ;
 
         private Scene(ServerPlayer player) {
             server = player.server;identity = player.getUUID();oldPlayer = player.saveWithoutId(new CompoundTag());
@@ -197,14 +249,31 @@ public final class RecoveryClientCheck {
                     java.util.List.of(new ItemStack(Items.BOOK), new ItemStack(Items.COPPER_INGOT)));
             manual = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, input, level)
                     .orElseThrow().value().assemble(input, level.registryAccess());
-            var origin = new BlockPos(2304, 180, 128);
+            var origin = WRECK_ORIGIN;
+            var rescueOrigin = RESCUE_ORIGIN;
+            if (voyage()) {
+                for (var pos : BlockPos.betweenClosed(rescueOrigin.offset(-3, -10, -38), rescueOrigin.offset(15, 10, 10))) {
+                    var state = level.getBlockState(pos);
+                    if (state.is(Blocks.BASALT) || state.is(Blocks.SMOOTH_BASALT) || state.is(AeronauticsInnerworld.HARMONIC_ORE.get())) {
+                        base.put(pos.immutable(), state);level.setBlockAndUpdate(pos, Blocks.LAVA.defaultBlockState());
+                    }
+                }
+            }
             rig = new ProbeTestRig(level, origin);rig.workEquipment();
+            for (int y = 1; y <= 2; y++) level.setBlockAndUpdate(origin.offset(0, y, 2),
+                    AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState().setValue(PressureHatchBlock.FACING, Direction.WEST));
+            if (voyage()) {
+                rescue = new ProbeTestRig(level, rescueOrigin);rescue.workEquipment();rescue.survivalPower();
+                for (int y = 1; y <= 2; y++) level.setBlockAndUpdate(rescueOrigin.offset(4, y, 2),
+                        AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState().setValue(PressureHatchBlock.FACING, Direction.EAST));
+            } else rescue = null;
+            var baseOrigin = voyage() ? rescueOrigin : origin;
             for (int x = -9; x <= -3; x++) for (int y = 5; y <= 9; y++) for (int z = 0; z <= 6; z++) {
-                var pos = origin.offset(x, y, z);base.put(pos, level.getBlockState(pos));
+                var pos = baseOrigin.offset(x, y, z);base.putIfAbsent(pos, level.getBlockState(pos));
                 level.setBlockAndUpdate(pos, x == -9 || x == -3 || y == 5 || y == 9 || z == 0 || z == 6
                         ? AeronauticsInnerworld.REFRACTORY_HULL.get().defaultBlockState() : Blocks.AIR.defaultBlockState());
             }
-            anchor = origin.offset(-6, 6, 3);level.setBlockAndUpdate(anchor, Blocks.RESPAWN_ANCHOR.defaultBlockState());
+            anchor = baseOrigin.offset(-6, 6, 3);level.setBlockAndUpdate(anchor, Blocks.RESPAWN_ANCHOR.defaultBlockState());
             level.setBlockAndUpdate(anchor.above(3), Blocks.SEA_LANTERN.defaultBlockState());
             cargo = new ItemStack(AeronauticsInnerworld.MOLTEN_SCALE.get(), 3);cargo.set(DataComponents.CUSTOM_NAME, Component.literal("Rescue cargo"));
             tool = new ItemStack(Items.NETHERITE_PICKAXE);tool.setDamageValue(17);
@@ -216,9 +285,17 @@ public final class RecoveryClientCheck {
 
         private void advance() {
             level.resetEmptyTime();var player = player();
-            if (level.getGameTime() - since > 700) throw new IllegalStateException("Recovery stage stalled: " + stage + ", health=" + player.getHealth());
-            if (stage == -1 && rig.ready()) {
+            if (level.getGameTime() - since > (stage >= 11 ? 1800 : 700)) throw new IllegalStateException("Recovery stage stalled: " + stage
+                    + ", health=" + player.getHealth() + ", position=" + player.position() + ", target=" + walkTarget
+                    + ", exposure=" + player.getPersistentData().getInt("InnerworldHeatExposure")
+                    + ", eyeFluid=" + level.getFluidState(BlockPos.containing(player.getEyePosition()))
+                    + ", sealed=" + rig.cabin().isSealed());
+            if (stage >= 11 && stage <= 19 && (!player.isAlive() || player.getHealth() < 6))
+                throw new IllegalStateException("Rescue voyage lost its crew at " + player.position() + ", stage=" + stage);
+            if (stage == -1 && rig.ready() && (rescue == null || rescue.ready())) {
                 rig.assemble();rig.power();rig.cabin().addCoolant(600);rig.motor(ProbeTestRig.SAMPLER, 0);
+                floodAssemblySource(WRECK_ORIGIN);
+                if (rescue != null) {rescue.assemble();rescue.sampler().clearContent();}
                 player.setGameMode(GameType.SURVIVAL);player.getAbilities().flying = false;player.onUpdateAbilities();
                 player.getInventory().clearContent();player.getInventory().selected = 0;
                 player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.GLOWSTONE, 3));
@@ -226,6 +303,8 @@ public final class RecoveryClientCheck {
             } else if (stage == 0 && level.getBlockState(anchor).getValue(RespawnAnchorBlock.CHARGE) == 3) {
                 next(1);
             } else if (stage == 1 && anchor.equals(player.getRespawnPosition()) && player.getRespawnDimension().equals(Mantle.LEVEL) && rig.cabin().isSealed()) {
+                next(2);
+            } else if (stage == 2 && level.getGameTime() - since >= 100) {
                 startDeath(true);next(3);
             } else if ((stage == 3 || stage == 5) && player.isDeadOrDying()) {
                 if (!diedFromHeat) throw new IllegalStateException("Recovery death did not come from mantle heat");
@@ -262,11 +341,13 @@ public final class RecoveryClientCheck {
                 player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(AeronauticsInnerworld.HEATWEAVE_HELMET.get()));
                 player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get()));
                 player.getInventory().setItem(1, new ItemStack(AeronauticsInnerworld.EMERGENCY_PATCH.get()));
-                var point = rig.world(new BlockPos(2, 1, 2)).add(0, -.45, 0);
+                if (rescue != null) player.getInventory().setItem(2, new ItemStack(AeronauticsInnerworld.COOLANT_CELL.get(), 3));
+                var boarding = rescue == null ? rig : rescue;
+                var point = boarding.world(new BlockPos(2, 1, 2)).add(0, -.45, 0);
                 var bounds = player.getBoundingBox().move(point.subtract(player.position()));
                 if (!level.noCollision(player, bounds)) throw new IllegalStateException("The wreck has no safe crew return position");
                 LogUtils.getLogger().info("Native return position={}, actual drops={}", point, drops.stream().map(ItemEntity::position).toList());
-                player.teleportTo(level, point.x, point.y, point.z, 90, 0);player.containerMenu.broadcastChanges();next(8);
+                player.teleportTo(level, point.x, point.y, point.z, 90, 0);player.containerMenu.broadcastChanges();next(rescue == null ? 8 : 11);
             } else if (stage == 8) {
                 if (!player.isAlive() || player.getHealth() < 6) throw new IllegalStateException("Rescue needs recovery: position=" + player.position()
                         + ", sealed=" + rig.cabin().isSealed() + ", heat=" + player.getPersistentData().getInt("InnerworldHeatExposure")
@@ -283,9 +364,68 @@ public final class RecoveryClientCheck {
             } else if (stage == 9 && lastDeath.pos().equals(rig.sounder().getWaypoint())) {
                 if (!player.getMainHandItem().is(Items.RECOVERY_COMPASS) || player.getMainHandItem().getCount() != 1
                         || player.getMainHandItem().has(DataComponents.LODESTONE_TRACKER)
-                        || !new BlockPos(2304, 180, 128).equals(rig.sounder().getHome()))
+                        || !WRECK_ORIGIN.equals(rig.sounder().getHome()))
                     throw new IllegalStateException("Recovery navigation modified the compass or home berth");
                 LogUtils.getLogger().info("Native recovery compass loaded the actual world death location into probe navigation");next(10);
+            } else if (stage >= 11 && stage <= 19) {
+                advanceVoyage();
+            }
+        }
+
+        private void floodAssemblySource(BlockPos origin) {
+            // Native assembly leaves air where the hull stood; restore the lava around the assembled ship.
+            int restored = 0;
+            for (var pos : BlockPos.betweenClosed(origin, origin.offset(4, 3, 6))) {
+                if (level.getBlockState(pos).isAir()) {
+                    level.setBlockAndUpdate(pos, Blocks.LAVA.defaultBlockState());restored++;
+                }
+            }
+            LogUtils.getLogger().info("Restored {} lava cells in the assembly source volume", restored);
+        }
+
+        private void advanceVoyage() {
+            var player = player();
+            if ((level.getGameTime() - since) % 100 == 0) LogUtils.getLogger().info("Rescue voyage stage={}, crew={}, spare={}, wreck={}",
+                    stage, player.position(), rescue.world(new BlockPos(2, 1, 2)), rig.world(new BlockPos(2, 1, 2)));
+            if (stage == 11 && rescue.cabin().getCoolant() > 0) {
+                if (player.getInventory().countItem(AeronauticsInnerworld.COOLANT_CELL.get()) != 2 || !rescue.cabin().isSealed())
+                    throw new IllegalStateException("Rescue preparation lost coolant or cabin protection");
+                int engines = 0;
+                var bounds = rescue.subLevel.getPlot().getBoundingBox();
+                for (var pos : BlockPos.betweenClosed(bounds.minX(), bounds.minY(), bounds.minZ(), bounds.maxX(), bounds.maxY(), bounds.maxZ())) {
+                    var entity = level.getBlockEntity(pos);
+                    if (entity instanceof CreativeMotorBlockEntity) throw new IllegalStateException("The rescue boat uses creative power");
+                    if (entity instanceof PortableEngineBlockEntity engine) {
+                        engines++;
+                        if (engine.inventory.getItem(0).isEmpty() || engine.inventory.getItem(0).getCount() >= 4)
+                            throw new IllegalStateException("Rescue engine did not consume its normal fuel");
+                    }
+                }
+                if (engines != 7) throw new IllegalStateException("The rescue boat lost an engine");
+                next(12);
+            } else if (stage == 12 && lastDeath.pos().equals(rescue.sounder().getWaypoint())) {
+                departureZ = rescue.world(new BlockPos(2, 1, 2)).z;next(13);
+            } else if (stage == 13 && rescue.world(new BlockPos(2, 1, 2)).z <= rig.world(new BlockPos(2, 1, 2)).z + .5) {
+                double travelled = departureZ - rescue.world(new BlockPos(2, 1, 2)).z;
+                if (travelled < 28 || !rescue.cabin().isSealed() || player.getPersistentData().getInt("InnerworldHeatExposure") != 0)
+                    throw new IllegalStateException("The rescue approach did not preserve a protected native voyage");
+                LogUtils.getLogger().info("Fueled rescue approach completed: distance={}, coolant={}, crew={}", travelled, rescue.cabin().getCoolant(), player.position());next(14);
+            } else if (stage == 14 && RigidBodyHandle.of(rescue.subLevel).getLinearVelocity().length() < .05) {
+                next(15);
+            } else if (stage == 15 && level.getBlockState(rescue.local(RESCUE_HATCH)).getValue(PressureHatchBlock.OPEN)) {
+                walkTarget = rescue.world(RESCUE_HATCH.east()).add(0, -.45, 0);next(16);
+            } else if (stage == 16 && player.position().distanceTo(walkTarget) < .2) {
+                walkTarget = rig.world(new BlockPos(-1, 1, 2)).add(0, -.4, 0);next(17);
+            } else if (stage == 17 && player.position().distanceTo(walkTarget) < .7) {
+                next(18);
+            } else if (stage == 18 && level.getBlockState(rig.local(new BlockPos(0, 2, 2))).getValue(PressureHatchBlock.OPEN)) {
+                // A 1.8-block crew needs clearance above the floor and below the two-block doorway's ceiling.
+                walkTarget = rig.world(new BlockPos(2, 1, 2)).add(0, -.4, 0);
+                if (!level.noCollision(player, player.getBoundingBox().move(walkTarget.subtract(player.position()))))
+                    throw new IllegalStateException("Wreck entry target does not fit the crew collision bounds");
+                next(19);
+            } else if (stage == 19 && player.position().distanceTo(walkTarget) < .7) {
+                LogUtils.getLogger().info("Native rescue transfer reached the wreck without position teleportation, health={}", player.getHealth());next(8);
             }
         }
 
@@ -300,6 +440,8 @@ public final class RecoveryClientCheck {
             var point = rig.world(new BlockPos(2, 1, 2)).add(0, -.45, 0);
             player.teleportTo(level, point.x, point.y, point.z, 180, 0);player.containerMenu.broadcastChanges();
             level.setBlockAndUpdate(rig.local(new BlockPos(0, 1, 2)), Blocks.AIR.defaultBlockState());
+            if (!level.getFluidState(BlockPos.containing(player.getEyePosition())).is(FluidTags.LAVA))
+                throw new IllegalStateException("The death fixture is not exposing the crew to lava");
         }
 
         private void next(int stage) {this.stage = stage;since = level.getGameTime();}
@@ -314,7 +456,9 @@ public final class RecoveryClientCheck {
             player.connection.send(new ClientboundSetCarriedItemPacket(player.getInventory().selected));
             player.connection.send(new ClientboundSetExperiencePacket(player.experienceProgress, player.totalExperience, player.experienceLevel));
             server.getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(oldKeepInventory, server);
-            drops.forEach(ItemEntity::discard);base.forEach(level::setBlockAndUpdate);rig.cleanUp();
+            drops.forEach(ItemEntity::discard);
+            if (rescue != null) rescue.cleanUp();
+            rig.cleanUp();base.forEach(level::setBlockAndUpdate);
         }
     }
 }

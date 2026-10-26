@@ -217,6 +217,7 @@ neoForge.runs.create('recoveryTestClient') {
     gameDirectory = project.file('run/client')
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.recoveryClientCheck', 'true'
+    systemProperty 'innerworld.recoveryVoyage', providers.gradleProperty('recoveryVoyage').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
