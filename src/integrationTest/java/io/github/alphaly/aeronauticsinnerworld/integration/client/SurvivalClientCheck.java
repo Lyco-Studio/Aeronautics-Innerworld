@@ -66,7 +66,8 @@ public final class SurvivalClientCheck {
     private static boolean assemblyReleased;
     private static boolean controllerActive;
     private static int remoteFrames;
-    private static boolean remoteOpened, remoteClosed;
+    private static boolean remoteOpened, remoteClosed, pilotingDock;
+    private static int remoteSlot;
 
     private static boolean steering() {
         return Boolean.getBoolean("innerworld.survivalSteering");
@@ -96,8 +97,8 @@ public final class SurvivalClientCheck {
                     if (failure != null) {
                         throw failure;
                     }
-                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), docking() ? constructing() ? "build-dock-verified" : "dock-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
-                    LogUtils.getLogger().info(docking() ? "Native wireless dock check passed: occupied assembly, coal-powered gates and drainage"
+                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), docking() ? constructing() ? "build-dock-voyage-verified" : "dock-voyage-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
+                    LogUtils.getLogger().info(docking() ? "Native dock voyage passed: occupied assembly, wireless gates, natural lava sea and return"
                             : constructing() ? "Native survival probe build passed: block placement, fuel, glue and occupied assembly"
                             : steering() ? "Survival steering check passed: fueled quarter-turn, countersteer and native propulsion stop"
                             : "Survival client check passed: bilingual guide, fueled probe and mechanical controls over the client connection");
@@ -122,6 +123,7 @@ public final class SurvivalClientCheck {
             else if (scene.rig.subLevel == null) assemble(client);
             if (docking()) {
                 if (scene.ticks >= 40 && !controllerActive && client.player.getMainHandItem().is(com.simibubi.create.AllItems.LINKED_CONTROLLER.get())) {
+                    remoteSlot = client.player.getInventory().selected;
                     client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);controllerActive = true;
                     LogUtils.getLogger().info("Wireless dock controller active; sending native button input over the client connection");
                 }
@@ -130,7 +132,17 @@ public final class SurvivalClientCheck {
                         remoteButton(true);remoteOpened = true;remoteFrames = 0;
                     } else if (remoteOpened && !remoteClosed) {
                         if (++remoteFrames == 10) remoteButton(false);
+                        if (scene.dock.sailing() && !pilotingDock) {
+                            client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+                            int empty = -1;
+                            for (int slot = 0; slot < 9; slot++) if (client.player.getInventory().getItem(slot).isEmpty()) {empty = slot;break;}
+                            if (empty < 0) throw new IllegalStateException("Dock pilot has no empty hotbar slot");
+                            client.player.getInventory().selected = empty;pilotingDock = true;
+                        }
+                        if (pilotingDock && ticks % 6 == 0) driveDock(client);
                         if (scene.dock.readyToClose()) {
+                            client.player.getInventory().selected = remoteSlot;
+                            client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
                             Screenshot.grab(client.gameDirectory, "mantle-wireless-dock.png", client.getMainRenderTarget(),
                                     message -> LogUtils.getLogger().info("Wireless dock screenshot: {}", message.getString()));
                             remoteButton(true);remoteClosed = true;remoteFrames = 0;
@@ -256,6 +268,17 @@ public final class SurvivalClientCheck {
         var pos = scene.rig.local(relative);
         client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+    }
+
+    private static void driveDock(Minecraft client) {
+        int thrust = scene.dock.requestedThrust();
+        setLever(client, ProbeTestRig.LEFT_REVERSE, thrust < 0);setLever(client, ProbeTestRig.RIGHT_REVERSE, thrust < 0);
+        setLever(client, ProbeTestRig.LEFT_THROTTLE, thrust == 0);setLever(client, ProbeTestRig.RIGHT_THROTTLE, thrust == 0);
+        client.player.setShiftKeyDown(true);
+        client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY));
+        for (int x : new int[] {1, 3}) if (scene.dock.trimMode(x) != scene.dock.requestedTrim()) toggle(client, new BlockPos(x, 0, 2));
+        client.player.setShiftKeyDown(false);
+        client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
     }
 
     private static void remoteButton(boolean pressed) {

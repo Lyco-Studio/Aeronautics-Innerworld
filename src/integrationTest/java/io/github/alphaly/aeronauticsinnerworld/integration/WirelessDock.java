@@ -10,6 +10,8 @@ import com.simibubi.create.content.redstone.link.LinkBehaviour;
 import com.simibubi.create.content.redstone.link.RedstoneLinkBlock;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
+import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,7 +40,10 @@ public final class WirelessDock {
     private final DockPortcullis gate;
     private final BlockPos latch;
     private volatile int phase;
-    private int settled, elapsed;
+    private int settled, elapsed, phaseTicks;
+    private long started;
+    private volatile int leftTrim, rightTrim;
+    private volatile boolean canClose;
 
     public WirelessDock(ServerLevel level) {
         this.level = level;
@@ -96,37 +101,74 @@ public final class WirelessDock {
     }
 
     public boolean advance(ServerPlayer player, ProbeTestRig rig) {
-        ++elapsed;
+        if (elapsed++ == 0) started = level.getGameTime();
         if (!rig.cabin().isSealed() || player.isInLava() || player.getHealth() < player.getMaxHealth())
             throw new IllegalStateException("Wireless dock pilot lost cabin protection: tick=" + elapsed + ", sealed="
                     + rig.cabin().isSealed() + ", health=" + player.getHealth() + ", lava=" + player.isInLava()
                     + ", fire=" + player.isOnFire() + ", damage=" + (player.getLastDamageSource() == null ? "none" : player.getLastDamageSource().getMsgId())
                     + ", position=" + player.position() + ", hull=" + rig.subLevel.boundingBox());
+        for (int z : new int[] {-3, -5}) if (level.getFluidState(at(2, 1, z)).is(FluidTags.LAVA))
+            throw new IllegalStateException("Wireless dock flooded the fixed living area");
+        var left = (ProbeDriveBlockEntity) level.getBlockEntity(rig.local(new BlockPos(1, 0, 2)));
+        var right = (ProbeDriveBlockEntity) level.getBlockEntity(rig.local(new BlockPos(3, 0, 2)));
+        leftTrim = left.getTrimMode();rightTrim = right.getTrimMode();
         boolean opening = level.getBlockState(latch).getValue(ToggleLatchBlock.POWERING);
-        if (elapsed > 900) throw new IllegalStateException("Wireless dock timed out: phase=" + phase + ", latch="
-                + level.getBlockState(latch) + ", shutter=" + shutter.status() + ", gate=" + gate.status());
-        if (phase == 0 && opening && shutter.atPosition(false) && gate.atPosition(false)) {
-            phase = 1;
-            LogUtils.getLogger().info("Wireless dock opened through client controller; checking retained open state");
+        var box = rig.subLevel.boundingBox();
+        var velocity = RigidBodyHandle.of(rig.subLevel).getLinearVelocity();
+        if (++phaseTicks > 600 || elapsed > 2400) throw new IllegalStateException("Wireless dock voyage timed out: phase=" + phase
+                + ", hull=" + box.minX() + "," + box.minY() + ".." + box.maxX() + "," + box.maxY()
+                + ", velocity=" + velocity + ", trim=" + leftTrim + "/" + rightTrim
+                + ", shutter=" + shutter.status() + ", gate=" + gate.status());
+        switch (phase) {
+            case 0 -> {
+                if (opening && shutter.atPosition(false) && gate.atPosition(false)) next(1, rig, "gates open");
+            }
+            case 1 -> {
+                if (!opening || !shutter.atPosition(false) || !gate.atPosition(false))
+                    throw new IllegalStateException("Wireless dock did not retain its open end positions");
+                var drive = (ProbeDriveBlockEntity) level.getBlockEntity(rig.local(ProbeTestRig.LEFT_DRIVE));
+                if (++settled >= 80 && drive.isImmersed()) next(2, rig, "flooded; lifting off the skids");
+            }
+            case 2 -> {if (box.minY() > 202.2) next(3, rig, "clear of the dock floor; holding depth");}
+            case 3 -> {if (leftTrim == 0 && rightTrim == 0 && ++settled >= 15) next(4, rig, "leaving the dock");}
+            case 4 -> {if (box.minX() > -487.5) next(5, rig, "entire hull in the launch well; descending");}
+            case 5 -> {if (box.maxY() < 199.5) next(6, rig, "below the natural ceiling; sailing into open sea");}
+            case 6 -> {if (box.minX() > -477) next(7, rig, "reached the natural lava sea; stopping");}
+            case 7 -> {if (++settled >= 15) next(8, rig, "reversing toward the launch well");}
+            case 8 -> {if (box.maxX() < -478) next(9, rig, "back in the flooded well; ascending");}
+            case 9 -> {if (box.minY() > 202.2) next(10, rig, "above the return sill; holding depth");}
+            case 10 -> {if (leftTrim == 0 && rightTrim == 0 && ++settled >= 15) next(11, rig, "reversing into the dock");}
+            case 11 -> {if (box.maxX() < -488.5) next(12, rig, "entire hull inside the dock; stopping");}
+            case 12 -> {
+                var drive = (ProbeDriveBlockEntity) level.getBlockEntity(rig.local(ProbeTestRig.LEFT_DRIVE));
+                var other = (ProbeDriveBlockEntity) level.getBlockEntity(rig.local(ProbeTestRig.RIGHT_DRIVE));
+                canClose = leftTrim == 0 && rightTrim == 0 && drive.getSpeed() == 0 && other.getSpeed() == 0 && Math.abs(velocity.x()) < .1;
+                if (!opening && shutter.atPosition(true) && gate.atPosition(true)) next(13, rig, "gates closed; draining");
+            }
+            case 13 -> {
+                for (var pos : BlockPos.betweenClosed(at(-2, -1, -1), at(6, 7, 7)))
+                    if (level.getFluidState(pos).is(FluidTags.LAVA)) return false;
+                if (!shutter.consumedFuel() || !gate.consumedFuel()) throw new IllegalStateException("Wireless dock did not consume coal");
+                LogUtils.getLogger().info("Native client dock voyage complete: ticks={}, coolant={}, position={}", level.getGameTime() - started,
+                        rig.cabin().getCoolant(), rig.world(ProbeTestRig.CABIN));
+                return true;
+            }
+            default -> throw new IllegalStateException("Unknown dock voyage phase " + phase);
         }
-        if (phase == 1 && ++settled >= 80) {
-            if (!opening || !shutter.atPosition(false) || !gate.atPosition(false))
-                throw new IllegalStateException("Wireless dock did not retain its open end positions");
-            phase = 2;
-            LogUtils.getLogger().info("Wireless dock retained open state; ready for the second client button input");
-        }
-        if (phase == 2 && !opening && shutter.atPosition(true) && gate.atPosition(true)) {
-            phase = 3;
-            LogUtils.getLogger().info("Wireless dock closed through client controller; waiting for drainage");
-        }
-        if (phase != 3) return false;
-        for (var pos : BlockPos.betweenClosed(at(-2, -1, -1), at(6, 7, 7)))
-            if (level.getFluidState(pos).is(FluidTags.LAVA)) return false;
-        if (!shutter.consumedFuel() || !gate.consumedFuel()) throw new IllegalStateException("Wireless dock did not consume coal");
-        return true;
+        return false;
     }
 
-    public boolean readyToClose() {return phase == 2;}
+    private void next(int value, ProbeTestRig rig, String message) {
+        phase = value;phaseTicks = 0;settled = 0;
+        LogUtils.getLogger().info("Native client dock voyage phase {}: {}; position={}, velocity={}", value, message,
+                rig.world(ProbeTestRig.CABIN), RigidBodyHandle.of(rig.subLevel).getLinearVelocity());
+    }
+
+    public boolean sailing() {return phase >= 2 && phase <= 12;}
+    public boolean readyToClose() {return phase == 12 && canClose;}
+    public int requestedThrust() {return phase == 4 || phase == 6 ? 1 : phase == 8 || phase == 11 ? -1 : 0;}
+    public int requestedTrim() {return phase == 2 || phase == 9 ? 1 : phase == 5 ? -1 : 0;}
+    public int trimMode(int x) {return x == 1 ? leftTrim : rightTrim;}
 
     public void cleanUp() {
         gate.cleanUp();shutter.cleanUp();
