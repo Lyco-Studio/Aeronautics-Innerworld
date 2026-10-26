@@ -129,8 +129,10 @@ public final class TeamClientCheck {
         } else {
             var pos = BlockPos.of(tag.getLong("Target"));
             if (client.level.getBlockState(pos).isAir()) return;
-            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+            var result = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+            LogUtils.getLogger().info("Team input {}: result={}, player={}, health={}, screen={}", action, result,
+                    client.player.position(), client.player.getHealth(), client.screen == null ? "none" : client.screen.getClass().getSimpleName());
         }
         applied = true;Files.writeString(control(HOST ? "host.ack" : "guest.ack"), Integer.toString(sequence));
     }
@@ -162,6 +164,7 @@ public final class TeamClientCheck {
 
         private Scene(ServerPlayer host, ServerPlayer guest) {
             require(guest != null && !host.getUUID().equals(guest.getUUID()), "Two distinct players did not connect");
+            require(host.server.getWorldData().worldGenOptions().generateStructures(), "Team check requires a structure-enabled development world");
             this.host = host;this.guest = guest;oldHost = TeamPlayerState.capture(host);oldGuest = TeamPlayerState.capture(guest);
             var advancement = host.server.getAdvancements().get(id("exploration/core_victory"));
             hostWon = host.getAdvancements().getOrStartProgress(advancement).isDone();guestWon = guest.getAdvancements().getOrStartProgress(advancement).isDone();
@@ -171,6 +174,7 @@ public final class TeamClientCheck {
         private void advance() {
             long time = host.server.overworld().getGameTime();
             require(time - since < 240, "Team scene stalled at stage " + stage
+                    + "; " + passenger(host) + "; " + passenger(guest)
                     + (warden == null ? "" : "; Warden=" + warden.getHealth() + "; host distance=" + host.distanceToSqr(warden)
                             + "; host=" + host.position() + "; guest=" + guest.position()));
             rig.level.resetEmptyTime();
@@ -251,11 +255,22 @@ public final class TeamClientCheck {
             }
         }
 
+        private String passenger(ServerPlayer player) {
+            var eye = player.getEyePosition();
+            return player.getScoreboardName() + " health=" + player.getHealth() + ", position=" + player.position()
+                    + ", local=" + (rig.subLevel == null ? "unassembled" : rig.subLevel.logicalPose().transformPositionInverse(eye))
+                    + ", occluded=" + dev.ryanhcode.sable.sublevel.water_occlusion.WaterOcclusionContainer.getContainer(player.level()).isOccluded(eye)
+                    + ", lava=" + player.isInLava() + ", fire=" + player.isOnFire()
+                    + ", damage=" + (player.getLastDamageSource() == null ? "none" : player.getLastDamageSource().getMsgId());
+        }
+
         private void board(ServerPlayer player, BlockPos local) {
             var pos = rig.world(local).add(0, -.45, 0);
             player.setGameMode(GameType.SURVIVAL);player.getAbilities().flying = false;player.onUpdateAbilities();player.removeAllEffects();
             player.getPersistentData().putInt("InnerworldHeatExposure", 0);player.setHealth(20);player.getFoodData().setFoodLevel(20);
+            player.clearFire();
             player.getInventory().clearContent();player.teleportTo(rig.level, pos.x, pos.y, pos.z, 180, 0);player.containerMenu.broadcastChanges();
+            LogUtils.getLogger().info("Team boarding: {}", passenger(player));
         }
 
         private void signal(ServerPlayer player, String action, BlockPos pos, ItemStack held) {
