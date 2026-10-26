@@ -147,7 +147,7 @@
   "message.aeronautics_innerworld.cannon_status": "Pressure cannon: %s rounds · %s RPM; fires while powered.",
   "message.aeronautics_innerworld.hull_under_attack": "Hull impact: check local damage and equipment faults.",
   "book.aeronautics_innerworld.page.16": "Pressure cannon\n\nMount the cannon on the probe and supply 16+ RPM. Use bolts on it to load its 64-round magazine. A Create Clutch controls fire. Aim the front face at the target. Shooting adds heat; watch coolant.",
-  "book.aeronautics_innerworld.page.17": "Heatweave gear\n\nStalker scales make a mask and jacket. Heat limits: mask 10 s, jacket 15 s, both 20 s. A full set also resists fire below its heat limit. Cool down in a dry space; the suit is for brief work.",
+  "book.aeronautics_innerworld.page.17": "Heatweave gear\n\nStalker scales make a mask and jacket. Heat limits: mask 15 s, jacket 15 s, both 25 s. A full set also resists fire below its heat limit. Cool down in a dry space; the suit is for brief work.",
   "message.aeronautics_innerworld.hull_breach": "Hull breach",
   "message.aeronautics_innerworld.sonar_combat_hud": "Y%s | %s %sm %s Y%s | H%s%% C%ss",
   "message.aeronautics_innerworld.sonar_threat": "Creature echo: %s at %s, %s, %s · %s m",

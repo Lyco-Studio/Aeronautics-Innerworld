@@ -345,7 +345,7 @@ public final class CombatClientCheck {
                 if (player.getHealth() < protectedHealth || player.getPersistentData().getInt("InnerworldHeatExposure") < 5) {
                     throw new IllegalStateException("Heatweave suit failed to extend the unprotected exposure window");
                 }
-                player.getPersistentData().putInt("InnerworldHeatExposure", 19);
+                player.getPersistentData().putInt("InnerworldHeatExposure", 24);
             }
             if (ticks == 280) {
                 if (player.getHealth() >= protectedHealth) {

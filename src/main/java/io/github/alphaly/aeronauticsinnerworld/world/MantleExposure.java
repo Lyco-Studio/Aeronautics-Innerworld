@@ -35,7 +35,7 @@ public final class MantleExposure {
         int seconds = Math.max(0, data.getInt("InnerworldHeatExposure") + (exposed ? 1 : -2));
         boolean helmet = player.getItemBySlot(EquipmentSlot.HEAD).is(AeronauticsInnerworld.HEATWEAVE_HELMET.get());
         boolean chest = player.getItemBySlot(EquipmentSlot.CHEST).is(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get());
-        int limit = 5 + (helmet ? 5 : 0) + (chest ? 10 : 0);
+        int limit = 5 + (helmet ? 10 : 0) + (chest ? 10 : 0);
         data.putInt("InnerworldHeatExposure", Math.min(limit + 5, seconds));
         if (helmet && chest && seconds < limit) {
             player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, false, true));
