@@ -163,9 +163,12 @@ public final class ProbeTestRig {
         }
         var connector = new BlockPos(4, 0, 2);
         place(connector, SimBlocks.DOCKING_CONNECTOR.getDefaultState().setValue(BlockStateProperties.FACING, Direction.EAST));
-        place(connector.below(), Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.CEILING)
-                .setValue(LeverBlock.POWERED, true));
+        place(connector.south(), Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.WALL)
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH).setValue(LeverBlock.POWERED, true));
+        place(connector.below(), Blocks.HOPPER.defaultBlockState().setValue(net.minecraft.world.level.block.HopperBlock.FACING, Direction.SOUTH));
+        place(connector.below().south(), Blocks.CHEST.defaultBlockState());
         glue(connector, connector.below());
+        glue(connector.below(), connector.below().south());
         ((MantleSamplerBlockEntity) level.getBlockEntity(origin.offset(SAMPLER))).inventory.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get(), 17));
     }

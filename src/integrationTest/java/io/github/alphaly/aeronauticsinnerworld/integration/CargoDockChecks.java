@@ -14,6 +14,7 @@ import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HopperBlock;
@@ -54,6 +55,10 @@ public final class CargoDockChecks {
         level.setBlockAndUpdate(shore.east(), Blocks.REDSTONE_BLOCK.defaultBlockState());
         level.setBlockAndUpdate(shore.below(), Blocks.HOPPER.defaultBlockState().setValue(HopperBlock.FACING, Direction.EAST));
         level.setBlockAndUpdate(shore.below().east(), Blocks.CHEST.defaultBlockState());
+        level.setBlockAndUpdate(shore.above(), Blocks.HOPPER.defaultBlockState());
+        level.setBlockAndUpdate(shore.above(2), Blocks.CHEST.defaultBlockState());
+        var supplies = (Container) level.getBlockEntity(shore.above(2));
+        supplies.setItem(0, new ItemStack(Items.COAL, 7));
         var chest = (Container) level.getBlockEntity(shore.below().east());
         for (int slot = 0; slot < chest.getContainerSize(); slot++) chest.setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
         var cleaned = new boolean[1];
@@ -62,13 +67,16 @@ public final class CargoDockChecks {
             cleaned[0] = true;
             if (rig.subLevel != null) {
                 port(rig).clearContent();
-                for (var pos : java.util.List.of(new BlockPos(3, 0, 0), new BlockPos(4, 0, 0), new BlockPos(4, 0, 1))) {
+                for (var pos : java.util.List.of(new BlockPos(3, 0, 0), new BlockPos(4, 0, 0), new BlockPos(4, 0, 1),
+                        SHIP_PORT.below(), SHIP_PORT.below().south())) {
                     ((Container) level.getBlockEntity(rig.local(pos))).clearContent();
                 }
             }
             ((DockingConnectorBlockEntity) level.getBlockEntity(shore)).unDock();
             ((DockingConnectorBlockEntity) level.getBlockEntity(shore)).clearContent();
             ((Container) level.getBlockEntity(shore.below())).clearContent();
+            ((Container) level.getBlockEntity(shore.above())).clearContent();
+            supplies.clearContent();
             chest.clearContent();
             rig.cleanUp();
             original.forEach(level::setBlockAndUpdate);
@@ -90,6 +98,8 @@ public final class CargoDockChecks {
                 .thenExecuteAfter(180, () -> {
                     helper.assertTrue(count(chest) == 0 && total(rig, shore, chest) == 17,
                             "Full station storage lost or duplicated sampler cargo");
+                    helper.assertTrue(fuelOnShip(rig) == 7 && total(rig, shore, chest, Items.COAL) == 7,
+                            "Blocked unloading prevented independent fuel loading or changed its total");
                     chest.setItem(0, ItemStack.EMPTY);
                 }).thenWaitUntil(() -> helper.assertTrue(count(chest) == 17,
                         "Waiting for hopper unloading through native dock: total=" + total(rig, shore, chest)
@@ -104,16 +114,23 @@ public final class CargoDockChecks {
                 .thenExecuteAfter(60, () -> {
                     helper.assertTrue(count(chest) == 17 && total(rig, shore, chest) == 20,
                             "Disconnected dock transferred, lost or duplicated cargo");
+                    supplies.setItem(0, new ItemStack(Items.COAL, 3));
+                }).thenExecuteAfter(40, () -> {
+                    helper.assertTrue(fuelOnShip(rig) == 7 && total(rig, shore, chest, Items.COAL) == 10,
+                            "Disconnected dock transferred or lost fuel supplies");
                     toggle(rig);
-                }).thenWaitUntil(() -> helper.assertTrue(port(rig).isLocked() && count(chest) == 20,
+                }).thenWaitUntil(() -> helper.assertTrue(port(rig).isLocked() && count(chest) == 20 && fuelOnShip(rig) == 10,
                         "Waiting for reconnect and queued cargo delivery"))
                 .thenExecute(() -> {
                     rig.sampler().inventory.setStackInSlot(0, new ItemStack(AeronauticsInnerworld.RAW_HARMONIC.get(), 5));
+                    supplies.setItem(0, new ItemStack(Items.COAL, 5));
                     rig.unload();
                 }).thenExecuteAfter(2, rig::restore)
-                .thenWaitUntil(() -> helper.assertTrue(count(chest) == 25, "Waiting for restored dock to deliver saved cargo"))
+                .thenWaitUntil(() -> helper.assertTrue(count(chest) == 25 && fuelOnShip(rig) == 15,
+                        "Waiting for restored dock to deliver saved cargo and fuel"))
                 .thenExecute(() -> {
                     helper.assertTrue(total(rig, shore, chest) == 25, "Dock reload lost or duplicated cargo");
+                    helper.assertTrue(total(rig, shore, chest, Items.COAL) == 15, "Dock reload lost or duplicated fuel");
                 }).thenSucceed();
     }
 
@@ -124,29 +141,44 @@ public final class CargoDockChecks {
     private static void toggle(ProbeTestRig rig) {
         var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(rig.level);
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        var pos = rig.local(SHIP_PORT.below());
+        var pos = rig.local(SHIP_PORT.south());
         player.gameMode.useItemOn(player, rig.level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
     }
 
     private static int total(ProbeTestRig rig, BlockPos shore, Container chest) {
-        int count = count(chest) + count((Container) rig.level.getBlockEntity(shore.below()));
-        count += count(port(rig).inventory) + count(((DockingConnectorBlockEntity) rig.level.getBlockEntity(shore)).inventory);
-        for (var pos : java.util.List.of(new BlockPos(3, 0, 0), new BlockPos(4, 0, 0), new BlockPos(4, 0, 1))) {
-            count += count((Container) rig.level.getBlockEntity(rig.local(pos)));
+        return total(rig, shore, chest, AeronauticsInnerworld.RAW_HARMONIC.get());
+    }
+
+    private static int total(ProbeTestRig rig, BlockPos shore, Container chest, Item item) {
+        int count = count(chest, item) + count((Container) rig.level.getBlockEntity(shore.below()), item)
+                + count((Container) rig.level.getBlockEntity(shore.above()), item)
+                + count((Container) rig.level.getBlockEntity(shore.above(2)), item);
+        count += count(port(rig).inventory, item) + count(((DockingConnectorBlockEntity) rig.level.getBlockEntity(shore)).inventory, item);
+        for (var pos : java.util.List.of(new BlockPos(3, 0, 0), new BlockPos(4, 0, 0), new BlockPos(4, 0, 1),
+                SHIP_PORT.below(), SHIP_PORT.below().south())) {
+            count += count((Container) rig.level.getBlockEntity(rig.local(pos)), item);
         }
         for (int slot = 0; slot < rig.sampler().inventory.getSlots(); slot++) {
             var stack = rig.sampler().inventory.getStackInSlot(slot);
-            if (stack.is(AeronauticsInnerworld.RAW_HARMONIC.get())) count += stack.getCount();
+            if (stack.is(item)) count += stack.getCount();
         }
         return count;
     }
 
     private static int count(Container container) {
+        return count(container, AeronauticsInnerworld.RAW_HARMONIC.get());
+    }
+
+    private static int fuelOnShip(ProbeTestRig rig) {
+        return count((Container) rig.level.getBlockEntity(rig.local(SHIP_PORT.below().south())), Items.COAL);
+    }
+
+    private static int count(Container container, Item item) {
         int count = 0;
         for (int slot = 0; slot < container.getContainerSize(); slot++) {
             var stack = container.getItem(slot);
-            if (stack.is(AeronauticsInnerworld.RAW_HARMONIC.get())) count += stack.getCount();
+            if (stack.is(item)) count += stack.getCount();
         }
         return count;
     }
