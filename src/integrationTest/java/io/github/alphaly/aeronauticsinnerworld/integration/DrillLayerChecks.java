@@ -65,6 +65,7 @@ public final class DrillLayerChecks {
                     helper.assertTrue(mantle.getFluidState(column.atY(199)).is(Fluids.LAVA), "Mantle lava layer is missing");
                     helper.assertTrue(mantle.getBlockState(column.atY(200)).isSolid(), "Mantle roof is too thin");
                     helper.assertTrue(mantle.getBlockState(column.atY(255)).isSolid(), "Arrival excavated the roof without drilling");
+                    rig.assertRemoteTelemetry();
                     rig.remoteUse();
                 })
                 .thenWaitUntil(() -> helper.assertTrue(rig.head().getY() <= 252,
@@ -88,6 +89,7 @@ public final class DrillLayerChecks {
                             "Mantle excavation did not collect resources; entity ticks " + rig.head().tickCount
                                     + "; actors " + rig.head().getContraption().getActors().stream()
                                     .map(actor -> actor.right.position + "/" + actor.right.relativeMotion).toList());
+                    rig.assertRemoteTelemetry();
                     rig.reload();
                 })
                 .thenIdle(8)
@@ -267,6 +269,42 @@ public final class DrillLayerChecks {
                 sourceStation().bind(owner);
                 ((BoreStationBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(root.north()))).bind(owner);
             }
+        }
+
+        private void assertRemoteTelemetry() {
+            var reports = new java.util.ArrayList<net.minecraft.network.chat.Component>();
+            var observer = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "drill-telemetry-check")) {
+                @Override
+                public void displayClientMessage(net.minecraft.network.chat.Component message, boolean actionBar) {
+                    helper.assertTrue(actionBar, "Passive drill telemetry entered the chat log");
+                    reports.add(message);
+                }
+            };
+            var direction = controller().getMovementDirection();
+            var status = controller().getStatus();
+            observer.getInventory().setItem(9, remote);
+            remote.getItem().inventoryTick(remote, helper.getLevel(), observer, 9, false);
+            helper.assertTrue(reports.isEmpty(), "An unheld remote displayed telemetry");
+            observer.getInventory().setItem(9, ItemStack.EMPTY);observer.setItemInHand(InteractionHand.MAIN_HAND, remote);
+            remote.getItem().inventoryTick(remote, helper.getLevel(), observer, 0, true);
+            helper.assertTrue(reports.size() == 1 && reports.getFirst().getContents()
+                    instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                    && text.getKey().equals("message.aeronautics_innerworld.drill_head_status"),
+                    "Held remote did not report the transferred head");
+            var text = (net.minecraft.network.chat.contents.TranslatableContents) reports.getFirst().getContents();
+            var args = text.getArgs();
+            helper.assertTrue(args[0] instanceof net.minecraft.network.chat.Component layer
+                            && layer.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents name
+                            && name.getKey().equals("dimension.aeronautics_innerworld.mantle")
+                            && args[1].equals(head().getBlockX()) && args[2].equals(head().getBlockZ())
+                            && args[3].equals(head().getBlockY() - 1) && args[4].equals(head().getBlockY() + 1),
+                    "Remote telemetry lost the fixture's layer, position or three-block height: " + reports.getFirst());
+            reports.clear();observer.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            observer.setItemInHand(InteractionHand.OFF_HAND, remote);
+            remote.getItem().inventoryTick(remote, helper.getLevel(), observer, 40, false);
+            helper.assertTrue(reports.size() == 1, "Offhand remote did not display telemetry");
+            helper.assertTrue(controller().getMovementDirection() == direction && controller().getStatus().equals(status),
+                    "Passive telemetry changed drill operation");
         }
 
         private void assertStationMessage(String key) {

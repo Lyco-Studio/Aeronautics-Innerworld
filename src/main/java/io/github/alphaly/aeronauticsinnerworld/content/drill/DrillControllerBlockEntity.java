@@ -18,6 +18,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -77,6 +78,24 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             return "no_power";
         }
         return status;
+    }
+
+    public Component getStatusMessage() {
+        var direction = Component.translatable("direction.aeronautics_innerworld." + movementDirection.getName());
+        var state = Component.translatable("status.aeronautics_innerworld." + getStatus());
+        if (!(movedContraption instanceof DrillHeadEntity head) || !head.isAlive()) {
+            return Component.translatable("message.aeronautics_innerworld.controller_status", direction, state);
+        }
+        var dimension = head.level().dimension();
+        Component layer = dimension.equals(net.minecraft.world.level.Level.OVERWORLD)
+                ? Component.translatable("dimension.aeronautics_innerworld.overworld")
+                : dimension.equals(Mantle.LEVEL) ? Component.translatable("dimension.aeronautics_innerworld.mantle")
+                : dimension.equals(Core.LEVEL) ? Component.translatable("dimension.aeronautics_innerworld.core")
+                : Component.literal(dimension.location().toString());
+        var bounds = head.getContraption().bounds;
+        return Component.translatable("message.aeronautics_innerworld.drill_head_status", layer,
+                head.getBlockX(), head.getBlockZ(), Mth.floor(head.getY() + bounds.minY),
+                Mth.ceil(head.getY() + bounds.maxY) - 1, direction, state);
     }
 
     public void toggleWork() {

@@ -70,9 +70,7 @@ public final class DrillControllerBlock extends DirectionalKineticBlock implemen
 
     private static void showStatus(Player player, DrillControllerBlockEntity controller) {
         if (player != null) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.controller_status",
-                    Component.translatable("direction.aeronautics_innerworld." + controller.getMovementDirection().getName()),
-                    Component.translatable("status.aeronautics_innerworld." + controller.getStatus())), true);
+            player.displayClientMessage(controller.getStatusMessage(), true);
         }
     }
 

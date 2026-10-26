@@ -6,9 +6,11 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -74,9 +76,7 @@ public final class DrillRemoteItem extends Item {
                     } else {
                         controller.toggleWork();
                     }
-                    player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.controller_status",
-                            Component.translatable("direction.aeronautics_innerworld." + controller.getMovementDirection().getName()),
-                            Component.translatable("status.aeronautics_innerworld." + controller.getStatus())), true);
+                    player.displayClientMessage(controller.getStatusMessage(), true);
                 } else {
                     message(player, "remote_missing");
                 }
@@ -86,10 +86,28 @@ public final class DrillRemoteItem extends Item {
     }
 
     @Override
+    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
+        if (!(level instanceof ServerLevel serverLevel) || !(entity instanceof ServerPlayer player)
+                || player.tickCount % 10 != 0
+                || !selected && (player.getOffhandItem() != stack || player.getMainHandItem().is(this))) return;
+        var owner = binding(stack);
+        if (owner == null) return;
+        var source = serverLevel.getServer().getLevel(owner.dimension());
+        if (source == null || !source.hasChunkAt(owner.pos())) {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.remote_unloaded"), true);
+        } else if (source.getBlockEntity(owner.pos()) instanceof DrillControllerBlockEntity controller) {
+            player.displayClientMessage(controller.getStatusMessage(), true);
+        } else {
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.remote_missing"), true);
+        }
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         var owner = binding(stack);
         lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.controls"));
         lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.station_binding"));
+        lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.telemetry"));
         if (owner != null) {
             lines.add(Component.translatable("item.aeronautics_innerworld.drill_remote.binding",
                     owner.dimension().location().toString(), owner.pos().getX(), owner.pos().getY(), owner.pos().getZ()));
@@ -103,7 +121,7 @@ public final class DrillRemoteItem extends Item {
 
     private static void message(Player player, String key) {
         if (player != null) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld." + key), true);
+            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld." + key), false);
         }
     }
 }

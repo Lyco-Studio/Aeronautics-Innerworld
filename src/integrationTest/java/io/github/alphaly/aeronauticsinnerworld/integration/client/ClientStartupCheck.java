@@ -17,13 +17,15 @@ public final class ClientStartupCheck {
     private static DrillControllerClientCheck drillCheck;
     private static CompletableFuture<Void> cleanup;
     private static RuntimeException failure;
+    private static boolean capturedPause, oldPause, finished;
 
     @SubscribeEvent
     public static void afterClientTick(ClientTickEvent.Post event) {
-        if (!Boolean.getBoolean("innerworld.clientStartupCheck")) {
+        if (!Boolean.getBoolean("innerworld.clientStartupCheck") || finished) {
             return;
         }
         var client = Minecraft.getInstance();
+        if (!capturedPause) {oldPause = client.options.pauseOnLostFocus;capturedPause = true;client.options.pauseOnLostFocus = false;}
         if (++ticks > 3000 && failure == null && cleanup == null) {
             failure = new IllegalStateException("Client check timed out: "
                     + (drillCheck == null ? "world not entered" : drillCheck.describe()) + ", paused=" + client.isPaused());
@@ -34,7 +36,9 @@ public final class ClientStartupCheck {
             if (!cleanup.isDone()) {
                 return;
             }
-            cleanup.join();
+            finished = true;
+            try {cleanup.join();}
+            finally {client.options.pauseOnLostFocus = oldPause;client.options.save();}
             if (failure != null) {
                 throw failure;
             }

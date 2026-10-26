@@ -50,6 +50,7 @@ final class DrillControllerClientCheck {
     private CompletableFuture<Boolean> stationProgress;
     private boolean stationComplete;
     private int stationViewTicks;
+    private boolean statusLayoutChecked;
 
     DrillControllerClientCheck(Minecraft client) {
         var server = client.getSingleplayerServer();
@@ -138,6 +139,7 @@ final class DrillControllerClientCheck {
             throw new IllegalStateException("Client head position did not match the paused server head: expected "
                     + checkpoint + "; actual " + (entity == null ? "missing" : entity.position()));
         }
+        if (!statusLayoutChecked) {checkStatusLayout(client, checkpoint.message);statusLayoutChecked = true;}
         if (!(client.getEntityRenderDispatcher().getRenderer(entity) instanceof ContraptionEntityRenderer)
                 || VisualizerRegistry.getVisualizer(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get()) == null
                 || entity.getContraption() == null || entity.getContraption().getBlocks().size() != 10) {
@@ -228,7 +230,41 @@ final class DrillControllerClientCheck {
         return rig == null ? "waiting for setup" : rig.state;
     }
 
-    private record Snapshot(UUID identity, Vec3 position, BlockPos controllerPos, Direction direction, ResourceKey<Level> dimension) {
+    private static void checkStatusLayout(Minecraft client, net.minecraft.network.chat.Component message) {
+        var template = (net.minecraft.network.chat.contents.TranslatableContents) message.getContents();
+        var args = template.getArgs().clone();args[1] = -29999984;args[2] = -29999984;args[3] = -64;args[4] = -1;
+        args[5] = net.minecraft.network.chat.Component.translatable("direction.aeronautics_innerworld.north");
+        java.util.List<String> states;
+        try (var reader = client.getResourceManager().getResource(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                AeronauticsInnerworld.MOD_ID, "lang/en_us.json")).orElseThrow().openAsReader()) {
+            states = com.google.gson.JsonParser.parseReader(reader).getAsJsonObject().keySet().stream()
+                    .filter(key -> key.startsWith("status.aeronautics_innerworld."))
+                    .filter(key -> !java.util.Set.of("idle", "empty", "assembly_failed", "loading_head")
+                            .contains(key.substring(key.lastIndexOf('.') + 1))).toList();
+        } catch (java.io.IOException exception) {throw new IllegalStateException(exception);}
+        var language = net.minecraft.locale.Language.getInstance();
+        var oversized = new java.util.ArrayList<String>();int widest = 0;
+        try {
+            for (var locale : java.util.List.of("en_us", "zh_cn")) {
+                net.minecraft.locale.Language.inject(net.minecraft.client.resources.language.ClientLanguage.loadFrom(
+                        client.getResourceManager(), java.util.List.of("en_us", locale), false));
+                for (var layer : java.util.List.of("overworld", "mantle", "core")) for (var state : states) {
+                    args[0] = net.minecraft.network.chat.Component.translatable("dimension.aeronautics_innerworld." + layer);
+                    args[6] = net.minecraft.network.chat.Component.translatable(state);
+                    int width = client.font.width(net.minecraft.network.chat.Component.translatable(template.getKey(), args));
+                    widest = Math.max(widest, width);
+                    if (width > client.getWindow().getGuiScaledWidth() - 20)
+                        oversized.add(locale + "/" + layer + "/" + state + "=" + width);
+                }
+            }
+        } finally {net.minecraft.locale.Language.inject(language);}
+        if (!oversized.isEmpty()) throw new IllegalStateException("Drill telemetry exceeds the action bar: " + oversized);
+        LogUtils.getLogger().info("Bilingual drill telemetry layout passed: widest={} pixels, available={}", widest,
+                client.getWindow().getGuiScaledWidth() - 20);
+    }
+
+    private record Snapshot(UUID identity, Vec3 position, BlockPos controllerPos, Direction direction, ResourceKey<Level> dimension,
+            net.minecraft.network.chat.Component message) {
     }
 
     private static final class Rig {
@@ -379,7 +415,8 @@ final class DrillControllerClientCheck {
 
         private Snapshot snapshot() {
             var head = controller.movedContraption;
-            return new Snapshot(identity, head.position(), controllerPos, controller.getMovementDirection(), head.level().dimension());
+            return new Snapshot(identity, head.position(), controllerPos, controller.getMovementDirection(), head.level().dimension(),
+                    controller.getStatusMessage());
         }
 
         private void turn() {
