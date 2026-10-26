@@ -65,6 +65,7 @@ public final class DeepUpgradeClientCheck {
     private static CompletableFuture<Void> step, cleanup;
     private static Scene scene;
     private static RuntimeException failure;
+    private static boolean drilling() {return Boolean.getBoolean("innerworld.deepUpgradeDrill");}
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -73,12 +74,12 @@ public final class DeepUpgradeClientCheck {
         if (!captured) {captured = true;oldPause = client.options.pauseOnLostFocus;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > 4200 && cleanup == null) throw new IllegalStateException("Deep recovery timed out at stage " + stage);
+            if (++ticks > (drilling() ? 8400 : 4200) && cleanup == null) throw new IllegalStateException("Deep recovery timed out at stage " + stage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
                 cleanup.join();finished = true;client.options.pauseOnLostFocus = oldPause;client.options.save();
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("deep-upgrade-check.result"), "verified");
+                Files.writeString(client.gameDirectory.toPath().resolve("deep-upgrade-check.result"), drilling() ? "drill-verified" : "verified");
                 LogUtils.getLogger().info("Deep upgrade passed: native wet entry, archive cargo, walking return and coupler crafting");
                 client.stop();return;
             }
@@ -102,6 +103,7 @@ public final class DeepUpgradeClientCheck {
                     }
                 }
             } else if (stage == 4) craft(client);
+            else if (stage == 6) {if (!fight(client)) scene.drill.tickClient(client);}
             else if (stage == 5) {
                 ProbeConstruction.release(client);
                 if (frames == 10) Screenshot.grab(client.gameDirectory, "deep-recovery-upgrade.png", client.getMainRenderTarget(),
@@ -195,6 +197,7 @@ public final class DeepUpgradeClientCheck {
         private BlockPos bench;
         private BlockState previousBench;
         private float minimumHealth;
+        private volatile DeepDrillConnection drill;
 
         Scene(ServerPlayer player) {
             this.player = player;old = TeamPlayerState.capture(player);selected = player.getInventory().selected;
@@ -229,7 +232,7 @@ public final class DeepUpgradeClientCheck {
             if (level.getBlockState(chest).getMenuProvider(level, chest) == null) throw new IllegalStateException("Natural archive chest is blocked above");
             alloy = count(cargo, AeronauticsInnerworld.RELIC_ALLOY.get());mechanisms = count(cargo, AllItems.PRECISION_MECHANISM.get());
             if (alloy < 4 || mechanisms < 1 || count(cargo, AeronauticsInnerworld.PRESSURE_MATRIX.get()) != 2) throw new IllegalStateException("Natural archive cannot supply its upgrade materials");
-            for (var key : List.of("relay", "crystal", "deep_works", "deep_drill")) {
+            for (var key : List.of("relay", "crystal", "deep_works", "deep_drill", "core")) {
                 var advancement = player.server.getAdvancements().get(id("expedition/" + key));
                 var criteria = ImmutableSet.copyOf(player.getAdvancements().getOrStartProgress(advancement).getCompletedCriteria());progress.put(advancement, criteria);
                 for (var criterion : criteria) player.getAdvancements().revoke(advancement, criterion);
@@ -256,7 +259,7 @@ public final class DeepUpgradeClientCheck {
 
         void advance() {
             level.resetEmptyTime();minimumHealth = Math.min(minimumHealth, player.getHealth());
-            if (!player.isAlive() || player.getHealth() < 6 || level.getGameTime() - started > 3600)
+            if (!player.isAlive() || player.getHealth() < 6 || level.getGameTime() - started > (drilling() ? 8100 : 3600))
                 throw new IllegalStateException("Deep recovery failed: stage=" + stage + ", position=" + player.position() + ", health=" + player.getHealth());
             if (stage == 0 && player.getY() >= landing.getY() && player.position().subtract(Vec3.atBottomCenterOf(landing)).horizontalDistanceSqr() < .3
                     && level.getFluidState(BlockPos.containing(player.getEyePosition())).isEmpty()) {
@@ -277,7 +280,10 @@ public final class DeepUpgradeClientCheck {
                     throw new IllegalStateException("Deep upgrade did not consume its recovered ingredients exactly once");
                 for (var key : List.of("deep_works", "deep_drill")) if (!player.getAdvancements().getOrStartProgress(player.server.getAdvancements().get(id("expedition/" + key))).isDone())
                     throw new IllegalStateException("Deep recovery task did not complete: " + key);
-                LogUtils.getLogger().info("Deep recovery complete: alloy remaining={}, matrices remaining=1, mechanisms remaining={}, couplers=1, minimum health={}, ticks={}", alloy - 4, mechanisms - 1, minimumHealth, level.getGameTime() - started);next(5);
+                LogUtils.getLogger().info("Deep recovery complete: alloy remaining={}, matrices remaining=1, mechanisms remaining={}, couplers=1, minimum health={}, ticks={}", alloy - 4, mechanisms - 1, minimumHealth, level.getGameTime() - started);
+                if (drilling()) {player.closeContainer();drill = new DeepDrillConnection(player, landing, bounds);next(6);} else next(5);
+            } else if (stage == 6 && drill.advance()) {
+                next(5);
             }
         }
 
@@ -294,6 +300,7 @@ public final class DeepUpgradeClientCheck {
         private void next(int value) {stage = value;LogUtils.getLogger().info("Native deep recovery stage {}", value);}
 
         void cleanUp() {
+            if (drill != null) drill.cleanUp();
             player.closeContainer();
             if (bench != null) level.setBlockAndUpdate(bench, previousBench);
             hatches.forEach(level::setBlockAndUpdate);
