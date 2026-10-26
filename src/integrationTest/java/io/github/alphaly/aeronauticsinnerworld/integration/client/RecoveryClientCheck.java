@@ -6,6 +6,7 @@ import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
 import dev.simulated_team.simulated.content.blocks.portable_engine.PortableEngineBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.nio.file.Files;
@@ -28,6 +29,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -60,6 +62,8 @@ public final class RecoveryClientCheck {
     private static final BlockPos RESCUE_HATCH = new BlockPos(4, 1, 2);
     private static final BlockPos WRECK_ORIGIN = new BlockPos(2304, 180, 128);
     private static final BlockPos RESCUE_ORIGIN = new BlockPos(2297, 180, 160);
+    private static final int PATCH_STOCK = 16;
+    private static final int REPAIR_STOCK = 4;
     private static int ticks, observedStage = -1, frames;
     private static boolean clicked, compassVerified, finished;
     private static CompletableFuture<Scene> setup;
@@ -121,14 +125,15 @@ public final class RecoveryClientCheck {
                 compassVerified = true;
             }
             if (observedStage == 8) {
-                if (!clicked && client.player.getInventory().getItem(1).is(AeronauticsInnerworld.EMERGENCY_PATCH_ITEM.get())) {
+                if (!clicked) {
                     var upper = scene.rig.local(new BlockPos(0, 2, 2));
                     if (client.level.getBlockState(upper).getValue(PressureHatchBlock.OPEN)) use(client, scene.rig, new BlockPos(0, 2, 2));
-                    client.player.getInventory().selected = 1;
-                    var floor = scene.rig.local(new BlockPos(0, 0, 2));
-                    client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
-                            new BlockHitResult(Vec3.atCenterOf(floor).add(0, .5, 0), Direction.UP, floor, false));
                     clicked = true;
+                }
+                if (scene.patchTarget != null && frames % 6 == 0
+                        && client.player.getInventory().getItem(1).is(AeronauticsInnerworld.EMERGENCY_PATCH_ITEM.get())) {
+                    client.player.getInventory().selected = 1;
+                    placePatch(client, scene.patchTarget);
                 }
                 ItemEntity target = null;
                 for (var entity : client.level.entitiesForRendering()) {
@@ -141,6 +146,12 @@ public final class RecoveryClientCheck {
                     client.options.keyUp.setDown(offset.horizontalDistanceSqr() > .12);
                     client.options.keyJump.setDown(offset.y > .3);client.options.keyShift.setDown(offset.y < -.5);
                 } else release(client);
+            }
+            if (observedStage == 20 && scene.repairTarget != null && frames % 8 == 0) {
+                client.player.getInventory().selected = 3;
+                var pos = scene.repairTarget;
+                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
             }
             if (observedStage >= 11 && observedStage <= 19) {
                 if (observedStage == 13 && frames == 100) Screenshot.grab(client.gameDirectory, "rescue-voyage.png", client.getMainRenderTarget(),
@@ -160,6 +171,18 @@ public final class RecoveryClientCheck {
                 }
                 if (observedStage == 14 && !clicked) {
                     use(client, scene.rescue, ProbeTestRig.LEFT_THROTTLE);use(client, scene.rescue, ProbeTestRig.RIGHT_THROTTLE);clicked = true;
+                }
+                if (observedStage == 14 && frames % 10 == 0 && scene.trimRequest != scene.currentTrim) {
+                    int mode = scene.currentTrim;
+                    int requested = scene.trimRequest;
+                    client.player.setShiftKeyDown(true);
+                    client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY));
+                    while (mode != requested) {
+                        use(client, scene.rescue, new BlockPos(1, 0, 2));use(client, scene.rescue, new BlockPos(3, 0, 2));
+                        mode = mode == 0 ? 1 : mode == 1 ? -1 : 0;
+                    }
+                    client.player.setShiftKeyDown(false);
+                    client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
                 }
                 if (observedStage == 15 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
                 if (observedStage == 17 && !clicked) {use(client, scene.rescue, RESCUE_HATCH);clicked = true;}
@@ -209,6 +232,18 @@ public final class RecoveryClientCheck {
         client.options.keyJump.setDown(offset.y > .02);client.options.keyShift.setDown(false);
     }
 
+    private static void placePatch(Minecraft client, BlockPos target) {
+        for (var direction : Direction.values()) {
+            var support = target.relative(direction);
+            var face = direction.getOpposite();
+            if (!client.level.getBlockState(support).isFaceSturdy(client.level, support, face)) continue;
+            var point = Vec3.atCenterOf(support).add(Vec3.atLowerCornerOf(face.getNormal()).scale(.5));
+            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, new BlockHitResult(point, face, support, false));
+            return;
+        }
+        throw new IllegalStateException("No placement support at the wreck breach " + target);
+    }
+
     private static final class Scene {
         private final MinecraftServer server;
         private final UUID identity;
@@ -236,6 +271,9 @@ public final class RecoveryClientCheck {
         private GlobalPos lastDeath;
         private Vec3 walkTarget;
         private double departureZ;
+        private volatile BlockPos patchTarget, repairTarget;
+        private int expectedRepairs;
+        private volatile int trimRequest, currentTrim;
 
         private Scene(ServerPlayer player) {
             server = player.server;identity = player.getUUID();oldPlayer = player.saveWithoutId(new CompoundTag());
@@ -252,7 +290,7 @@ public final class RecoveryClientCheck {
             var origin = WRECK_ORIGIN;
             var rescueOrigin = RESCUE_ORIGIN;
             if (voyage()) {
-                for (var pos : BlockPos.betweenClosed(rescueOrigin.offset(-3, -10, -38), rescueOrigin.offset(15, 10, 10))) {
+                for (var pos : BlockPos.betweenClosed(rescueOrigin.offset(-3, -80, -38), rescueOrigin.offset(15, 10, 10))) {
                     var state = level.getBlockState(pos);
                     if (state.is(Blocks.BASALT) || state.is(Blocks.SMOOTH_BASALT) || state.is(AeronauticsInnerworld.HARMONIC_ORE.get())) {
                         base.put(pos.immutable(), state);level.setBlockAndUpdate(pos, Blocks.LAVA.defaultBlockState());
@@ -290,7 +328,7 @@ public final class RecoveryClientCheck {
                     + ", exposure=" + player.getPersistentData().getInt("InnerworldHeatExposure")
                     + ", eyeFluid=" + level.getFluidState(BlockPos.containing(player.getEyePosition()))
                     + ", sealed=" + rig.cabin().isSealed());
-            if (stage >= 11 && stage <= 19 && (!player.isAlive() || player.getHealth() < 6))
+            if (stage >= 11 && stage <= 20 && (!player.isAlive() || player.getHealth() < 6))
                 throw new IllegalStateException("Rescue voyage lost its crew at " + player.position() + ", stage=" + stage);
             if (stage == -1 && rig.ready() && (rescue == null || rescue.ready())) {
                 rig.assemble();rig.power();rig.cabin().addCoolant(600);rig.motor(ProbeTestRig.SAMPLER, 0);
@@ -340,8 +378,11 @@ public final class RecoveryClientCheck {
             } else if (stage == 7 && compassVerified) {
                 player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(AeronauticsInnerworld.HEATWEAVE_HELMET.get()));
                 player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(AeronauticsInnerworld.HEATWEAVE_CHESTPLATE.get()));
-                player.getInventory().setItem(1, new ItemStack(AeronauticsInnerworld.EMERGENCY_PATCH.get()));
-                if (rescue != null) player.getInventory().setItem(2, new ItemStack(AeronauticsInnerworld.COOLANT_CELL.get(), 3));
+                player.getInventory().setItem(1, new ItemStack(AeronauticsInnerworld.EMERGENCY_PATCH.get(), PATCH_STOCK));
+                if (rescue != null) {
+                    player.getInventory().setItem(2, new ItemStack(AeronauticsInnerworld.COOLANT_CELL.get(), 3));
+                    player.getInventory().setItem(3, new ItemStack(AeronauticsInnerworld.REPAIR_KIT.get(), REPAIR_STOCK));
+                }
                 var boarding = rescue == null ? rig : rescue;
                 var point = boarding.world(new BlockPos(2, 1, 2)).add(0, -.45, 0);
                 var bounds = player.getBoundingBox().move(point.subtract(player.position()));
@@ -349,6 +390,7 @@ public final class RecoveryClientCheck {
                 LogUtils.getLogger().info("Native return position={}, actual drops={}", point, drops.stream().map(ItemEntity::position).toList());
                 player.teleportTo(level, point.x, point.y, point.z, 90, 0);player.containerMenu.broadcastChanges();next(rescue == null ? 8 : 11);
             } else if (stage == 8) {
+                patchTarget = missingHull();
                 if (!player.isAlive() || player.getHealth() < 6) throw new IllegalStateException("Rescue needs recovery: position=" + player.position()
                         + ", sealed=" + rig.cabin().isSealed() + ", heat=" + player.getPersistentData().getInt("InnerworldHeatExposure")
                         + ", drops=" + drops.stream().map(ItemEntity::position).toList());
@@ -357,9 +399,13 @@ public final class RecoveryClientCheck {
                     if (drops.stream().anyMatch(ItemEntity::isAlive)
                             || player.getInventory().items.stream().noneMatch(stack -> ItemStack.isSameItemSameComponents(stack, cargo))
                             || player.getInventory().items.stream().noneMatch(stack -> ItemStack.isSameItemSameComponents(stack, tool))
-                            || player.getInventory().countItem(AeronauticsInnerworld.EMERGENCY_PATCH_ITEM.get()) != 0)
+                            || player.getInventory().countItem(AeronauticsInnerworld.EMERGENCY_PATCH_ITEM.get())
+                                    != PATCH_STOCK - patchedHull())
                         throw new IllegalStateException("Native pickup lost components or left duplicate loose cargo");
-                    LogUtils.getLogger().info("Native rescue pickup conserved three scales and the damaged tool, health={}", player.getHealth());next(9);
+                    LogUtils.getLogger().info("Native rescue pickup conserved three scales and the damaged tool, patches={}, health={}", patchedHull(), player.getHealth());
+                    if (rescue != null) {
+                        expectedRepairs = repairCount();next(20);
+                    } else next(9);
                 }
             } else if (stage == 9 && lastDeath.pos().equals(rig.sounder().getWaypoint())) {
                 if (!player.getMainHandItem().is(Items.RECOVERY_COMPASS) || player.getMainHandItem().getCount() != 1
@@ -367,9 +413,58 @@ public final class RecoveryClientCheck {
                         || !WRECK_ORIGIN.equals(rig.sounder().getHome()))
                     throw new IllegalStateException("Recovery navigation modified the compass or home berth");
                 LogUtils.getLogger().info("Native recovery compass loaded the actual world death location into probe navigation");next(10);
+            } else if (stage == 20) {
+                if (rig.cabin().getHeat() > 70) return;
+                repairTarget = nextRepair();
+                if (repairTarget == null) {
+                    if (player.getInventory().countItem(AeronauticsInnerworld.REPAIR_KIT.get()) != REPAIR_STOCK - expectedRepairs)
+                        throw new IllegalStateException("Wreck service consumed the wrong number of repair kits");
+                    LogUtils.getLogger().info("Native cooled wreck service completed: repairs={}, heat={}, coolant={}",
+                            expectedRepairs, rig.cabin().getHeat(), rig.cabin().getCoolant());next(9);
+                }
             } else if (stage >= 11 && stage <= 19) {
                 advanceVoyage();
             }
+        }
+
+        private Iterable<BlockPos> hullCells() {
+            return BlockPos.betweenClosed(rig.local(BlockPos.ZERO), rig.local(new BlockPos(4, 3, 6)));
+        }
+
+        private boolean hullBoundary(BlockPos pos) {
+            var relative = pos.subtract(rig.local(BlockPos.ZERO));
+            return relative.getX() == 0 || relative.getX() == 4 || relative.getY() == 0 || relative.getY() == 3
+                    || relative.getZ() == 0 || relative.getZ() == 6;
+        }
+
+        private BlockPos missingHull() {
+            for (var pos : hullCells()) {
+                var state = level.getBlockState(pos);
+                if (hullBoundary(pos) && !state.is(AeronauticsInnerworld.PRESSURE_HATCH.get())
+                        && state.getCollisionShape(level, pos).isEmpty()) return pos.immutable();
+            }
+            return null;
+        }
+
+        private int patchedHull() {
+            int count = 0;
+            for (var pos : hullCells()) if (level.getBlockState(pos).is(AeronauticsInnerworld.EMERGENCY_PATCH.get())) count++;
+            return count;
+        }
+
+        private int repairCount() {
+            int count = 0;
+            for (var actor : rig.subLevel.getPlot().getBlockEntityActors())
+                if (actor instanceof ProbeDriveBlockEntity drive && drive.isFaulted()) count++;
+            for (var pos : hullCells()) if (level.getBlockState(pos).is(AeronauticsInnerworld.DAMAGED_HULL.get())) count++;
+            return count;
+        }
+
+        private BlockPos nextRepair() {
+            for (var actor : rig.subLevel.getPlot().getBlockEntityActors())
+                if (actor instanceof ProbeDriveBlockEntity drive && drive.isFaulted()) return drive.getBlockPos();
+            for (var pos : hullCells()) if (level.getBlockState(pos).is(AeronauticsInnerworld.DAMAGED_HULL.get())) return pos.immutable();
+            return null;
         }
 
         private void floodAssemblySource(BlockPos origin) {
@@ -385,6 +480,9 @@ public final class RecoveryClientCheck {
 
         private void advanceVoyage() {
             var player = player();
+            if (stage == 16) walkTarget = rescue.world(RESCUE_HATCH.east()).add(0, -.45, 0);
+            if (stage == 17) walkTarget = rig.world(new BlockPos(-1, 1, 2)).add(0, -.4, 0);
+            if (stage == 19) walkTarget = rig.world(new BlockPos(2, 1, 2)).add(0, -.4, 0);
             if ((level.getGameTime() - since) % 100 == 0) LogUtils.getLogger().info("Rescue voyage stage={}, crew={}, spare={}, wreck={}",
                     stage, player.position(), rescue.world(new BlockPos(2, 1, 2)), rig.world(new BlockPos(2, 1, 2)));
             if (stage == 11 && rescue.cabin().getCoolant() > 0) {
@@ -410,8 +508,17 @@ public final class RecoveryClientCheck {
                 if (travelled < 28 || !rescue.cabin().isSealed() || player.getPersistentData().getInt("InnerworldHeatExposure") != 0)
                     throw new IllegalStateException("The rescue approach did not preserve a protected native voyage");
                 LogUtils.getLogger().info("Fueled rescue approach completed: distance={}, coolant={}, crew={}", travelled, rescue.cabin().getCoolant(), player.position());next(14);
-            } else if (stage == 14 && RigidBodyHandle.of(rescue.subLevel).getLinearVelocity().length() < .05) {
-                next(15);
+            } else if (stage == 14) {
+                var ballast = (ProbeDriveBlockEntity) level.getBlockEntity(rescue.local(new BlockPos(1, 0, 2)));
+                var other = (ProbeDriveBlockEntity) level.getBlockEntity(rescue.local(new BlockPos(3, 0, 2)));
+                currentTrim = ballast.getTrimMode();
+                double delta = rig.world(new BlockPos(0, 1, 2)).y - rescue.world(RESCUE_HATCH).y;
+                trimRequest = delta < -.65 ? -1 : delta > .65 ? 1 : 0;
+                var velocity = RigidBodyHandle.of(rescue.subLevel).getLinearVelocity();
+                if (Math.abs(delta) <= .65 && currentTrim == 0 && other.getTrimMode() == 0
+                        && Math.abs(velocity.y()) < .15 && Math.hypot(velocity.x(), velocity.z()) < .05) {
+                    LogUtils.getLogger().info("Native ballast aligned rescue hatches: height difference={}, coolant={}", delta, rescue.cabin().getCoolant());next(15);
+                }
             } else if (stage == 15 && level.getBlockState(rescue.local(RESCUE_HATCH)).getValue(PressureHatchBlock.OPEN)) {
                 walkTarget = rescue.world(RESCUE_HATCH.east()).add(0, -.45, 0);next(16);
             } else if (stage == 16 && player.position().distanceTo(walkTarget) < .2) {
@@ -425,6 +532,9 @@ public final class RecoveryClientCheck {
                     throw new IllegalStateException("Wreck entry target does not fit the crew collision bounds");
                 next(19);
             } else if (stage == 19 && player.position().distanceTo(walkTarget) < .7) {
+                var local = rig.subLevel.logicalPose().transformPositionInverse(player.getBoundingBox().getCenter())
+                        .subtract(Vec3.atLowerCornerOf(rig.local(BlockPos.ZERO)));
+                if (local.x < 1 || local.x >= 4 || local.y < 1 || local.y >= 3 || local.z < 1 || local.z >= 6) return;
                 LogUtils.getLogger().info("Native rescue transfer reached the wreck without position teleportation, health={}", player.getHealth());next(8);
             }
         }

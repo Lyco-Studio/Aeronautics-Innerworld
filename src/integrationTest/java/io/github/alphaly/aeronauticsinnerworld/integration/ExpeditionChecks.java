@@ -99,7 +99,9 @@ public final class ExpeditionChecks {
                             "Sample output was lost or duplicated");
                     rig.motor(ProbeTestRig.SAMPLER, 0);
                     dockedForSampling[0] = false;
-                    primeHeat(rig, 100, 9);
+                    primeHeat(rig, 99, 9);
+                    rig.cabin().addCoolant(120);
+                    rig.cabin().addWorkHeat(4);
                 }).thenExecuteAfter(25, () -> {
                     boolean faulted = false;
                     for (var actor : rig.subLevel.getPlot().getBlockEntityActors()) {
@@ -111,6 +113,9 @@ public final class ExpeditionChecks {
                     helper.assertTrue(rig.cabin().getDamagedPlate() != null
                                     && level.getBlockState(rig.cabin().getDamagedPlate()).is(AeronauticsInnerworld.DAMAGED_HULL.get()),
                             "Overheat did not damage a local hull plate");
+                    helper.assertTrue(rig.cabin().getCoolant() > 0, "Work overload exhausted its coolant fixture");
+                    primeHeat(rig, 90, 0);
+                    rig.cabin().addWorkHeat(3);
                     var uuid = rig.subLevel.getUniqueId();
                     rig.unload();
                     helper.runAfterDelay(2, () -> {
@@ -121,6 +126,7 @@ public final class ExpeditionChecks {
                     helper.assertTrue(new BlockPos(256, 180, 256).equals(rig.sounder().getHome()),
                             "Reload lost home berth: " + rig.sounder().saveWithFullMetadata(level.registryAccess()));
                     helper.assertTrue(waypoint[0].equals(rig.sounder().getWaypoint()), "Reload lost the active navigation target");
+                    helper.assertTrue(rig.cabin().getHeat() == 93, "Reload lost pending equipment heat");
                     compass[0].getItem().inventoryTick(compass[0], level, player, 0, true);
                     helper.assertTrue(compass[0].get(DataComponents.LODESTONE_TRACKER).target().orElseThrow().pos().equals(waypoint[0]),
                             "A mined deposit invalidated its route compass");
@@ -149,8 +155,9 @@ public final class ExpeditionChecks {
                     use(player, new ItemStack(AeronauticsInnerworld.REPAIR_KIT.get(), 2), fault.getBlockPos(), Direction.UP);
                     helper.assertTrue(fault.isFaulted() && player.getMainHandItem().getCount() == 2,
                             "Repair bypassed heat lockout or consumed supplies on refusal");
+                    int coolant = rig.cabin().getCoolant();
                     use(player, new ItemStack(AeronauticsInnerworld.COOLANT_CELL.get(), 2), rig.local(ProbeTestRig.CABIN), Direction.UP);
-                    helper.assertTrue(rig.cabin().getCoolant() == 120 && player.getMainHandItem().getCount() == 1,
+                    helper.assertTrue(rig.cabin().getCoolant() == coolant + 120 && player.getMainHandItem().getCount() == 1,
                             "Coolant interaction consumed an incorrect quantity");
                 }).thenExecuteAfter(25, () -> {
                     helper.assertTrue(rig.cabin().getHeat() < 100, "Loaded coolant did not reduce heat");
@@ -166,6 +173,10 @@ public final class ExpeditionChecks {
                     level.setBlockAndUpdate(rig.local(new BlockPos(0, 1, 2)), Blocks.AIR.defaultBlockState());
                 }).thenExecuteAfter(3, () -> {
                     helper.assertTrue(!rig.cabin().isSealed(), "Hull breach retained cabin seal");
+                    primeHeat(rig, 99, 9);
+                }).thenExecuteAfter(25, () -> {
+                    helper.assertTrue(rig.cabin().getHeat() == 100 && rig.cabin().getCoolant() > 0 && findFault(rig) != null,
+                            "Active coolant suppressed breach overheating or its equipment failure");
                     var below = rig.local(new BlockPos(0, 0, 2));
                     use(player, new ItemStack(AeronauticsInnerworld.EMERGENCY_PATCH.get(), 2), below, Direction.UP);
                     helper.assertTrue(level.getBlockState(below.above()).is(AeronauticsInnerworld.EMERGENCY_PATCH.get()),

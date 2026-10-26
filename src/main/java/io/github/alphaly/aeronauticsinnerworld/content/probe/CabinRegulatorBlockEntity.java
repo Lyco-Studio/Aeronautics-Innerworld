@@ -30,6 +30,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
     private int volume;
     private Set<BlockPos> lastInterior = Set.of();
     private float heat;
+    private float workHeat;
     private int coolant;
     private int hotSeconds;
     private BlockPos damagedOffset;
@@ -89,8 +90,10 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
             return;
         }
         float previous = heat;
+        float work = workHeat;
+        workHeat = 0;
         if (!inLava()) {
-            heat = Math.max(0, heat - 3);
+            heat += work - 3;
         } else {
             float load = 0;
             for (var actor : ship.getPlot().getBlockEntityActors()) {
@@ -98,14 +101,15 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
                     load += Math.min(1, Math.abs(drive.getSpeed()) / 64) * .2f;
                 }
             }
-            heat = Math.min(100, heat + (isSealed() ? .7f + load : 8));
+            heat += work + (isSealed() ? .7f + load : 8);
             if (coolant > 0 && Math.abs(getSpeed()) >= 16) {
-                heat = Math.max(0, heat - 2);
+                heat -= 2;
                 coolant--;
                 setChanged();
             }
         }
-        if (previous != heat) {
+        heat = net.minecraft.util.Mth.clamp(heat, 0, 100);
+        if (previous != heat || work != 0) {
             setChanged();
         }
         if (isSealed() && coolant > 0) {
@@ -158,11 +162,11 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
     }
 
     public float getHeat() {
-        return heat;
+        return net.minecraft.util.Mth.clamp(heat + workHeat, 0, 100);
     }
 
     public void addWorkHeat(float amount) {
-        heat = net.minecraft.util.Mth.clamp(heat + amount, 0, 100);
+        workHeat = Math.max(0, workHeat + amount);
         setChanged();
     }
 
@@ -242,7 +246,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.cabin_status",
                 Component.translatable("message.aeronautics_innerworld."
                         + (isSealed() ? "cabin_sealed" : Math.abs(getSpeed()) < 16 ? "cabin_unpowered" : "cabin_open")),
-                volume, Math.round(heat), coolant), true);
+                volume, Math.round(getHeat()), coolant), true);
     }
 
     private void clearRegion() {
@@ -266,6 +270,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
     protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.write(tag, registries, clientPacket);
         tag.putFloat("Heat", heat);
+        tag.putFloat("WorkHeat", workHeat);
         tag.putInt("Coolant", coolant);
         tag.putInt("HotSeconds", hotSeconds);
         if (damagedOffset != null) {
@@ -277,6 +282,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
     protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(tag, registries, clientPacket);
         heat = net.minecraft.util.Mth.clamp(tag.getFloat("Heat"), 0, 100);
+        workHeat = Math.max(0, tag.getFloat("WorkHeat"));
         coolant = net.minecraft.util.Mth.clamp(tag.getInt("Coolant"), 0, 600);
         hotSeconds = net.minecraft.util.Mth.clamp(tag.getInt("HotSeconds"), 0, 10);
         damagedOffset = tag.contains("DamagedPlate") ? BlockPos.of(tag.getLong("DamagedPlate")) : null;
