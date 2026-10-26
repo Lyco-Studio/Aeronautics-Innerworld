@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "io.github.alphaly.aeronauticsinnerworld.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "SuperGlueEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

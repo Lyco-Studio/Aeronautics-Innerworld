@@ -8,6 +8,9 @@ version = "${mod_version}"
 displayName = "${mod_name}"
 description = '''An addon for Create Aeronautics.'''
 
+[[mixins]]
+config = "aeronautics_innerworld.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId = "minecraft"
 type = "required"
