@@ -14,13 +14,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.Clearable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
@@ -96,7 +99,7 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
             }
         }
         if (found == null) {
-            if (!sampleCreature(server, origin, direction, clearDistance)) {
+            if (!collectItem(server, origin, direction, clearDistance) && !sampleCreature(server, origin, direction, clearDistance)) {
                 status = "sampler_no_target";
                 target = null;
                 progress = 0;
@@ -131,6 +134,36 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
             addWorkHeat();
             progress = 0;
         }
+    }
+
+    private boolean collectItem(ServerLevel server, Vec3 origin, Vec3 direction, int reach) {
+        if (reach < 1) return false;
+        ItemEntity nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (var item : server.getEntitiesOfClass(ItemEntity.class,
+                new AABB(origin, origin.add(direction.scale(reach))).inflate(1.25))) {
+            var center = item.getBoundingBox().getCenter();
+            double along = center.subtract(origin).dot(direction);
+            if (!item.isAlive() || item.getItem().isEmpty() || item.hasPickUpDelay() || along < .75 || along > reach || along >= nearestDistance
+                    || center.distanceToSqr(origin.add(direction.scale(along))) > 1) continue;
+            var hit = server.clip(new ClipContext(origin.add(direction.scale(.51)), center,
+                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, item));
+            if (hit.getType() != HitResult.Type.MISS) continue;
+            nearest = item;nearestDistance = along;
+        }
+        if (nearest == null) return false;
+        target = nearest.blockPosition();specimen = null;progress = 0;
+        var stack = nearest.getItem();
+        var remaining = ItemHandlerHelper.insertItemStacked(inventory, stack.copy(), false);
+        if (remaining.getCount() == stack.getCount()) {
+            status = "sampler_full";
+            return true;
+        }
+        if (remaining.isEmpty()) nearest.discard();
+        else nearest.setItem(remaining);
+        status = "sampler_salvaging";
+        addWorkHeat();
+        return true;
     }
 
     private boolean sampleCreature(ServerLevel server, Vec3 origin, Vec3 direction, int reach) {

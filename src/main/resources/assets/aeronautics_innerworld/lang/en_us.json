@@ -85,7 +85,7 @@
   "message.aeronautics_innerworld.sonar_no_power": "The sounder needs at least 16 RPM.",
   "message.aeronautics_innerworld.sonar_no_mineral": "No harmonic mineral within 16 m.",
   "message.aeronautics_innerworld.sampler_idle": "Sampler stopped: requires ship assembly and rotational power.",
-  "message.aeronautics_innerworld.sampler_no_target": "No mineable rock within 4 m ahead.",
+  "message.aeronautics_innerworld.sampler_no_target": "No ore, calm grazers or loose cargo within 4 blocks ahead.",
   "message.aeronautics_innerworld.sampler_working": "Sampling; right-click empty-handed to unload.",
   "message.aeronautics_innerworld.sampler_full": "Cargo full; excavation paused.",
   "message.aeronautics_innerworld.probe_faulted": "mechanical fault — cool and repair",
@@ -223,9 +223,9 @@
   "block.aeronautics_innerworld.echo_sounder.tooltip.summary": "Supply at least _16 RPM_ from the back. Finds nearby ore and ruins, marks lava creatures and guides the probe home.",
   "block.aeronautics_innerworld.echo_sounder.tooltip.condition1": "Use with a compass",
   "block.aeronautics_innerworld.echo_sounder.tooltip.behaviour1": "Record a route or load an existing route compass. Sneak-use empty-handed to cancel the active route.",
-  "block.aeronautics_innerworld.mantle_sampler.tooltip.summary": "Glue onto the probe and power from the _back_. Collects ore or samples calm grazers within _4 blocks_ ahead. Keep moving creatures in front of the sampling face.",
+  "block.aeronautics_innerworld.mantle_sampler.tooltip.summary": "Glue onto the probe and power from the _back_. Collects ore, calm grazer samples and loose cargo within _4 blocks_ ahead. Keep moving targets in front of the intake.",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.condition1": "Empty-hand use",
-  "block.aeronautics_innerworld.mantle_sampler.tooltip.behaviour1": "Unload the first cargo stack. Sneak-use to inspect progress and cargo.",
+  "block.aeronautics_innerworld.mantle_sampler.tooltip.behaviour1": "Unload one cargo stack. Select an empty hotbar slot before repeating. Sneak-use to inspect cargo.",
   "block.aeronautics_innerworld.pressure_cannon.tooltip.summary": "Supply at least _16 RPM_ from the back. Shoots along the barrel; use a clutch to control firing. Shooting generates heat.",
   "block.aeronautics_innerworld.pressure_cannon.tooltip.condition1": "Use with pressure bolts",
   "block.aeronautics_innerworld.pressure_cannon.tooltip.behaviour1": "Reload up to 64 bolts. Sneak-use empty-handed to unload ammunition.",
@@ -238,5 +238,7 @@
   "item.aeronautics_innerworld.core_surveyor.tooltip.summary": "Use in the _core_ to locate a maintenance labyrinth entrance. Take food, light, armor and weapons for the walking expedition.",
   "message.aeronautics_innerworld.warden_heat_warning": "Heat leak marked: leave the circle! A coolant valve can extinguish it.",
   "death.attack.core_heat": "%1$s was overwhelmed by %2$s's heat leak",
-  "book.aeronautics_innerworld.page.27": "Heat leaks\n\nFrom phase two, leave orange rings before blue fire ignites.\n\nValves extinguish heat. Heatweave gear reduces it; shields and ordinary armor do not."
+  "book.aeronautics_innerworld.page.27": "Heat leaks\n\nFrom phase two, leave orange rings before blue fire ignites.\n\nValves extinguish heat. Heatweave gear reduces it; shields and ordinary armor do not.",
+  "message.aeronautics_innerworld.sampler_salvaging": "Recovering loose cargo; any remainder stays outside when cargo is full.",
+  "book.aeronautics_innerworld.page.28": "Salvage\n\nPower the sampler. Face loose loot within 4 blocks and keep the intake clear.\n\nEmpty-hand use unloads one stack. Select another empty slot to repeat. Full cargo leaves the remainder outside."
 }

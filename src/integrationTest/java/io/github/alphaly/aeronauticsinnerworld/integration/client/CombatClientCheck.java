@@ -14,12 +14,15 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -31,6 +34,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class CombatClientCheck {
@@ -48,6 +52,19 @@ public final class CombatClientCheck {
     private static boolean capturedEnemy;
     private static boolean checkedGrazer;
     private static boolean finished;
+    private static int lootUnloadsSent;
+    private static boolean checkedRecoveredInventory;
+
+    @SubscribeEvent
+    public static void captureDrops(LivingDropsEvent event) {
+        if (!Boolean.getBoolean("innerworld.combatClientCheck") || scene == null || event.getEntity() != scene.predator) return;
+        for (var item : event.getDrops()) {
+            if (!item.getItem().is(AeronauticsInnerworld.MOLTEN_SCALE.get())) continue;
+            // Distinguish this encounter from drops left by earlier development runs.
+            item.getItem().set(DataComponents.CUSTOM_NAME, Component.literal("Combat salvage"));
+            item.addTag("innerworld_combat_client_loot");scene.remains.add(item);
+        }
+    }
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -70,7 +87,7 @@ public final class CombatClientCheck {
                         throw new IllegalStateException("Combat target was never visible through its sonar outline");
                     }
                     Files.writeString(client.gameDirectory.toPath().resolve("combat-check.result"), "verified");
-                    LogUtils.getLogger().info("Combat client check passed: network reload, mounted cannon, creature renderer, heatweave equipment and bounded heat protection");
+                    LogUtils.getLogger().info("Combat client check passed: network reload, mounted cannon, enemy drops, powered salvage, network cargo unloading, creature renderer and bounded heat protection");
                     client.stop();
                 }
                 return;
@@ -87,6 +104,21 @@ public final class CombatClientCheck {
                 return;
             }
             scene = setup.join();
+            if (scene.ticks >= 310 && lootUnloadsSent == 0 || scene.ticks >= 315 && lootUnloadsSent == 1) {
+                int emptySlot = -1;
+                for (int slot = 0; slot < 9; slot++) {
+                    if (client.player.getInventory().getItem(slot).isEmpty()) {emptySlot = slot;break;}
+                }
+                if (emptySlot < 0) throw new IllegalStateException("Cargo unloading needs an empty hotbar slot");
+                client.player.getInventory().selected = emptySlot;
+                var pos = scene.rig.local(ProbeTestRig.SAMPLER);
+                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(pos), Direction.SOUTH, pos, false));
+                lootUnloadsSent++;
+            }
+            if (scene.salvageVerified && client.player.getInventory().countItem(AeronauticsInnerworld.MOLTEN_SCALE.get()) == scene.expectedLoot) {
+                checkedRecoveredInventory = true;
+            }
             if (!checkedModels && scene.ticks >= 45) {
                 BookLayoutChecks.check(client, scene.manual);
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.PRESSURE_CANNON.get().defaultBlockState())
@@ -172,6 +204,7 @@ public final class CombatClientCheck {
         private final boolean oldFlying;
         private final float oldHealth;
         private final int oldPortalCooldown;
+        private final int oldSelected;
         private final List<ItemStack> oldInventory;
         private final List<MobEffectInstance> oldEffects;
         private final boolean hadExposure;
@@ -186,6 +219,9 @@ public final class CombatClientCheck {
         private int ticks;
         private boolean killed;
         private float protectedHealth;
+        private final java.util.List<ItemEntity> remains = new java.util.ArrayList<>();
+        private int expectedLoot;
+        private boolean salvageVerified;
 
         private Scene(ServerPlayer player) {
             this.player = player;
@@ -197,12 +233,16 @@ public final class CombatClientCheck {
             oldFlying = player.getAbilities().flying;
             oldHealth = player.getHealth();
             oldPortalCooldown = player.getPortalCooldown();
+            oldSelected = player.getInventory().selected;
             oldInventory = java.util.stream.IntStream.range(0, player.getInventory().getContainerSize())
                     .mapToObj(slot -> player.getInventory().getItem(slot).copy()).toList();
             oldEffects = player.getActiveEffects().stream().map(MobEffectInstance::new).toList();
             hadExposure = player.getPersistentData().contains("InnerworldHeatExposure");
             oldExposure = player.getPersistentData().getInt("InnerworldHeatExposure");
             var level = player.server.getLevel(Mantle.LEVEL);
+            java.util.stream.StreamSupport.stream(level.getAllEntities().spliterator(), false)
+                    .filter(entity -> entity.getTags().contains("innerworld_combat_client_loot")).toList()
+                    .forEach(net.minecraft.world.entity.Entity::discard);
             rig = new ProbeTestRig(level, new BlockPos(512, 180, 128));
             rig.combatEquipment();
             var input = CraftingInput.of(2, 1, List.of(new ItemStack(Items.BOOK), new ItemStack(Items.COPPER_INGOT)));
@@ -233,6 +273,7 @@ public final class CombatClientCheck {
                 player.getAbilities().flying = false;
                 player.onUpdateAbilities();
                 player.setHealth(player.getMaxHealth());
+                player.getInventory().clearContent();
                 player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.PRESSURE_BOLT.get(), 32));
                 player.containerMenu.broadcastChanges();
                 predator = AeronauticsInnerworld.LAVA_STALKER.get().create(rig.level);
@@ -315,7 +356,40 @@ public final class CombatClientCheck {
                 player.getPersistentData().putInt("InnerworldHeatExposure", 0);
                 player.clearFire();
             }
-            return ticks >= 290;
+            if (ticks == 290) {
+                expectedLoot = remains.stream().mapToInt(item -> item.getItem().getCount()).sum();
+                if (expectedLoot < 2 || expectedLoot > 4 || remains.stream().anyMatch(item -> !item.isAlive()))
+                    throw new IllegalStateException("The cannon encounter lost its normal scale drops");
+                rig.creatureSamplingTarget();rig.motor(ProbeTestRig.SAMPLER, 32);
+                player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();
+            }
+            if (ticks >= 290 && ticks <= 305) {
+                var direction = rig.subLevel.logicalPose().transformNormal(new Vec3(0, 0, -1));
+                for (var item : remains) if (item.isAlive()) {
+                    item.setPos(rig.world(ProbeTestRig.SAMPLER).add(direction.scale(3)).add(0, -.125, 0));
+                    item.setDeltaMovement(Vec3.ZERO);
+                }
+            }
+            if (ticks == 305) {
+                int cargo = java.util.stream.IntStream.range(0, 9).mapToObj(rig.sampler().inventory::getStackInSlot)
+                        .filter(stack -> stack.is(AeronauticsInnerworld.MOLTEN_SCALE.get())).mapToInt(ItemStack::getCount).sum();
+                if (cargo != expectedLoot || remains.stream().anyMatch(ItemEntity::isAlive))
+                    throw new IllegalStateException("Powered salvage lost or duplicated enemy drops: expected=" + expectedLoot
+                            + ", cargo=" + cargo + ", status=" + rig.sampler().getStatus());
+                rig.motor(ProbeTestRig.SAMPLER, 0);
+            }
+            if (ticks == 325) {
+                if (player.getInventory().countItem(AeronauticsInnerworld.MOLTEN_SCALE.get()) != expectedLoot
+                        || player.getInventory().countItem(Items.COPPER_INGOT) != 17
+                        || !rig.sampler().inventory.getStackInSlot(0).isEmpty() || !rig.sampler().inventory.getStackInSlot(1).isEmpty())
+                    throw new IllegalStateException("Network unloading mismatch: expected loot=" + expectedLoot
+                            + ", player loot=" + player.getInventory().countItem(AeronauticsInnerworld.MOLTEN_SCALE.get())
+                            + ", player copper=" + player.getInventory().countItem(Items.COPPER_INGOT)
+                            + ", cargo=" + java.util.stream.IntStream.range(0, 9).mapToObj(rig.sampler().inventory::getStackInSlot).toList()
+                            + ", clicks=" + lootUnloadsSent + ", hand=" + player.getMainHandItem());
+                salvageVerified = true;
+            }
+            return ticks >= 335 && checkedRecoveredInventory;
         }
 
         private void positionTarget() {
@@ -331,6 +405,7 @@ public final class CombatClientCheck {
             if (grazer != null) {
                 grazer.discard();
             }
+            remains.forEach(ItemEntity::discard);
             rig.cleanUp();
             player.teleportTo(oldLevel, oldPosition.x, oldPosition.y, oldPosition.z, oldYaw, oldPitch);
             player.setGameMode(oldMode);
@@ -341,6 +416,7 @@ public final class CombatClientCheck {
             for (int slot = 0; slot < oldInventory.size(); slot++) {
                 player.getInventory().setItem(slot, oldInventory.get(slot));
             }
+            player.getInventory().selected = oldSelected;
             player.setHealth(oldHealth);
             player.setPortalCooldown(oldPortalCooldown);
             player.clearFire();

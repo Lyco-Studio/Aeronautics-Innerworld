@@ -85,7 +85,7 @@
   "message.aeronautics_innerworld.sonar_no_power": "探测仪需要至少 16 RPM。",
   "message.aeronautics_innerworld.sonar_no_mineral": "16 米内未发现谐振矿。",
   "message.aeronautics_innerworld.sampler_idle": "采样器已停止：需要装入探测器并提供旋转动力。",
-  "message.aeronautics_innerworld.sampler_no_target": "正前方 4 米内没有可采集岩体。",
+  "message.aeronautics_innerworld.sampler_no_target": "正前方4格内没有矿物、平静滤食者或散落物。",
   "message.aeronautics_innerworld.sampler_working": "采集中；空手右键卸货。",
   "message.aeronautics_innerworld.sampler_full": "货舱已满，采掘暂停。",
   "message.aeronautics_innerworld.probe_faulted": "设备故障——冷却后维修",
@@ -223,9 +223,9 @@
   "block.aeronautics_innerworld.echo_sounder.tooltip.summary": "背面接入至少_16 RPM_，探测附近矿物与遗迹，标记熔岩生物并提供返航导航。",
   "block.aeronautics_innerworld.echo_sounder.tooltip.condition1": "用指南针右键",
   "block.aeronautics_innerworld.echo_sounder.tooltip.behaviour1": "记录航路，或载入已有航路罗盘；潜行空手右键取消当前目标。",
-  "block.aeronautics_innerworld.mantle_sampler.tooltip.summary": "胶合到探测器，从_背面_供能，采集正前方_4格_内的矿物或平静滤食者样本。随游动目标调整采样口。",
+  "block.aeronautics_innerworld.mantle_sampler.tooltip.summary": "胶合到探测器，从_背面_供能。采掘前方_4格_内岩体、采集平静滤食者样本并回收散落物，随移动目标调整采样口。",
   "block.aeronautics_innerworld.mantle_sampler.tooltip.condition1": "空手右键",
-  "block.aeronautics_innerworld.mantle_sampler.tooltip.behaviour1": "卸下第一组货物；潜行右键查看进度与货舱。",
+  "block.aeronautics_innerworld.mantle_sampler.tooltip.behaviour1": "每次卸下一组货物，继续卸货前切到空槽；潜行右键查看货舱。",
   "block.aeronautics_innerworld.pressure_cannon.tooltip.summary": "背面接入至少_16 RPM_，沿炮口方向射击，用离合器控制开火。射击会产生热量。",
   "block.aeronautics_innerworld.pressure_cannon.tooltip.condition1": "用压力弩矢右键",
   "block.aeronautics_innerworld.pressure_cannon.tooltip.behaviour1": "装填弩矢，最多64发；潜行空手右键卸弹。",
@@ -238,5 +238,7 @@
   "item.aeronautics_innerworld.core_surveyor.tooltip.summary": "在_地核_右键定位维护迷宫入口。徒步远征前准备食物、照明、防具和武器。",
   "message.aeronautics_innerworld.warden_heat_warning": "取热回路泄漏：离开标记圈！冷却阀可以熄灭热区。",
   "death.attack.core_heat": "%1$s被%2$s的回路热流吞没",
-  "book.aeronautics_innerworld.page.27": "回路热区\n\n第二阶段起，橙色圆圈预警回路泄漏，蓝色火焰出现前离开。\n\n冷却阀可以熄灭热区。隔热面罩和护衣可减少热流伤害，盾牌与普通护甲无法抵挡。"
+  "book.aeronautics_innerworld.page.27": "回路热区\n\n第二阶段起，橙色圆圈预警回路泄漏，蓝色火焰出现前离开。\n\n冷却阀可以熄灭热区。隔热面罩和护衣可减少热流伤害，盾牌与普通护甲无法抵挡。",
+  "message.aeronautics_innerworld.sampler_salvaging": "正在回收散落物，货舱满时余物留在原处。",
+  "book.aeronautics_innerworld.page.28": "船载回收\n\n给采样器供能，对准前方4格内的散落物，保持采样口畅通。\n\n空手右键每次卸下一组。物品进入手中后，切到空槽再卸下一组。满仓时余物留在原处。"
 }
