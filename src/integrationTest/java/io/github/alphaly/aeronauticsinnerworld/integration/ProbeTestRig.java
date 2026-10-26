@@ -282,6 +282,21 @@ public final class ProbeTestRig {
         container.addForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
     }
 
+    public BlockPos moveAssemblerInside() {
+        place(new BlockPos(2, 4, 3), Blocks.AIR.defaultBlockState());
+        var relative = new BlockPos(2, 1, 1);
+        place(relative, SimBlocks.PHYSICS_ASSEMBLER.getDefaultState()
+                .setValue(BlockStateProperties.ATTACH_FACE, AttachFace.FLOOR));
+        return origin.offset(relative);
+    }
+
+    public void acceptClientAssembly(ServerSubLevel assembled) {
+        subLevel = assembled;
+        subLevel.setName(rigName());
+        locateCabin();
+        SubLevelContainer.getContainer(level).addForceLoadTicket(subLevel, SubLevelLoadingTicketType.COMMAND_FORCED, Unit.INSTANCE);
+    }
+
     private void locateCabin() {
         var bounds = subLevel.getPlot().getBoundingBox();
         for (var pos : BlockPos.betweenClosed(bounds.minX(), bounds.minY(), bounds.minZ(),

@@ -2,6 +2,8 @@ package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
 import com.mojang.logging.LogUtils;
 import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
+import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
+import dev.simulated_team.simulated.index.SimClickInteractions;
 import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
@@ -59,6 +61,8 @@ public final class SurvivalClientCheck {
     private static boolean descending;
     private static boolean holdingDepth;
     private static boolean capturedOptions, oldPause, steeringScreenshot;
+    private static int assemblyFrames;
+    private static boolean assemblyReleased;
 
     private static boolean steering() {
         return Boolean.getBoolean("innerworld.survivalSteering");
@@ -77,9 +81,11 @@ public final class SurvivalClientCheck {
                 throw new IllegalStateException("Survival client check timed out");
             }
             if (cleanup != null) {
+                client.options.keyUse.setDown(false);
                 if (cleanup.isDone()) {
                     cleanup.join();
                     client.options.pauseOnLostFocus = oldPause;
+                    client.options.save();
                     if (failure != null) {
                         throw failure;
                     }
@@ -103,6 +109,7 @@ public final class SurvivalClientCheck {
                 return;
             }
             scene = setup.join();
+            if (scene.rig.subLevel == null) assemble(client);
             if (scene.ticks == 40 && !readGuide) {
                 if (!openedGuide && client.player.getMainHandItem().is(Items.WRITTEN_BOOK)) {
                     client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
@@ -216,6 +223,30 @@ public final class SurvivalClientCheck {
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
     }
 
+    private static void assemble(Minecraft client) {
+        var control = scene.assembler;
+        var point = Vec3.atCenterOf(control).add(0, -.25, 0);
+        var offset = point.subtract(client.player.getEyePosition());
+        client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
+        client.player.setXRot((float)-Math.toDegrees(Math.atan2(offset.y, offset.horizontalDistance())));
+        var handler = SimClickInteractions.PHYSICS_ASSEMBLER_MANAGER;
+        if (++assemblyFrames == 10) {
+            var hit = client.level.clip(new net.minecraft.world.level.ClipContext(client.player.getEyePosition(), point,
+                    net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, client.player));
+            if (!hit.getBlockPos().equals(control) || offset.lengthSqr() > 4.5 * 4.5)
+                throw new IllegalStateException("Interior physics assembler is not reachable");
+            client.options.keyUse.setDown(true);
+            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
+        }
+        if (assemblyFrames > 10 && handler.isActive() && !assemblyReleased) {
+            if (handler.getFraction() < .99) handler.onMouseMove(0, -40);
+            else if (assemblyFrames > 15) {
+                handler.onUse(1, 0, client.options.keyUse);client.options.keyUse.setDown(false);assemblyReleased = true;
+            }
+        }
+        if (assemblyFrames > 200) throw new IllegalStateException("Native assembler lever did not create a probe");
+    }
+
     private static void setLever(Minecraft client, BlockPos relative, boolean powered) {
         var state = client.level.getBlockState(scene.rig.local(relative));
         if (state.hasProperty(LeverBlock.POWERED) && state.getValue(LeverBlock.POWERED) != powered) toggle(client, relative);
@@ -239,11 +270,14 @@ public final class SurvivalClientCheck {
         private final GameType oldMode;
         private final boolean oldFlying;
         private final float oldHealth;
+        private final int oldSelected;
         private final List<ItemStack> oldInventory;
         private final List<MobEffectInstance> oldEffects;
         private final CompoundTag oldFood = new CompoundTag();
         private final int oldExposure;
         private final ProbeTestRig rig;
+        private final BlockPos assembler;
+        private final java.util.Set<java.util.UUID> previousStructures = new java.util.HashSet<>();
         private int ticks;
         private double initialZ;
         private BlockPos waypoint;
@@ -261,6 +295,7 @@ public final class SurvivalClientCheck {
             oldMode = player.gameMode.getGameModeForPlayer();
             oldFlying = player.getAbilities().flying;
             oldHealth = player.getHealth();
+            oldSelected = player.getInventory().selected;
             oldInventory = java.util.stream.IntStream.range(0, player.getInventory().getContainerSize())
                     .mapToObj(slot -> player.getInventory().getItem(slot).copy()).toList();
             oldEffects = player.getActiveEffects().stream().map(MobEffectInstance::new).toList();
@@ -269,27 +304,31 @@ public final class SurvivalClientCheck {
             rig = new ProbeTestRig(player.server.getLevel(Mantle.LEVEL), new BlockPos(384, 180, 128));
             rig.workEquipment();
             rig.survivalPower();
+            assembler = rig.moveAssemblerInside();
+            SubLevelContainer.getContainer(rig.level).getAllSubLevels().forEach(structure -> previousStructures.add(structure.getUniqueId()));
+            player.setGameMode(GameType.SURVIVAL);player.getInventory().clearContent();player.getInventory().selected = 0;
+            player.removeAllEffects();player.setHealth(player.getMaxHealth());
+            var position = Vec3.atBottomCenterOf(assembler.south()).add(0, .05, 0);
+            player.teleportTo(rig.level, position.x, position.y, position.z, 0, 0);player.containerMenu.broadcastChanges();
         }
 
         private boolean tick() {
             rig.level.resetEmptyTime();
-            if (rig.subLevel == null && !rig.ready()) {
-                return false;
-            }
-            if (++ticks == 1) {
-                rig.assemble();
-            }
-            if (ticks == 40) {
-                if (!rig.cabin().isSealed()) {
-                    throw new IllegalStateException("Fueled probe has no sealed cabin");
+            if (rig.subLevel == null) {
+                for (var structure : SubLevelContainer.getContainer(rig.level).getAllSubLevels()) {
+                    if (!previousStructures.contains(structure.getUniqueId())) {
+                        rig.acceptClientAssembly(structure);
+                        LogUtils.getLogger().info("Fueled probe assembled through native client lever input: {}", structure.getUniqueId());
+                        break;
+                    }
                 }
-                var position = rig.subLevel.logicalPose().transformPosition(Vec3.atLowerCornerOf(rig.local(new BlockPos(2, 1, 2))).add(.5, .05, .5));
-                player.teleportTo(rig.level, position.x, position.y, position.z, 0, 0);
-                player.setGameMode(GameType.SURVIVAL);
-                player.removeAllEffects();
-                player.getAbilities().flying = false;
-                player.onUpdateAbilities();
-                player.setHealth(player.getMaxHealth());
+                if (rig.subLevel == null) return false;
+            }
+            ++ticks;
+            if (ticks == 40) {
+                if (!rig.cabin().isSealed() || player.getHealth() < player.getMaxHealth() || player.isInLava()) {
+                    throw new IllegalStateException("Native probe assembly did not preserve crew protection");
+                }
                 rig.cabin().addCoolant(240);
                 var input = CraftingInput.of(2, 1, List.of(new ItemStack(Items.BOOK), new ItemStack(Items.COPPER_INGOT)));
                 var recipe = rig.level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, rig.level).orElseThrow();
@@ -421,6 +460,8 @@ public final class SurvivalClientCheck {
             for (int slot = 0; slot < oldInventory.size(); slot++) {
                 player.getInventory().setItem(slot, oldInventory.get(slot));
             }
+            player.getInventory().selected = oldSelected;
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(oldSelected));
             player.setHealth(oldHealth);
             player.getFoodData().readAdditionalSaveData(oldFood);
             player.clearFire();
