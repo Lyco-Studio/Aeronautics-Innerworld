@@ -2,8 +2,12 @@ package io.github.alphaly.aeronauticsinnerworld.client;
 
 import com.simibubi.create.content.contraptions.render.ContraptionEntityRenderer;
 import com.simibubi.create.content.contraptions.render.ContraptionVisual;
+import com.simibubi.create.foundation.item.ItemDescription;
+import com.simibubi.create.foundation.item.TooltipModifier;
 import dev.engine_room.flywheel.lib.visualization.SimpleEntityVisualizer;
+import net.createmod.catnip.lang.FontHelper;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -15,8 +19,15 @@ import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 public final class InnerworldClient {
     @SubscribeEvent
     public static void clientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> SimpleEntityVisualizer.builder(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get())
-                .factory(ContraptionVisual::new).neverSkipVanillaRender().apply());
+        event.enqueueWork(() -> {
+            SimpleEntityVisualizer.builder(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get())
+                    .factory(ContraptionVisual::new).neverSkipVanillaRender().apply();
+            for (var item : BuiltInRegistries.ITEM) {
+                if (BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(AeronauticsInnerworld.MOD_ID)) {
+                    TooltipModifier.REGISTRY.register(item, new ItemDescription.Modifier(item, FontHelper.Palette.STANDARD_CREATE));
+                }
+            }
+        });
     }
 
     @SubscribeEvent
