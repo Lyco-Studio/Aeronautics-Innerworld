@@ -180,4 +180,6 @@
 | Create Aeronautics | 1.3.2 |
 | Sable | 2.0.6 |
 
+Aeronautics 1.3.2 的加载顺序需使用[加载器配置](gradle/development-fml.toml)：将其中的 `dependencyOverrides` 合并到游戏目录的 `config/fml.toml`，让 Create 先于 Simulated、Aeronautics 与 Offroad 加载，避免并行初始化导致启动失败。已有 `dependencyOverrides` 时合并表内条目，不要重复定义该表。Gradle 开发运行会为尚未配置的新目录创建此配置；现有目录保留原设置，需手动合并。
+
 本项目采用 [MIT 许可证](LICENSE)。依赖的许可证与资源使用限制见 [第三方依赖说明](THIRD_PARTY_NOTICES.md)。

@@ -1,0 +1,4 @@
+[dependencyOverrides]
+simulated = ["+create"]
+aeronautics = ["+create", "+simulated"]
+offroad = ["+create", "+simulated"]

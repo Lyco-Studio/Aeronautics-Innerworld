@@ -113,6 +113,22 @@ def integrationMod = neoForge.mods.create("${mod_id}_checks") {
 neoForge.runs.configureEach {
     loadedMods.set([neoForge.mods.getByName(mod_id)])
 }
+def prepareDevelopmentLoader = tasks.register('prepareDevelopmentLoader') {
+    inputs.file layout.projectDirectory.file('gradle/development-fml.toml')
+    doLast {
+        // Aeronautics 1.3.2 can initialize Create registries from parallel mod constructors.
+        neoForge.runs.collect { it.gameDirectory.get().asFile }.unique().each { directory ->
+            def config = new File(directory, 'config/fml.toml')
+            if (!config.exists()) {
+                config.parentFile.mkdirs()
+                config.text = file('gradle/development-fml.toml').text
+            }
+        }
+    }
+}
+neoForge.runs.configureEach {
+    taskBefore prepareDevelopmentLoader
+}
 neoForge.runs.create('integrationTestServer') {
     type = 'gameTestServer'
     sourceSet = sourceSets.integrationTest
