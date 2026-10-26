@@ -211,6 +211,29 @@ neoForge.runs.create('coreTestClient') {
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
+neoForge.runs.create('recoveryTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.recoveryClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runRecoveryTestClient') {
+    def result = layout.projectDirectory.file('run/client/recovery-check.result')
+    doFirst {
+        if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
+            throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
+        }
+        result.asFile.delete()
+    }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Recovery client check failed; inspect the client diagnostics.')
+        }
+    }
+}
 neoForge.runs.create('coreCombatTestClient') {
     client()
     sourceSet = sourceSets.integrationTest
