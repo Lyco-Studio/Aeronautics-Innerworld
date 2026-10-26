@@ -6,7 +6,7 @@
     "SuperGlueEntityMixin"
   ],
   "client": [
-    "FogRendererMixin"
+    "SableCabinFogMixin"
   ],
   "injectors": {
     "defaultRequire": 1
