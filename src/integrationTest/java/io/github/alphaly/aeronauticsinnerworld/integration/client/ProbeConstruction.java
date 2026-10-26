@@ -22,10 +22,12 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -50,6 +52,7 @@ final class ProbeConstruction {
     private final boolean reuseExcavation;
     private final Map<BlockPos, BlockState> terrain = new LinkedHashMap<>();
     private final Map<BlockPos, BlockState> plan;
+    private final ProbeFabrication fabrication;
     private final java.util.Set<java.util.UUID> previousGlue = new java.util.HashSet<>();
     private final java.util.Set<BlockPos> fuelled = new java.util.HashSet<>();
     private final long started;
@@ -96,6 +99,8 @@ final class ProbeConstruction {
         scaffold(5, 2, 6);
         rig = new ProbeTestRig(level, origin, false, rotation);rig.workEquipment();rig.survivalPower();rig.landingSkids();
         assembler = rig.moveAssemblerInside();plan = rig.takeConstructionPlan();
+        var bench = at(-2, -1, reuseExcavation ? -1 : -3);
+        temporary(bench, Blocks.CRAFTING_TABLE.defaultBlockState());fabrication = new ProbeFabrication(player, level, bench);
         if (reuseExcavation) for (var pos : plan.keySet()) if (!level.isEmptyBlock(pos))
             throw new IllegalStateException("Excavated construction bay is obstructed at " + pos);
         if (plan.values().stream().anyMatch(state -> state.is(com.simibubi.create.AllBlocks.CREATIVE_MOTOR.get())))
@@ -119,6 +124,8 @@ final class ProbeConstruction {
     void supply() {
         var counts = new LinkedHashMap<Item, Integer>();
         plan.values().forEach(state -> counts.merge(state.getBlock().asItem(), 1, Integer::sum));
+        counts.keySet().removeIf(item -> BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(AeronauticsInnerworld.MOD_ID));
+        ProbeFabrication.ingredients().forEach((item, count) -> counts.merge(item, count, Integer::sum));
         var items = new ArrayList<ItemStack>();
         counts.forEach((item, count) -> {
             while (count > 0) {int size = Math.min(count, item.getDefaultInstance().getMaxStackSize());items.add(new ItemStack(item, size));count -= size;}
@@ -130,6 +137,8 @@ final class ProbeConstruction {
     }
 
     void tickClient(Minecraft client) {
+        if (!fabrication.complete) {fabrication.tickClient(client);return;}
+        if (client.player.containerMenu instanceof CraftingMenu) client.player.closeContainer();
         var current = action;
         if (current == null) {
             if (aboard && walk != null && !walk.arrived()) walk.tickClient(client);else release(client);
@@ -172,6 +181,11 @@ final class ProbeConstruction {
         if (complete) return;
         if (!player.isAlive() || level.getGameTime() - started > 16000)
             throw new IllegalStateException("Probe construction failed after " + operations + " operations: " + action);
+        if (!fabrication.complete) {
+            fabrication.advance();
+            if (fabrication.complete) temporary(fabrication.bench, Blocks.AIR.defaultBlockState());
+            return;
+        }
         if (action != null) {
             if (level.getGameTime() - selectedAt > 600)
                 throw new IllegalStateException("Construction approach timed out: " + action + ", player=" + player.position());
@@ -257,6 +271,7 @@ final class ProbeConstruction {
             .findFirst().orElseThrow().getDamageValue();}
 
     void verifyAssembly() {
+        fabrication.verifyRemainder();
         for (var entry : plan.entrySet()) {
             var pos = rig.local(relative(entry.getKey()));
             if (!matches(level.getBlockState(pos), entry.getValue()))

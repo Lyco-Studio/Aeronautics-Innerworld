@@ -15,6 +15,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -111,6 +112,8 @@ public final class SurvivalClientCheck {
                 return;
             }
             if (setup == null) {
+                if (client.screen instanceof DeathScreen) {client.player.respawn();client.setScreen(null);return;}
+                if (!client.player.isAlive()) return;
                 var uuid = client.player.getUUID();
                 setup = client.getSingleplayerServer().submit(() -> new Scene(client.getSingleplayerServer().getPlayerList().getPlayer(uuid)));
                 return;
