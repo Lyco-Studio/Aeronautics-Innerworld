@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.renderer.FogRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,6 +30,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ViewportEvent;
 
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class ProbeClientCheck {
@@ -40,6 +42,22 @@ public final class ProbeClientCheck {
     private static RuntimeException failure;
     private static boolean finished;
     private static boolean capturedPause, oldPause;
+    private static boolean sawCabinFog, sawExteriorFog;
+
+    @SubscribeEvent
+    public static void fog(ViewportEvent.RenderFog event) {
+        if (!Boolean.getBoolean("innerworld.probeClientCheck") || scene == null || cleanup != null
+                || event.getMode() != FogRenderer.FogMode.FOG_TERRAIN) return;
+        if (scene.ticks > 100 && scene.ticks < 165) {
+            if (event.getType() != FogType.NONE || event.getFarPlaneDistance() <= 5) {
+                failure = new IllegalStateException("Dry cabin retained liquid fog on rendered parts");
+            } else sawCabinFog = true;
+        } else if (scene.ticks > 232 && scene.ticks < 240) {
+            if (event.getType() != FogType.LAVA || event.getFarPlaneDistance() > 5) {
+                failure = new IllegalStateException("Exterior camera lost its lava fog");
+            } else sawExteriorFog = true;
+        }
+    }
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -70,7 +88,7 @@ public final class ProbeClientCheck {
                 } catch (java.io.IOException e) {
                     throw new IllegalStateException("Cannot write probe check result", e);
                 }
-                LogUtils.getLogger().info("Probe client check passed: native assembly, survival cabin, moving passenger, lava camera and models");
+                LogUtils.getLogger().info("Probe client check passed: native assembly, survival cabin, moving passenger, cabin/exterior fog, lava camera and models");
                 finished = true;
                 client.stop();
             }
@@ -112,6 +130,9 @@ public final class ProbeClientCheck {
                             message -> LogUtils.getLogger().info("Probe service screenshot: {}", message.getString()));
                 }
                 if (finished) {
+                    if (!sawCabinFog || !sawExteriorFog) {
+                        throw new IllegalStateException("Probe check did not render both cabin and exterior fog");
+                    }
                     if (!WaterOcclusionContainer.getContainer(client.level).isOccluded(client.player.getEyePosition())) {
                         throw new IllegalStateException("Client cabin did not occlude lava at the player's eyes");
                     }
