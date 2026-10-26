@@ -1,7 +1,6 @@
 package io.github.alphaly.aeronauticsinnerworld.integration;
 
 import com.mojang.authlib.GameProfile;
-import com.simibubi.create.content.kinetics.mixer.MixingRecipe;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
@@ -13,7 +12,6 @@ import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -97,12 +95,6 @@ public final class EcologyChecks {
                     grazer[0].hurt(level.damageSources().playerAttack(player), 1);
                     helper.assertTrue(grazer[0].getTarget() == player && grazer[0].isPreventingPlayerRest(player),
                             "Provoked neutral creature did not retaliate");
-                    var recipe = level.getRecipeManager().byKey(ResourceLocation.fromNamespaceAndPath(
-                            AeronauticsInnerworld.MOD_ID, "relic_alloy_recasting")).orElseThrow().value();
-                    helper.assertTrue(recipe instanceof MixingRecipe, "Alloy recasting is not a native Create mixing recipe");
-                    var output = recipe.getResultItem(level.registryAccess());
-                    helper.assertTrue(output.is(AeronauticsInnerworld.RELIC_ALLOY.get()) && output.getCount() == 2,
-                            "Heated recasting does not produce the intended alloy yield");
                     grazer[0].discard();
                     rig.cleanUp();
                 }).thenSucceed();

@@ -134,7 +134,8 @@ neoForge.runs.create('integrationTestServer') {
     sourceSet = sourceSets.integrationTest
     gameDirectory = project.file('run/integration')
     loadedMods.add(integrationMod)
-    systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+    systemProperty 'neoforge.enabledGameTestNamespaces', providers.gradleProperty('checkNamespace')
+            .getOrElse("${mod_id},${mod_id}_industry")
     taskBefore prepareIntegrationStructures
 }
 tasks.named('runIntegrationTestServer') {
