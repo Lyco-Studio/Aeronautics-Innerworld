@@ -38,6 +38,7 @@ final class FloodingShutter {
     private final AABB glueBounds;
     private final Set<UUID> previousGlue = new HashSet<>();
     private boolean closing = true;
+    private int startingFuel;
 
     FloodingShutter(ServerLevel level, BlockPos origin, FakePlayer player) {
         this(level, origin, player, Rotation.NONE, false);
@@ -81,7 +82,7 @@ final class FloodingShutter {
         set(reverseLever, lever(true));set(clutchLever, lever(true));
         set(engine, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH));
-        ((PortableEngineBlockEntity) level.getBlockEntity(engine)).inventory.setItem(0, new ItemStack(Items.COAL, 4));
+        fuel(4);
         var glue = new SuperGlueEntity(level, SuperGlueEntity.span(at(0, 8, -1), at(4, 8, 7)));
         level.addFreshEntity(glue);
     }
@@ -106,16 +107,28 @@ final class FloodingShutter {
     }
 
     boolean atRequestedPosition() {
+        return atPosition(closing);
+    }
+
+    BlockPos directionControl() {return reverseLever;}
+    BlockPos clutchControl() {return clutchLever;}
+
+    boolean atPosition(boolean closed) {
         for (int x = 0; x <= 4; x++) for (int z = -1; z <= 7; z++) {
-            if (!level.getBlockState(at(x + (closing ? 0 : 5), 8, z)).is(Blocks.DEEPSLATE_BRICKS)) return false;
-            if (!closing && level.getBlockState(at(x, 8, z)).is(Blocks.DEEPSLATE_BRICKS)) return false;
+            if (!level.getBlockState(at(x + (closed ? 0 : 5), 8, z)).is(Blocks.DEEPSLATE_BRICKS)) return false;
+            if (!closed && level.getBlockState(at(x, 8, z)).is(Blocks.DEEPSLATE_BRICKS)) return false;
         }
         return true;
     }
 
+    void fuel(int count) {
+        startingFuel = count;
+        ((PortableEngineBlockEntity) level.getBlockEntity(engine)).inventory.setItem(0, new ItemStack(Items.COAL, count));
+    }
+
     boolean consumedFuel() {
         return level.getBlockEntity(engine) instanceof PortableEngineBlockEntity source
-                && source.inventory.getItem(0).getCount() < 4;
+                && source.inventory.getItem(0).getCount() < startingFuel;
     }
 
     String status() {

@@ -5,6 +5,7 @@ import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.simulated_team.simulated.index.SimClickInteractions;
 import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
+import io.github.alphaly.aeronauticsinnerworld.integration.WirelessDock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.nio.file.Files;
@@ -63,12 +64,16 @@ public final class SurvivalClientCheck {
     private static boolean capturedOptions, oldPause, steeringScreenshot;
     private static int assemblyFrames;
     private static boolean assemblyReleased;
+    private static boolean controllerActive;
+    private static int remoteFrames;
+    private static boolean remoteOpened, remoteClosed;
 
     private static boolean steering() {
         return Boolean.getBoolean("innerworld.survivalSteering");
     }
 
     private static boolean constructing() {return Boolean.getBoolean("innerworld.survivalBuild");}
+    private static boolean docking() {return Boolean.getBoolean("innerworld.survivalDock");}
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -79,7 +84,7 @@ public final class SurvivalClientCheck {
         if (!capturedOptions) {oldPause = client.options.pauseOnLostFocus;capturedOptions = true;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > (constructing() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
+            if (++ticks > (constructing() || docking() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
                 throw new IllegalStateException("Survival client check timed out");
             }
             if (cleanup != null) {
@@ -91,8 +96,9 @@ public final class SurvivalClientCheck {
                     if (failure != null) {
                         throw failure;
                     }
-                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
-                    LogUtils.getLogger().info(constructing() ? "Native survival probe build passed: block placement, fuel, glue and occupied assembly"
+                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), docking() ? constructing() ? "build-dock-verified" : "dock-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
+                    LogUtils.getLogger().info(docking() ? "Native wireless dock check passed: occupied assembly, coal-powered gates and drainage"
+                            : constructing() ? "Native survival probe build passed: block placement, fuel, glue and occupied assembly"
                             : steering() ? "Survival steering check passed: fueled quarter-turn, countersteer and native propulsion stop"
                             : "Survival client check passed: bilingual guide, fueled probe and mechanical controls over the client connection");
                     finished = true;
@@ -114,6 +120,30 @@ public final class SurvivalClientCheck {
             scene = setup.join();
             if (scene.construction != null && !scene.construction.complete) scene.construction.tickClient(client);
             else if (scene.rig.subLevel == null) assemble(client);
+            if (docking()) {
+                if (scene.ticks >= 40 && !controllerActive && client.player.getMainHandItem().is(com.simibubi.create.AllItems.LINKED_CONTROLLER.get())) {
+                    client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);controllerActive = true;
+                    LogUtils.getLogger().info("Wireless dock controller active; sending native button input over the client connection");
+                }
+                if (controllerActive) {
+                    if (!remoteOpened && ++remoteFrames == 10) {
+                        remoteButton(true);remoteOpened = true;remoteFrames = 0;
+                    } else if (remoteOpened && !remoteClosed) {
+                        if (++remoteFrames == 10) remoteButton(false);
+                        if (scene.dock.readyToClose()) {
+                            Screenshot.grab(client.gameDirectory, "mantle-wireless-dock.png", client.getMainRenderTarget(),
+                                    message -> LogUtils.getLogger().info("Wireless dock screenshot: {}", message.getString()));
+                            remoteButton(true);remoteClosed = true;remoteFrames = 0;
+                        }
+                    } else if (remoteClosed && ++remoteFrames == 10) remoteButton(false);
+                }
+                if (step == null) step = client.getSingleplayerServer().submit(scene::tick);
+                else if (step.isDone()) {
+                    boolean done = step.join();step = null;
+                    if (done) cleanup = client.getSingleplayerServer().submit(scene::cleanUp);
+                }
+                return;
+            }
             if (scene.ticks == 40 && !readGuide) {
                 if (!openedGuide && client.player.getMainHandItem().is(Items.WRITTEN_BOOK)) {
                     client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
@@ -228,6 +258,11 @@ public final class SurvivalClientCheck {
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
     }
 
+    private static void remoteButton(boolean pressed) {
+        net.createmod.catnip.platform.CatnipServices.NETWORK.sendToServer(
+                new com.simibubi.create.content.redstone.link.controller.LinkedControllerInputPacket(java.util.Set.of(0), pressed, null));
+    }
+
     private static void assemble(Minecraft client) {
         var control = scene.assembler;
         var point = Vec3.atCenterOf(control).add(0, -.25, 0);
@@ -280,8 +315,10 @@ public final class SurvivalClientCheck {
         private final List<MobEffectInstance> oldEffects;
         private final CompoundTag oldFood = new CompoundTag();
         private final int oldExposure;
+        private final int oldFire;
         private final ProbeTestRig rig;
         private final ProbeConstruction construction;
+        private final WirelessDock dock;
         private final BlockPos assembler;
         private final java.util.Set<java.util.UUID> previousStructures = new java.util.HashSet<>();
         private int ticks;
@@ -307,19 +344,24 @@ public final class SurvivalClientCheck {
             oldEffects = player.getActiveEffects().stream().map(MobEffectInstance::new).toList();
             player.getFoodData().addAdditionalSaveData(oldFood);
             oldExposure = player.getPersistentData().getInt("InnerworldHeatExposure");
+            oldFire = player.getRemainingFireTicks();
+            dock = docking() ? new WirelessDock(player.server.getLevel(Mantle.LEVEL)) : null;
             if (constructing()) {
-                construction = new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), new BlockPos(768, 204, 128));
+                construction = docking() ? new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), WirelessDock.ORIGIN, WirelessDock.ROTATION, true)
+                        : new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), new BlockPos(768, 204, 128));
                 rig = construction.rig;assembler = construction.assembler;
             } else {
                 construction = null;
-                rig = new ProbeTestRig(player.server.getLevel(Mantle.LEVEL), new BlockPos(384, 180, 128));
+                rig = docking() ? new ProbeTestRig(player.server.getLevel(Mantle.LEVEL), WirelessDock.ORIGIN, false, WirelessDock.ROTATION)
+                        : new ProbeTestRig(player.server.getLevel(Mantle.LEVEL), new BlockPos(384, 180, 128));
                 rig.workEquipment();rig.survivalPower();assembler = rig.moveAssemblerInside();
+                if (docking()) rig.landingSkids();
             }
             SubLevelContainer.getContainer(rig.level).getAllSubLevels().forEach(structure -> previousStructures.add(structure.getUniqueId()));
             player.setGameMode(GameType.SURVIVAL);player.getInventory().clearContent();player.getInventory().selected = 0;
-            player.removeAllEffects();player.setHealth(player.getMaxHealth());
+            player.removeAllEffects();player.clearFire();player.setHealth(player.getMaxHealth());
             if (construction != null) construction.supply();
-            var position = construction == null ? Vec3.atBottomCenterOf(assembler.south()).add(0, .05, 0) : construction.startingPosition();
+            var position = construction == null ? Vec3.atBottomCenterOf(docking() ? rig.source(new BlockPos(2, 1, 2)) : assembler.south()).add(0, .05, 0) : construction.startingPosition();
             player.teleportTo(rig.level, position.x, position.y, position.z, 0, 0);player.containerMenu.broadcastChanges();
         }
 
@@ -338,6 +380,13 @@ public final class SurvivalClientCheck {
                 if (rig.subLevel == null) return false;
             }
             ++ticks;
+            if (dock != null) {
+                if (ticks == 40) {
+                    if (construction != null) construction.removeSupports();
+                    rig.cabin().addCoolant(240);player.setItemInHand(InteractionHand.MAIN_HAND, dock.controller());player.containerMenu.broadcastChanges();
+                }
+                return ticks > 40 && dock.advance(player, rig);
+            }
             if (constructing() && ticks == 41) return true;
             if (ticks == 40) {
                 if (!rig.cabin().isSealed() || player.getHealth() < player.getMaxHealth() || player.isInLava()) {
@@ -466,6 +515,7 @@ public final class SurvivalClientCheck {
         private void cleanUp() {
             rig.cleanUp();
             if (construction != null) construction.cleanUp();
+            if (dock != null) dock.cleanUp();
             player.teleportTo(oldLevel, oldPosition.x, oldPosition.y, oldPosition.z, oldYaw, oldPitch);
             player.setGameMode(oldMode);
             player.getAbilities().flying = oldFlying;
@@ -479,7 +529,7 @@ public final class SurvivalClientCheck {
             player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(oldSelected));
             player.setHealth(oldHealth);
             player.getFoodData().readAdditionalSaveData(oldFood);
-            player.clearFire();
+            player.setRemainingFireTicks(oldFire);
             player.getPersistentData().putInt("InnerworldHeatExposure", oldExposure);
             player.containerMenu.broadcastChanges();
         }

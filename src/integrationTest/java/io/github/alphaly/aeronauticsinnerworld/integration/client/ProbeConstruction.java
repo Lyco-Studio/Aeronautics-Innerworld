@@ -33,6 +33,7 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
 import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -45,6 +46,8 @@ final class ProbeConstruction {
     private final ServerPlayer player;
     private final ServerLevel level;
     private final BoundingBox bounds;
+    private final Rotation rotation;
+    private final boolean reuseExcavation;
     private final Map<BlockPos, BlockState> terrain = new LinkedHashMap<>();
     private final Map<BlockPos, BlockState> plan;
     private final java.util.Set<java.util.UUID> previousGlue = new java.util.HashSet<>();
@@ -65,38 +68,53 @@ final class ProbeConstruction {
             Vec3 point, Item item, BlockState before) { }
 
     ProbeConstruction(ServerPlayer player, ServerLevel level, BlockPos origin) {
-        this.player = player;this.level = level;this.origin = origin;
-        bounds = new BoundingBox(origin.getX() - 3, origin.getY() - 2, origin.getZ() - 3,
-                origin.getX() + 5, origin.getY() + 4, origin.getZ() + 9);
-        level.getEntitiesOfClass(SuperGlueEntity.class, SuperGlueEntity.span(origin.offset(-4, -3, -4), origin.offset(6, 7, 10)))
+        this(player, level, origin, Rotation.NONE, false);
+    }
+
+    ProbeConstruction(ServerPlayer player, ServerLevel level, BlockPos origin, Rotation rotation, boolean reuseExcavation) {
+        this.player = player;this.level = level;this.origin = origin;this.rotation = rotation;this.reuseExcavation = reuseExcavation;
+        bounds = BoundingBox.fromCorners(at(-3, -2, -3), at(5, 4, 9));
+        level.getEntitiesOfClass(SuperGlueEntity.class, SuperGlueEntity.span(at(-4, -3, -4), at(6, 7, 10)))
                 .forEach(entity -> previousGlue.add(entity.getUUID()));
-        for (var pos : BlockPos.betweenClosed(origin.offset(-4, -3, -4), origin.offset(6, 7, 10))) {
+        if (!reuseExcavation) for (var pos : BlockPos.betweenClosed(at(-4, -3, -4), at(6, 7, 10))) {
             if (level.getBlockEntity(pos) != null) throw new IllegalStateException("Construction bay contains an existing block entity");
             terrain.put(pos.immutable(), level.getBlockState(pos));
         }
         for (var pos : terrain.keySet()) {
-            var relative = pos.subtract(origin);
+            var relative = relative(pos);
             boolean boundary = relative.getX() == -4 || relative.getX() == 6 || relative.getZ() == -4 || relative.getZ() == 10
                     || relative.getY() <= -2 || relative.getY() == 7;
             level.setBlockAndUpdate(pos, boundary ? Blocks.DEEPSLATE.defaultBlockState() : Blocks.AIR.defaultBlockState());
         }
-        for (var pos : BlockPos.betweenClosed(origin.offset(1, -2, -1), origin.offset(3, -2, 7)))
+        if (!reuseExcavation) for (var pos : BlockPos.betweenClosed(at(1, -2, -1), at(3, -2, 7)))
             level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
         for (int z = -2; z <= 7; z++) for (int x = -1; x <= 5; x++)
             if (x == -1 || x == 5 || z == -2 || z == 7) scaffold(x, 1, z);
-        level.setBlockAndUpdate(origin.offset(-1, 1, 2), Blocks.AIR.defaultBlockState());scaffold(-1, 0, 2);
-        scaffold(-3, -1, -2);scaffold(-3, 0, -1);scaffold(-3, 1, 0);scaffold(-2, 1, 0);
+        temporary(at(-1, 1, 2), Blocks.AIR.defaultBlockState());scaffold(-1, 0, 2);
+        if (reuseExcavation) {scaffold(-3, -1, 0);scaffold(-3, 0, 1);scaffold(-3, 1, 2);scaffold(-2, 1, 2);scaffold(-2, 1, 1);}
+        else {scaffold(-3, -1, -2);scaffold(-3, 0, -1);scaffold(-3, 1, 0);scaffold(-2, 1, 0);}
         scaffold(5, 2, 6);
-        rig = new ProbeTestRig(level, origin, false);rig.workEquipment();rig.survivalPower();rig.landingSkids();
+        rig = new ProbeTestRig(level, origin, false, rotation);rig.workEquipment();rig.survivalPower();rig.landingSkids();
         assembler = rig.moveAssemblerInside();plan = rig.takeConstructionPlan();
+        if (reuseExcavation) for (var pos : plan.keySet()) if (!level.isEmptyBlock(pos))
+            throw new IllegalStateException("Excavated construction bay is obstructed at " + pos);
         if (plan.values().stream().anyMatch(state -> state.is(com.simibubi.create.AllBlocks.CREATIVE_MOTOR.get())))
             throw new IllegalStateException("Construction plan contains creative power");
         started = level.getGameTime();
         LogUtils.getLogger().info("Native probe construction begins: {} blocks at {}", plan.size(), origin);
     }
 
-    private void scaffold(int x, int y, int z) {level.setBlockAndUpdate(origin.offset(x, y, z), Blocks.STONE.defaultBlockState());}
-    Vec3 startingPosition() {return Vec3.atBottomCenterOf(origin.offset(-3, -1, -3));}
+    private BlockPos at(BlockPos relative) {return origin.offset(relative.rotate(rotation));}
+    private BlockPos at(int x, int y, int z) {return at(new BlockPos(x, y, z));}
+    private BlockPos relative(BlockPos pos) {return pos.subtract(origin).rotate(switch (rotation) {
+        case CLOCKWISE_90 -> Rotation.COUNTERCLOCKWISE_90;case COUNTERCLOCKWISE_90 -> Rotation.CLOCKWISE_90;default -> rotation;
+    });}
+    private void temporary(BlockPos pos, BlockState state) {
+        if (level.getBlockEntity(pos) != null) throw new IllegalStateException("Construction support overlaps existing equipment");
+        terrain.putIfAbsent(pos.immutable(), level.getBlockState(pos));level.setBlockAndUpdate(pos, state);
+    }
+    private void scaffold(int x, int y, int z) {temporary(at(x, y, z), Blocks.STONE.defaultBlockState());}
+    Vec3 startingPosition() {return Vec3.atBottomCenterOf(reuseExcavation ? at(-3, -1, -1) : at(-3, -1, -3));}
 
     void supply() {
         var counts = new LinkedHashMap<Item, Integer>();
@@ -121,13 +139,14 @@ final class ProbeConstruction {
         if (!walk.arrived()) {walk.tickClient(client);return;}
         client.options.keyUp.setDown(false);client.options.keyJump.setDown(false);
         frames++;
-        if (frames > 80) throw new IllegalStateException("Construction input failed: " + current);
+        if (frames > 80) throw new IllegalStateException("Construction input failed: " + current + ", player="
+                + client.player.position() + ", state=" + client.level.getBlockState(current.target));
         if (frames <= 10) equip(client, current.item);
         client.options.keyShift.setDown(current.kind == Kind.PLACE);
         look(client, inputPoint);
         if (frames != 10) return;
         net.minecraft.world.phys.BlockHitResult hit = null;
-        double[] offsets = current.kind == Kind.PLACE ? new double[] {0, -.25, .25} : new double[] {0};
+        double[] offsets = current.kind == Kind.GLUE ? new double[] {0} : new double[] {0, -.25, .25};
         search: for (double a : offsets) for (double b : offsets) {
             var point = current.point.add(switch (current.face.getAxis()) {
                 case X -> new Vec3(0, a, b);case Y -> new Vec3(a, 0, b);case Z -> new Vec3(a, b, 0);
@@ -136,6 +155,8 @@ final class ProbeConstruction {
                     ClipContext.Fluid.NONE, client.player));
             if (candidate.getType() == HitResult.Type.BLOCK && candidate.getBlockPos().equals(current.against)
                     && candidate.getDirection() == current.face && candidate.getLocation().distanceTo(client.player.getEyePosition()) <= 4.5) {
+                if ((current.kind == Kind.ROTATE || current.kind == Kind.FUEL)
+                        && settingsAt(current.target, current.face, candidate.getLocation(), current.item)) continue;
                 hit = candidate;inputPoint = point;break search;
             }
         }
@@ -159,7 +180,7 @@ final class ProbeConstruction {
             var now = level.getBlockState(action.target);
             boolean done = switch (action.kind) {
                 case PLACE -> now.is(plan.get(action.target).getBlock());
-                case ROTATE -> rotations(now, plan.get(action.target)) < rotations(action.before, plan.get(action.target));
+                case ROTATE -> !matches(now, action.before);
                 case USE -> !now.equals(action.before);
                 case FUEL -> level.getBlockEntity(action.target) instanceof PortableEngineBlockEntity engine
                         && (!engine.inventory.isEmpty() || engine.getCurrentBurnTime() > 0);
@@ -181,7 +202,8 @@ final class ProbeConstruction {
             }
         }
         var remaining = plan.keySet().stream().filter(pos -> !matches(level.getBlockState(pos), plan.get(pos)))
-                .sorted(Comparator.comparingInt((BlockPos pos) -> pos.getY()).thenComparingInt(pos -> pos.getZ()).thenComparingInt(pos -> pos.getX())).toList();
+                .sorted(Comparator.comparingInt((BlockPos pos) -> relative(pos).getY())
+                        .thenComparingInt(pos -> relative(pos).getZ()).thenComparingInt(pos -> relative(pos).getX())).toList();
         for (var pos : remaining) {
             var state = level.getBlockState(pos);
             var next = state.isAir() ? placement(pos, ordered) : interaction(Kind.ROTATE, pos, AllItems.WRENCH.get(), ordered);
@@ -201,13 +223,13 @@ final class ProbeConstruction {
             select(next);return;
         }
         if (glueCorner < 4) {
-            var corner = origin.offset(switch (glueCorner) {case 0 -> new BlockPos(0, -1, 0);case 1 -> new BlockPos(4, 3, 6);
+            var corner = at(switch (glueCorner) {case 0 -> new BlockPos(0, -1, 0);case 1 -> new BlockPos(4, 3, 6);
                 case 2 -> ProbeTestRig.CABIN;default -> ProbeTestRig.CABIN.north();});
             var next = interaction(Kind.GLUE, corner, AllItems.SUPER_GLUE.get(), ordered);
             if (next == null) throw new IllegalStateException("Cannot reach glue corner " + corner.subtract(origin));
             select(next);return;
         }
-        var pilot = assembler.south();
+        var pilot = rig.source(new BlockPos(2, 1, 2));
         if (!aboard) {
             if (walk == null || !walk.arrived() || player.position().distanceToSqr(Vec3.atBottomCenterOf(pilot)) > .15) {
                 if (!area.containsKey(pilot)) throw new IllegalStateException("Constructed cockpit is not walkable");
@@ -229,14 +251,14 @@ final class ProbeConstruction {
     }
 
     private int glueCount() {return level.getEntitiesOfClass(SuperGlueEntity.class,
-            SuperGlueEntity.span(origin.offset(-1, -2, -2), origin.offset(6, 5, 8))).size();}
+            SuperGlueEntity.span(at(-1, -2, -2), at(6, 5, 8))).size();}
 
     private int glueDamage() {return player.getInventory().items.stream().filter(stack -> stack.is(AllItems.SUPER_GLUE.get()))
             .findFirst().orElseThrow().getDamageValue();}
 
     void verifyAssembly() {
         for (var entry : plan.entrySet()) {
-            var pos = rig.local(entry.getKey().subtract(origin));
+            var pos = rig.local(relative(entry.getKey()));
             if (!matches(level.getBlockState(pos), entry.getValue()))
                 throw new IllegalStateException("Constructed assembly lost or rotated a block: " + entry.getKey().subtract(origin));
         }
@@ -268,20 +290,29 @@ final class ProbeConstruction {
 
     private Action interaction(Kind kind, BlockPos pos, Item item, List<BlockPos> stands) {
         var state = level.getBlockState(pos);
-        int distance = kind == Kind.ROTATE ? rotations(state, plan.get(pos)) : 0;
+        var candidates = new ArrayList<Action>();
         for (var stand : stands) for (var face : Direction.values()) {
-            if (kind == Kind.ROTATE && (!(state.getBlock() instanceof IWrenchable wrench)
-                    || rotations(wrench.getRotatedBlockState(state, face), plan.get(pos)) >= distance)) continue;
+            if (kind == Kind.ROTATE && !(state.getBlock() instanceof IWrenchable)) continue;
             var center = facePoint(pos, face);
             for (var point : List.of(center, center.add(face.getAxis() == Direction.Axis.X ? 0 : .25,
                     face.getAxis() == Direction.Axis.Y ? 0 : .25, face.getAxis() == Direction.Axis.Z ? 0 : .25),
                     center.add(face.getAxis() == Direction.Axis.X ? 0 : -.25,
                             face.getAxis() == Direction.Axis.Y ? 0 : -.25, face.getAxis() == Direction.Axis.Z ? 0 : -.25))) {
                 if ((kind == Kind.ROTATE || kind == Kind.FUEL) && settingsAt(pos, face, point, item)) continue;
-                if (visible(stand, pos, face, point, false)) return new Action(kind, stand, pos, pos, face, point, item, state);
+                if (visible(stand, pos, face, point, false)) {
+                    var candidate = new Action(kind, stand, pos, pos, face, point, item, state);
+                    if (kind != Kind.ROTATE) return candidate;
+                    candidates.add(candidate);
+                }
             }
         }
-        return null;
+        if (candidates.isEmpty()) return null;
+        var faces = java.util.EnumSet.noneOf(Direction.class);
+        candidates.forEach(candidate -> faces.add(candidate.face));
+        int distance = rotations(state, plan.get(pos), faces);
+        var wrench = (IWrenchable) state.getBlock();
+        return candidates.stream().filter(candidate -> rotations(wrench.getRotatedBlockState(state, candidate.face), plan.get(pos), faces) < distance)
+                .findFirst().orElse(null);
     }
 
     private boolean settingsAt(BlockPos pos, Direction face, Vec3 point, Item item) {
@@ -345,13 +376,13 @@ final class ProbeConstruction {
                 || state.getValue(BlockStateProperties.HORIZONTAL_FACING) == expected.getValue(BlockStateProperties.HORIZONTAL_FACING);
     }
 
-    private static int rotations(BlockState from, BlockState goal) {
+    private static int rotations(BlockState from, BlockState goal, java.util.Set<Direction> faces) {
         if (matches(from, goal)) return 0;
         if (!(from.getBlock() instanceof IWrenchable wrench)) return 100;
         var steps = new HashMap<BlockState, Integer>();var queue = new ArrayDeque<BlockState>();steps.put(from, 0);queue.add(from);
         while (!queue.isEmpty()) {
             var state = queue.remove();
-            for (var face : Direction.values()) {
+            for (var face : faces) {
                 var next = wrench.getRotatedBlockState(state, face);
                 if (steps.containsKey(next)) continue;
                 int distance = steps.get(state) + 1;
@@ -382,8 +413,9 @@ final class ProbeConstruction {
     }
 
     static void release(Minecraft client) {client.options.keyUp.setDown(false);client.options.keyJump.setDown(false);client.options.keyShift.setDown(false);client.options.keyUse.setDown(false);}
+    void removeSupports() {if (reuseExcavation) {terrain.forEach(level::setBlockAndUpdate);terrain.clear();}}
     void cleanUp() {
-        level.getEntitiesOfClass(SuperGlueEntity.class, SuperGlueEntity.span(origin.offset(-4, -3, -4), origin.offset(6, 7, 10)))
+        level.getEntitiesOfClass(SuperGlueEntity.class, SuperGlueEntity.span(at(-4, -3, -4), at(6, 7, 10)))
                 .stream().filter(entity -> !previousGlue.contains(entity.getUUID())).forEach(net.minecraft.world.entity.Entity::discard);
         terrain.forEach(level::setBlockAndUpdate);
     }

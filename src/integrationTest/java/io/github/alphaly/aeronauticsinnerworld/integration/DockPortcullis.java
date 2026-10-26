@@ -38,6 +38,7 @@ final class DockPortcullis {
     private final AABB glueBounds;
     private final Set<UUID> previousGlue = new HashSet<>();
     private boolean closing = true;
+    private int startingFuel;
 
     DockPortcullis(ServerLevel level, BlockPos origin, FakePlayer player) {
         this(level, origin, player, Rotation.NONE);
@@ -70,7 +71,7 @@ final class DockPortcullis {
         set(reverseLever, lever(true));set(clutchLever, lever(true));
         set(engine, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH));
-        ((PortableEngineBlockEntity) level.getBlockEntity(engine)).inventory.setItem(0, new ItemStack(Items.COAL, 4));
+        fuel(4);
         glue(at(-1, -1, 8), at(5, 7, 8));
         glue(at(-1, 7, 8), at(8, 7, 8));
     }
@@ -98,16 +99,28 @@ final class DockPortcullis {
     void tick() {if (atRequestedPosition()) setLever(clutchLever, true);}
 
     boolean atRequestedPosition() {
-        int lift = closing ? 0 : 7;
+        return atPosition(closing);
+    }
+
+    BlockPos directionControl() {return reverseLever;}
+    BlockPos clutchControl() {return clutchLever;}
+
+    boolean atPosition(boolean closed) {
+        int lift = closed ? 0 : 7;
         for (var pos : BlockPos.betweenClosed(at(-1, -1 + lift, 8), at(5, 7 + lift, 8)))
             if (!level.getBlockState(pos).is(Blocks.DEEPSLATE_BRICKS)) return false;
         for (int x = 6; x <= 8; x++)
             if (!level.getBlockState(at(x, 7 + lift, 8)).is(Blocks.DEEPSLATE_BRICKS)) return false;
-        return closing || !level.getBlockState(at(2, -1, 8)).is(Blocks.DEEPSLATE_BRICKS);
+        return closed || !level.getBlockState(at(2, -1, 8)).is(Blocks.DEEPSLATE_BRICKS);
+    }
+
+    void fuel(int count) {
+        startingFuel = count;
+        ((PortableEngineBlockEntity) level.getBlockEntity(engine)).inventory.setItem(0, new ItemStack(Items.COAL, count));
     }
 
     boolean consumedFuel() {
-        return level.getBlockEntity(engine) instanceof PortableEngineBlockEntity source && source.inventory.getItem(0).getCount() < 4;
+        return level.getBlockEntity(engine) instanceof PortableEngineBlockEntity source && source.inventory.getItem(0).getCount() < startingFuel;
     }
 
     String status() {

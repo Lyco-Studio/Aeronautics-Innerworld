@@ -72,6 +72,7 @@ final class CoreMazeWalk {
             var offset = Vec3.atBottomCenterOf(next).subtract(client.player.position());
             client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
             client.player.setXRot(0);
+            if (precise) client.options.keyShift.setDown(offset.horizontalDistanceSqr() < .64 && Math.abs(offset.y) < .2);
             client.options.keyUp.setDown(offset.horizontalDistanceSqr() > (precise ? .0025 : .07));
             client.options.keyJump.setDown(offset.y > .6);
             return;

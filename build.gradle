@@ -217,6 +217,7 @@ neoForge.runs.create('survivalTestClient') {
     systemProperty 'innerworld.survivalClientCheck', 'true'
     systemProperty 'innerworld.survivalSteering', providers.gradleProperty('survivalSteering').getOrElse('false')
     systemProperty 'innerworld.survivalBuild', providers.gradleProperty('survivalBuild').getOrElse('false')
+    systemProperty 'innerworld.survivalDock', providers.gradleProperty('survivalDock').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -404,7 +405,9 @@ tasks.named('runRelayTestClient') {
 }
 tasks.named('runSurvivalTestClient') {
     def result = layout.projectDirectory.file('run/client/survival-check.result')
-    def expected = providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-verified'
+    def expected = providers.gradleProperty('survivalDock').getOrElse('false') == 'true'
+            ? (providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-dock-verified' : 'dock-verified')
+            : providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-verified'
             : providers.gradleProperty('survivalSteering').getOrElse('false') == 'true' ? 'steering-verified' : 'verified'
     doFirst {
         if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
