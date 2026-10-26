@@ -39,14 +39,22 @@ public final class WirelessDock {
     private final FloodingShutter shutter;
     private final DockPortcullis gate;
     private final BlockPos latch;
+    private final BlockPos deposit;
+    private final Map<BlockPos, BlockState> minerals = new LinkedHashMap<>();
     private volatile int phase;
     private int settled, elapsed, phaseTicks;
     private long started;
     private volatile int leftTrim, rightTrim;
     private volatile boolean canClose;
+    private boolean discovered;
+    private int samples;
 
     public WirelessDock(ServerLevel level) {
         this.level = level;
+        deposit = findDeposit();
+        for (var pos : BlockPos.betweenClosed(-480, 184, -3, deposit.getX() + 12, 198, 3))
+            if (level.getBlockState(pos).is(AeronauticsInnerworld.HARMONIC_ORE.get())) minerals.put(pos.immutable(), level.getBlockState(pos));
+        LogUtils.getLogger().info("Dock expedition natural target: {}, transit sampler height={}", deposit, transitDepth());
         for (var pos : BlockPos.betweenClosed(at(-4, -2, -2), at(7, 8, 8))) {
             var local = pos.subtract(ORIGIN).rotate(Rotation.CLOCKWISE_90);
             if (local.getX() == -4 || local.getX() == 7 || local.getZ() == -2 || local.getZ() == 8 || local.getY() == 8)
@@ -82,6 +90,34 @@ public final class WirelessDock {
     }
 
     private static BlockPos at(int x, int y, int z) {return ORIGIN.offset(new BlockPos(x, y, z).rotate(ROTATION));}
+
+    private double transitDepth() {return deposit.getY() - 4;}
+
+    private BlockPos findDeposit() {
+        for (int x = -476; x <= -447; x++) for (int y = 194; y >= 190; y--) {
+            var pos = new BlockPos(x, y, -1);
+            if (!level.getBlockState(pos).is(AeronauticsInnerworld.HARMONIC_ORE.get())) continue;
+            boolean clear = true;
+            for (var cell : BlockPos.betweenClosed(-487, y - 7, -2, x + 12, y - 2, 2))
+                if (!level.getBlockState(cell).getCollisionShape(level, cell).isEmpty()) {clear = false;break;}
+            if (!clear) continue;
+            for (var cell : BlockPos.betweenClosed(x + 3, y - 7, -2, x + 11, y + 3, 2))
+                if (!level.getBlockState(cell).getCollisionShape(level, cell).isEmpty()) {clear = false;break;}
+            if (clear) return pos;
+        }
+        throw new IllegalStateException("The excavated-base world has no clear natural sampling route");
+    }
+
+    public int samples() {return samples;}
+
+    private int cargo(ProbeTestRig rig) {
+        int total = 0;
+        for (int slot = 0; slot < rig.sampler().inventory.getSlots(); slot++) {
+            var stack = rig.sampler().inventory.getStackInSlot(slot);
+            if (stack.is(AeronauticsInnerworld.RAW_HARMONIC.get())) total += stack.getCount();
+        }
+        return total;
+    }
 
     private void set(BlockPos pos, BlockState state) {
         original.putIfAbsent(pos.immutable(), level.getBlockState(pos));
@@ -124,9 +160,16 @@ public final class WirelessDock {
         boolean opening = level.getBlockState(latch).getValue(ToggleLatchBlock.POWERING);
         var box = rig.subLevel.boundingBox();
         var velocity = RigidBodyHandle.of(rig.subLevel).getLinearVelocity();
-        if (++phaseTicks > 600 || elapsed > 2400) throw new IllegalStateException("Wireless dock voyage timed out: phase=" + phase
+        if (phase >= 14) {
+            var found = rig.sounder().getMineral();
+            if (found != null && level.getBlockState(found).is(AeronauticsInnerworld.HARMONIC_ORE.get()) && found.distSqr(deposit) < 100) discovered = true;
+        }
+        if (samples > 0 && cargo(rig) < samples) throw new IllegalStateException("Natural cargo was lost on the return voyage");
+        if (++phaseTicks > 600 || elapsed > 3600) throw new IllegalStateException("Wireless dock voyage timed out: phase=" + phase
                 + ", hull=" + box.minX() + "," + box.minY() + ".." + box.maxX() + "," + box.maxY()
                 + ", velocity=" + velocity + ", trim=" + leftTrim + "/" + rightTrim
+                + ", sampler=" + rig.world(ProbeTestRig.SAMPLER) + ", target=" + rig.sampler().getTarget()
+                + ", status=" + rig.sampler().getStatus() + ", cargo=" + cargo(rig)
                 + ", shutter=" + shutter.status() + ", gate=" + gate.status());
         switch (phase) {
             case 0 -> {
@@ -143,7 +186,7 @@ public final class WirelessDock {
             case 4 -> {if (box.minX() > -487.5) next(5, rig, "entire hull in the launch well; descending");}
             case 5 -> {if (box.maxY() < 199.5) next(6, rig, "below the natural ceiling; sailing into open sea");}
             case 6 -> {if (box.minX() > -477) next(7, rig, "reached the natural lava sea; stopping");}
-            case 7 -> {if (++settled >= 15) next(8, rig, "reversing toward the launch well");}
+            case 7 -> {if (++settled >= 15) next(14, rig, "descending below the natural mineral ridge");}
             case 8 -> {if (box.maxX() < -478) next(9, rig, "back in the flooded well; ascending");}
             case 9 -> {if (box.minY() > 202.2) next(10, rig, "above the return sill; holding depth");}
             case 10 -> {if (leftTrim == 0 && rightTrim == 0 && ++settled >= 15) next(11, rig, "reversing into the dock");}
@@ -158,9 +201,28 @@ public final class WirelessDock {
                 for (var pos : BlockPos.betweenClosed(at(-2, -1, -1), at(6, 7, 7)))
                     if (level.getFluidState(pos).is(FluidTags.LAVA)) return false;
                 if (!shutter.consumedFuel() || !gate.consumedFuel()) throw new IllegalStateException("Wireless dock did not consume coal");
-                LogUtils.getLogger().info("Native client dock voyage complete: ticks={}, coolant={}, position={}", level.getGameTime() - started,
-                        rig.cabin().getCoolant(), rig.world(ProbeTestRig.CABIN));
+                if (samples < 1 || !discovered) throw new IllegalStateException("Dock expedition returned without a discovered natural sample");
+                LogUtils.getLogger().info("Native client dock expedition complete: ticks={}, coolant={}, samples={}, position={}", level.getGameTime() - started,
+                        rig.cabin().getCoolant(), samples, rig.world(ProbeTestRig.CABIN));
                 return true;
+            }
+            case 14 -> {if (rig.world(ProbeTestRig.SAMPLER).y <= transitDepth() + .25) next(15, rig, "holding transit depth");}
+            case 15 -> {if (leftTrim == 0 && rightTrim == 0 && ++settled >= 15) next(16, rig, "passing below the mineral ridge");}
+            case 16 -> {if (rig.world(ProbeTestRig.SAMPLER).x >= deposit.getX() + 4.25) next(17, rig, "coasting at the sampling approach");}
+            case 17 -> {
+                if (++settled < 20) break;
+                double distance = rig.world(ProbeTestRig.SAMPLER).x - deposit.getX();
+                if (distance < 4.5 || distance >= 4.98) throw new IllegalStateException("Natural sampling approach stopped outside its clearance: " + distance);
+                next(18, rig, "ascending to the discovered mineral");
+            }
+            case 18 -> {if (rig.world(ProbeTestRig.SAMPLER).y >= deposit.getY() + .2) next(19, rig, "holding the natural sampling face");}
+            case 19 -> {
+                if (cargo(rig) > 0 && !level.getBlockState(deposit).is(AeronauticsInnerworld.HARMONIC_ORE.get()) && discovered)
+                    next(20, rig, "natural sample aboard; descending for the return");
+            }
+            case 20 -> {if (rig.world(ProbeTestRig.SAMPLER).y <= transitDepth() + .25) next(21, rig, "holding return depth");}
+            case 21 -> {
+                if (leftTrim == 0 && rightTrim == 0 && ++settled >= 15) {samples = cargo(rig);next(8, rig, "returning below the mineral ridge toward the well");}
             }
             default -> throw new IllegalStateException("Unknown dock voyage phase " + phase);
         }
@@ -173,14 +235,15 @@ public final class WirelessDock {
                 rig.world(ProbeTestRig.CABIN), RigidBodyHandle.of(rig.subLevel).getLinearVelocity());
     }
 
-    public boolean sailing() {return phase >= 2 && phase <= 12;}
+    public boolean sailing() {return phase >= 2 && phase <= 12 || phase >= 14;}
     public boolean readyToClose() {return phase == 12 && canClose;}
-    public int requestedThrust() {return phase == 4 || phase == 6 ? 1 : phase == 8 || phase == 11 ? -1 : 0;}
-    public int requestedTrim() {return phase == 2 || phase == 9 ? 1 : phase == 5 ? -1 : 0;}
+    public int requestedThrust() {return phase == 4 || phase == 6 || phase == 16 ? 1 : phase == 8 || phase == 11 ? -1 : 0;}
+    public int requestedTrim() {return phase == 2 || phase == 9 || phase == 18 ? 1 : phase == 5 || phase == 14 || phase == 20 ? -1 : 0;}
     public int trimMode(int x) {return x == 1 ? leftTrim : rightTrim;}
 
     public void cleanUp() {
         gate.cleanUp();shutter.cleanUp();
+        minerals.forEach(level::setBlockAndUpdate);
         original.forEach(level::setBlockAndUpdate);
     }
 }

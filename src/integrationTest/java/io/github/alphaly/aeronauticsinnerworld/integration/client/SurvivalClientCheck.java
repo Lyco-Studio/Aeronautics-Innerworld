@@ -86,7 +86,7 @@ public final class SurvivalClientCheck {
         if (!capturedOptions) {oldPause = client.options.pauseOnLostFocus;capturedOptions = true;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > (constructing() || docking() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
+            if (++ticks > (docking() ? 15000 : constructing() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
                 throw new IllegalStateException("Survival client check timed out");
             }
             if (cleanup != null) {
@@ -98,8 +98,8 @@ public final class SurvivalClientCheck {
                     if (failure != null) {
                         throw failure;
                     }
-                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), docking() ? constructing() ? "build-dock-voyage-verified" : "dock-voyage-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
-                    LogUtils.getLogger().info(docking() ? "Native dock voyage passed: occupied assembly, wireless gates, natural lava sea and return"
+                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), docking() ? constructing() ? "build-dock-expedition-verified" : "dock-expedition-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
+                    LogUtils.getLogger().info(docking() ? "Native dock expedition passed: natural sampling, cargo return, native processing and same-boat coolant upgrade"
                             : constructing() ? "Native survival probe build passed: block placement, fuel, glue and occupied assembly"
                             : steering() ? "Survival steering check passed: fueled quarter-turn, countersteer and native propulsion stop"
                             : "Survival client check passed: bilingual guide, fueled probe and mechanical controls over the client connection");
@@ -125,32 +125,35 @@ public final class SurvivalClientCheck {
             if (scene.construction != null && !scene.construction.complete) scene.construction.tickClient(client);
             else if (scene.rig.subLevel == null) assemble(client);
             if (docking()) {
-                if (scene.ticks >= 40 && !controllerActive && client.player.getMainHandItem().is(com.simibubi.create.AllItems.LINKED_CONTROLLER.get())) {
-                    remoteSlot = client.player.getInventory().selected;
-                    client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);controllerActive = true;
-                    LogUtils.getLogger().info("Wireless dock controller active; sending native button input over the client connection");
-                }
-                if (controllerActive) {
-                    if (!remoteOpened && ++remoteFrames == 10) {
-                        remoteButton(true);remoteOpened = true;remoteFrames = 0;
-                    } else if (remoteOpened && !remoteClosed) {
-                        if (++remoteFrames == 10) remoteButton(false);
-                        if (scene.dock.sailing() && !pilotingDock) {
-                            client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
-                            int empty = -1;
-                            for (int slot = 0; slot < 9; slot++) if (client.player.getInventory().getItem(slot).isEmpty()) {empty = slot;break;}
-                            if (empty < 0) throw new IllegalStateException("Dock pilot has no empty hotbar slot");
-                            client.player.getInventory().selected = empty;pilotingDock = true;
-                        }
-                        if (pilotingDock && ticks % 6 == 0) driveDock(client);
-                        if (scene.dock.readyToClose()) {
-                            client.player.getInventory().selected = remoteSlot;
-                            client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
-                            Screenshot.grab(client.gameDirectory, "mantle-wireless-dock.png", client.getMainRenderTarget(),
-                                    message -> LogUtils.getLogger().info("Wireless dock screenshot: {}", message.getString()));
-                            remoteButton(true);remoteClosed = true;remoteFrames = 0;
-                        }
-                    } else if (remoteClosed && ++remoteFrames == 10) remoteButton(false);
+                if (scene.processing != null) scene.processing.tickClient(client);
+                else {
+                    if (scene.ticks >= 40 && !controllerActive && client.player.getMainHandItem().is(com.simibubi.create.AllItems.LINKED_CONTROLLER.get())) {
+                        remoteSlot = client.player.getInventory().selected;
+                        client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);controllerActive = true;
+                        LogUtils.getLogger().info("Wireless dock controller active; sending native button input over the client connection");
+                    }
+                    if (controllerActive) {
+                        if (!remoteOpened && ++remoteFrames == 10) {
+                            remoteButton(true);remoteOpened = true;remoteFrames = 0;
+                        } else if (remoteOpened && !remoteClosed) {
+                            if (++remoteFrames == 10) remoteButton(false);
+                            if (scene.dock.sailing() && !pilotingDock) {
+                                client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+                                int empty = -1;
+                                for (int slot = 0; slot < 9; slot++) if (client.player.getInventory().getItem(slot).isEmpty()) {empty = slot;break;}
+                                if (empty < 0) throw new IllegalStateException("Dock pilot has no empty hotbar slot");
+                                client.player.getInventory().selected = empty;pilotingDock = true;
+                            }
+                            if (pilotingDock && ticks % 6 == 0) driveDock(client);
+                            if (scene.dock.readyToClose()) {
+                                client.player.getInventory().selected = remoteSlot;
+                                client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+                                Screenshot.grab(client.gameDirectory, "mantle-wireless-dock.png", client.getMainRenderTarget(),
+                                        message -> LogUtils.getLogger().info("Wireless dock screenshot: {}", message.getString()));
+                                remoteButton(true);remoteClosed = true;remoteFrames = 0;
+                            }
+                        } else if (remoteClosed && ++remoteFrames == 10) remoteButton(false);
+                    }
                 }
                 if (step == null) step = client.getSingleplayerServer().submit(scene::tick);
                 else if (step.isDone()) {
@@ -345,6 +348,7 @@ public final class SurvivalClientCheck {
         private final ProbeTestRig rig;
         private final ProbeConstruction construction;
         private final WirelessDock dock;
+        private volatile DockReturnProcessing processing;
         private final BlockPos assembler;
         private final java.util.Set<java.util.UUID> previousStructures = new java.util.HashSet<>();
         private int ticks;
@@ -407,11 +411,13 @@ public final class SurvivalClientCheck {
             }
             ++ticks;
             if (dock != null) {
+                if (processing != null) return processing.advance();
                 if (ticks == 40) {
                     if (construction != null) construction.removeSupports();
-                    rig.cabin().addCoolant(240);player.setItemInHand(InteractionHand.MAIN_HAND, dock.controller());player.containerMenu.broadcastChanges();
+                    rig.cabin().addCoolant(360);player.setItemInHand(InteractionHand.MAIN_HAND, dock.controller());player.containerMenu.broadcastChanges();
                 }
-                return ticks > 40 && dock.advance(player, rig);
+                if (ticks > 40 && dock.advance(player, rig)) processing = new DockReturnProcessing(player, rig, dock.samples());
+                return false;
             }
             if (constructing() && ticks == 41) return true;
             if (ticks == 40) {
@@ -539,6 +545,7 @@ public final class SurvivalClientCheck {
         }
 
         private void cleanUp() {
+            if (processing != null) processing.cleanUp();
             rig.cleanUp();
             if (construction != null) construction.cleanUp();
             if (dock != null) dock.cleanUp();

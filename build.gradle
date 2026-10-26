@@ -434,7 +434,7 @@ tasks.named('runRelayTestClient') {
 tasks.named('runSurvivalTestClient') {
     def result = layout.projectDirectory.file('run/client/survival-check.result')
     def expected = providers.gradleProperty('survivalDock').getOrElse('false') == 'true'
-            ? (providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-dock-voyage-verified' : 'dock-voyage-verified')
+            ? (providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-dock-expedition-verified' : 'dock-expedition-verified')
             : providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-verified'
             : providers.gradleProperty('survivalSteering').getOrElse('false') == 'true' ? 'steering-verified' : 'verified'
     doFirst {
