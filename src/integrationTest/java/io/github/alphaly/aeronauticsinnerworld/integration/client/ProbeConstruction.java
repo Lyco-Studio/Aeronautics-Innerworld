@@ -66,7 +66,7 @@ final class ProbeConstruction {
 
     ProbeConstruction(ServerPlayer player, ServerLevel level, BlockPos origin) {
         this.player = player;this.level = level;this.origin = origin;
-        bounds = new BoundingBox(origin.getX() - 3, origin.getY() - 1, origin.getZ() - 3,
+        bounds = new BoundingBox(origin.getX() - 3, origin.getY() - 2, origin.getZ() - 3,
                 origin.getX() + 5, origin.getY() + 4, origin.getZ() + 9);
         level.getEntitiesOfClass(SuperGlueEntity.class, SuperGlueEntity.span(origin.offset(-4, -3, -4), origin.offset(6, 7, 10)))
                 .forEach(entity -> previousGlue.add(entity.getUUID()));
@@ -80,6 +80,8 @@ final class ProbeConstruction {
                     || relative.getY() <= -2 || relative.getY() == 7;
             level.setBlockAndUpdate(pos, boundary ? Blocks.DEEPSLATE.defaultBlockState() : Blocks.AIR.defaultBlockState());
         }
+        for (var pos : BlockPos.betweenClosed(origin.offset(1, -2, -1), origin.offset(3, -2, 7)))
+            level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
         for (int z = -2; z <= 7; z++) for (int x = -1; x <= 5; x++)
             if (x == -1 || x == 5 || z == -2 || z == 7) scaffold(x, 1, z);
         level.setBlockAndUpdate(origin.offset(-1, 1, 2), Blocks.AIR.defaultBlockState());scaffold(-1, 0, 2);
@@ -178,12 +180,6 @@ final class ProbeConstruction {
                 if (next != null) {select(next);return;}
             }
         }
-        for (var pos : plan.keySet()) {
-            if (fuelled.contains(pos) || !(level.getBlockEntity(pos) instanceof PortableEngineBlockEntity)
-                    || !matches(level.getBlockState(pos), plan.get(pos))) continue;
-            var next = interaction(Kind.FUEL, pos, Items.COAL, ordered);
-            if (next != null) {select(next);return;}
-        }
         var remaining = plan.keySet().stream().filter(pos -> !matches(level.getBlockState(pos), plan.get(pos)))
                 .sorted(Comparator.comparingInt((BlockPos pos) -> pos.getY()).thenComparingInt(pos -> pos.getZ()).thenComparingInt(pos -> pos.getX())).toList();
         for (var pos : remaining) {
@@ -199,8 +195,10 @@ final class ProbeConstruction {
             if (next == null) throw new IllegalStateException("Constructed throttle lever is inaccessible");select(next);return;
         }
         for (var pos : plan.keySet()) {
-            if (level.getBlockEntity(pos) instanceof PortableEngineBlockEntity && !fuelled.contains(pos))
-                throw new IllegalStateException("Constructed engine is inaccessible: " + pos.subtract(origin));
+            if (!(level.getBlockEntity(pos) instanceof PortableEngineBlockEntity) || fuelled.contains(pos)) continue;
+            var next = interaction(Kind.FUEL, pos, Items.COAL, ordered);
+            if (next == null) throw new IllegalStateException("Constructed engine is inaccessible: " + pos.subtract(origin));
+            select(next);return;
         }
         if (glueCorner < 4) {
             var corner = origin.offset(switch (glueCorner) {case 0 -> new BlockPos(0, -1, 0);case 1 -> new BlockPos(4, 3, 6);
