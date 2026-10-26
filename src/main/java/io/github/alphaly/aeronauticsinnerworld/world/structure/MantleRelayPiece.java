@@ -36,6 +36,10 @@ public final class MantleRelayPiece extends StructurePiece {
         super(InnerworldStructures.RELAY_PIECE.get(), tag);
     }
 
+    public BlockPos getEntrance() {
+        return getWorldPos(8, 1, 8).immutable();
+    }
+
     @Override
     protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag tag) {
     }

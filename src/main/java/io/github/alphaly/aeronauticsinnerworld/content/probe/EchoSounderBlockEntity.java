@@ -10,6 +10,8 @@ import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayStructure;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.DeepWorksStructure;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.DeepWorksPiece;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayPiece;
 import io.github.alphaly.aeronauticsinnerworld.content.combat.LavaStalker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -224,7 +226,9 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
                     for (var start : chunk.getAllStarts().values()) {
                         if (start.isValid() && (start.getStructure() instanceof MantleRelayStructure
                                 || start.getStructure() instanceof DeepWorksStructure)) {
-                            var pos = start.getBoundingBox().getCenter();
+                            var piece = start.getPieces().getFirst();
+                            var pos = piece instanceof MantleRelayPiece station ? station.getEntrance()
+                                    : piece instanceof DeepWorksPiece works ? works.getEntrance() : start.getBoundingBox().getCenter();
                             double distance = pos.distToCenterSqr(origin);
                             if (distance <= relayDistance) {
                                 relay = pos;

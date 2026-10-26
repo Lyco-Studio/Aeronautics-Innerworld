@@ -13,6 +13,7 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEnt
 import io.github.alphaly.aeronauticsinnerworld.world.Core;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructures;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.DeepWorksPiece;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -77,12 +78,17 @@ public final class DeepProgressionChecks {
         var copy = InnerworldStructures.DEEP_WORKS_PIECE.get().load(context, piece.createTag(context));
         helper.assertTrue(copy.getBoundingBox().equals(box) && copy.getOrientation() == piece.getOrientation(),
                 "Saved works lost their layout");
+        var entrance = ((DeepWorksPiece) piece).getEntrance();
+        helper.assertTrue(((DeepWorksPiece) copy).getEntrance().equals(entrance)
+                        && level.getFluidState(entrance).is(net.minecraft.tags.FluidTags.LAVA)
+                        && level.getBlockState(entrance.below()).is(Blocks.POLISHED_BASALT),
+                "Deep works entrance does not match its submerged steps after reload");
         var sounderPos = box.getCenter().above(2);
         level.setBlockAndUpdate(sounderPos, AeronauticsInnerworld.ECHO_SOUNDER.get().defaultBlockState());
         var sounder = (EchoSounderBlockEntity) level.getBlockEntity(sounderPos);
         int loaded = chunks.getLoadedChunksCount();
         sounder.scan();
-        helper.assertTrue(sounder.getRelay() != null && chunks.getLoadedChunksCount() == loaded,
+        helper.assertTrue(entrance.equals(sounder.getRelay()) && chunks.getLoadedChunksCount() == loaded,
                 "Deep works scan missed the site or loaded new chunks");
         helper.onEachTick(level::resetEmptyTime);
         helper.startSequence().thenExecuteAfter(60, () -> {

@@ -319,6 +319,29 @@ neoForge.runs.create('relayTestClient') {
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
+neoForge.runs.create('relayEntryTestClient') {
+    client()
+    sourceSet = sourceSets.integrationTest
+    gameDirectory = project.file('run/client')
+    loadedMods.add(integrationMod)
+    systemProperty 'innerworld.relayEntryClientCheck', 'true'
+    programArgument '--quickPlaySingleplayer'
+    programArgument clientCheckWorld
+}
+tasks.named('runRelayEntryTestClient') {
+    def result = layout.projectDirectory.file('run/client/relay-entry-check.result')
+    doFirst {
+        if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
+            throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
+        }
+        result.asFile.delete()
+    }
+    doLast {
+        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+            throw new GradleException('Relay intake check failed; inspect the client diagnostics.')
+        }
+    }
+}
 tasks.named('runRelayTestClient') {
     def result = layout.projectDirectory.file('run/client/relay-check.result')
     doFirst {

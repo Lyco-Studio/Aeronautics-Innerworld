@@ -4,6 +4,8 @@ import com.mojang.logging.LogUtils;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.DeepWorksPiece;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayPiece;
 import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
@@ -240,7 +242,9 @@ public final class RelayClientCheck {
                 level.setBlockAndUpdate(dry, AeronauticsInnerworld.ECHO_SOUNDER.get().defaultBlockState());
                 var sounder = (EchoSounderBlockEntity) level.getBlockEntity(dry);
                 sounder.scan();
-                if (!box.getCenter().equals(sounder.getRelay())) {
+                var entrance = DEEP ? ((DeepWorksPiece) start.getPieces().getFirst()).getEntrance()
+                        : ((MantleRelayPiece) start.getPieces().getFirst()).getEntrance();
+                if (!entrance.equals(sounder.getRelay())) {
                     throw new IllegalStateException("Sounder missed the naturally generated relay");
                 }
             } finally {

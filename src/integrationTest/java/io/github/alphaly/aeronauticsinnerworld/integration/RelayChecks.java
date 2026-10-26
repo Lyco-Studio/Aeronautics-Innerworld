@@ -4,6 +4,7 @@ import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructures;
+import io.github.alphaly.aeronauticsinnerworld.world.structure.MantleRelayPiece;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
@@ -71,12 +72,17 @@ public final class RelayChecks {
         var restored = InnerworldStructures.RELAY_PIECE.get().load(context, original.createTag(context));
         helper.assertTrue(restored.getBoundingBox().equals(original.getBoundingBox())
                 && restored.getOrientation() == original.getOrientation(), "Relay piece did not retain its saved layout");
+        var entrance = ((MantleRelayPiece) original).getEntrance();
+        helper.assertTrue(((MantleRelayPiece) restored).getEntrance().equals(entrance)
+                        && level.getFluidState(entrance).is(FluidTags.LAVA)
+                        && level.getBlockState(entrance.below()).is(Blocks.POLISHED_BASALT),
+                "Relay entrance does not match its submerged steps after reload");
         var sounderPos = box.getCenter().above(2);
         level.setBlockAndUpdate(sounderPos, AeronauticsInnerworld.ECHO_SOUNDER.get().defaultBlockState());
         var sounder = (EchoSounderBlockEntity) level.getBlockEntity(sounderPos);
         int loaded = chunks.getLoadedChunksCount();
         sounder.scan();
-        helper.assertTrue(sounder.getRelay() != null, "Sounder missed the nearby native structure start");
+        helper.assertTrue(entrance.equals(sounder.getRelay()), "Sounder did not identify the relay intake");
         helper.assertTrue(chunks.getLoadedChunksCount() == loaded, "Sounder generated or loaded chunks during a scan");
         var crafting = CraftingInput.of(3, 1, java.util.List.of(new ItemStack(AeronauticsInnerworld.RELIC_ALLOY.get()),
                 new ItemStack(com.simibubi.create.AllItems.IRON_SHEET.get()), new ItemStack(Items.REDSTONE)));

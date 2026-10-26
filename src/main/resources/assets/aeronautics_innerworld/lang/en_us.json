@@ -128,7 +128,7 @@
   "block.aeronautics_innerworld.relay_beacon": "Relay Beacon",
   "item.aeronautics_innerworld.relay_log": "Relay Survey Record",
   "structure.aeronautics_innerworld.mantle_relay": "Mantle Survey Relay",
-  "message.aeronautics_innerworld.sonar_relay": "%s: %s, %s, %s · %s m %s · lower intake",
+  "message.aeronautics_innerworld.sonar_relay": "%s intake: %s, %s, %s · %s m %s",
   "message.aeronautics_innerworld.sonar_no_relay": "No relay echo nearby; continue surveying.",
   "book.aeronautics_innerworld.relay.1": "Relay log\n\nThe lower intake remains open. Reach the raised gallery before leaving protective equipment. The inner bulkhead leads to the archive. Emergency coolant and alloy stock are kept behind it.",
   "book.aeronautics_innerworld.relay.2": "Final transmission\n\nThe heat-regulation network has stopped answering. Core Wardens sealed the deeper shafts. Recover survey records from the relay chain. A working regulator may still open a route below.",

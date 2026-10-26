@@ -37,6 +37,10 @@ public final class DeepWorksPiece extends StructurePiece {
         super(InnerworldStructures.DEEP_WORKS_PIECE.get(), tag);
     }
 
+    public BlockPos getEntrance() {
+        return getWorldPos(9, 1, 6).immutable();
+    }
+
     @Override
     protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag tag) {
     }

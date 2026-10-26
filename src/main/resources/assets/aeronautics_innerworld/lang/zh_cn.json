@@ -128,7 +128,7 @@
   "block.aeronautics_innerworld.relay_beacon": "中继信标",
   "item.aeronautics_innerworld.relay_log": "中继观测记录",
   "structure.aeronautics_innerworld.mantle_relay": "地幔观测中继站",
-  "message.aeronautics_innerworld.sonar_relay": "%s：%s，%s，%s · %s 米 %s · 下方潜入口",
+  "message.aeronautics_innerworld.sonar_relay": "%s 潜入口：%s，%s，%s · %s 米 %s",
   "message.aeronautics_innerworld.sonar_no_relay": "附近未发现中继站回波，可继续勘探。",
   "book.aeronautics_innerworld.relay.1": "中继站务记录\n\n下方潜入口保持开放。登上高处干燥廊道后再解除防护。内部隔门通向档案室，后方留有应急冷却和合金储备。返航前核对原泊位与补给余量。",
   "book.aeronautics_innerworld.relay.2": "最后一次传输\n\n取热调节网络已停止回应。守核装置封锁了深层钻井。请沿中继链回收观测记录，查明隔离命令的来源。若能恢复调节回路，深处仍可能存在通路。",
