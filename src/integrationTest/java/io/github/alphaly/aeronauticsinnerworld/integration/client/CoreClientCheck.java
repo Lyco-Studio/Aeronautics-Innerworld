@@ -27,7 +27,6 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -73,24 +72,27 @@ public final class CoreClientCheck {
             }
             if (!setup.isDone()) return;
             scene = setup.join();
+            if (FULL_COMBAT && scene.stage == 0) {
+                scene.expedition.tickClient(client);
+                if (action != null) {if (!action.isDone()) return;action.join();action = null;}
+                action = server.submit(scene::advance);return;
+            }
             if (!client.level.dimension().equals(Core.LEVEL) && scene.stage < 7) return;
             if (observedStage != scene.stage) {
                 releaseControls(client);
                 observedStage = scene.stage;frames = 0;clicked = false;
             }
             frames++;
-            if (observedStage == 10) fight(client);
-            if (observedStage >= 11 && observedStage <= 15) scene.walk.tickClient(client);
             if (!checkedBooks && frames > 15) {
                 BookLayoutChecks.check(client, scene.manual);BookLayoutChecks.check(client, scene.record);checkedBooks = true;
             }
             if (observedStage == 0 && !clicked && client.player.getMainHandItem().is(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
                 client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);clicked = true;
             }
-            if ((observedStage == 1 || observedStage == 10) && frames == 20) {
+            if (observedStage == 1 && frames == 20) {
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.CORE_CONSOLE.get().defaultBlockState()) == client.getModelManager().getMissingModel())
                     throw new IllegalStateException("Core console model is missing");
-                Screenshot.grab(client.gameDirectory, FULL_COMBAT ? "core-warden-survival-duel.png" : "core-warden-arena.png", client.getMainRenderTarget(),
+                Screenshot.grab(client.gameDirectory, "core-warden-arena.png", client.getMainRenderTarget(),
                         text -> LogUtils.getLogger().info("Core arena screenshot: {}", text.getString()));
             }
             if (observedStage == 4 && !clicked && frames > 8 && client.player.getMainHandItem().isEmpty()) {
@@ -105,7 +107,9 @@ public final class CoreClientCheck {
                     }
                 }
             }
-            if ((observedStage == 7 && frames > 10 || observedStage == 8 && frames > 50) && !clicked && client.player.getMainHandItem().isEmpty()) {
+            if ((observedStage == 7 && frames > 10 || observedStage == 8 && frames > 50) && !clicked) {
+                DeepDrillConnection.empty(client);
+                if (!client.player.getMainHandItem().isEmpty()) return;
                 var pos = observedStage == 7 ? scene.transit.coreStation : scene.transit.mantleStation;
                 client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                         new BlockHitResult(Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false));clicked = true;
@@ -124,55 +128,8 @@ public final class CoreClientCheck {
         }
     }
 
-    private static void fight(Minecraft client) {
-        CoreWarden target = null;
-        for (var entity : client.level.entitiesForRendering()) {
-            if (entity instanceof CoreWarden warden && warden.getUUID().equals(scene.warden.getUUID())) { target = warden; break; }
-        }
-        if (target == null || !target.isAlive()) {releaseControls(client);return;}
-        var zone = target.getHeatZone();
-        if (zone != null && client.player.position().subtract(Vec3.atBottomCenterOf(zone)).horizontalDistanceSqr() < 3.5 * 3.5) {
-            var away = client.player.position().subtract(Vec3.atBottomCenterOf(zone)).multiply(1, 0, 1);
-            if (away.lengthSqr() < .1) away = new Vec3(1, 0, 0);
-            away = away.normalize();
-            for (int turn = 0; turn < 4; turn++) {
-                if (client.level.noCollision(client.player, client.player.getBoundingBox().move(away.scale(1.5)))) break;
-                away = new Vec3(-away.z, 0, away.x);
-            }
-            client.player.setYRot((float)Math.toDegrees(Math.atan2(-away.x, away.z)));client.player.setXRot(0);
-            client.options.keyUp.setDown(true);client.options.keyDown.setDown(false);client.options.keyUse.setDown(false);
-            if (client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
-            return;
-        }
-        var offset = target.position().add(0, 1.5, 0).subtract(client.player.getEyePosition());
-        client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
-        client.player.setXRot((float)-Math.toDegrees(Math.atan2(offset.y, Math.sqrt(offset.x * offset.x + offset.z * offset.z))));
-        double distance = client.player.position().distanceTo(target.position());
-        boolean eat = client.player.getFoodData().getFoodLevel() <= 16;
-        client.options.keyUp.setDown(!eat && distance > 2.2);
-        client.options.keyDown.setDown(eat && distance < 9);
-        int selected = eat ? 1 : 0;
-        if (client.player.getInventory().selected != selected && client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
-        client.player.getInventory().selected = selected;
-        if (eat) {
-            client.options.keyUse.setDown(true);
-            if (!client.player.isUsingItem()) client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
-        } else if (target.getAttackType() != 0) {
-            client.options.keyUse.setDown(true);
-            if (!client.player.isUsingItem()) client.gameMode.useItem(client.player, InteractionHand.OFF_HAND);
-        } else {
-            client.options.keyUse.setDown(false);
-            if (client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
-            if (distance < 3.2 && client.player.getAttackStrengthScale(0) > .95f) {
-                client.gameMode.attack(client.player, target);client.player.swing(InteractionHand.MAIN_HAND);
-            }
-        }
-    }
-
     private static void releaseControls(Minecraft client) {
-        if (!FULL_COMBAT) return;
-        client.options.keyUp.setDown(false);client.options.keyDown.setDown(false);client.options.keyUse.setDown(false);
-        if (client.player != null && client.gameMode != null && client.player.isUsingItem()) client.gameMode.releaseUsingItem(client.player);
+        if (FULL_COMBAT) CoreMazeExpedition.release(client);
     }
 
     private static final class Scene {
@@ -196,17 +153,13 @@ public final class CoreClientCheck {
         private final BlockPos valve;
         private final BlockPos arena;
         private final BlockPos entrance;
-        private final BoundingBox bounds;
         private final net.minecraft.core.Direction outward;
-        private volatile CoreMazeWalk walk;
+        private CoreMazeExpedition expedition;
         private CoreTransitFixture transit;
         private CoreWarden warden;
         private volatile int stage;
         private long since;
         private float safeHealth;
-        private float minimumHealth = 20;
-        private float lastBossHealth = 240;
-        private boolean sawHeatWarning;
 
         private Scene(ServerPlayer player) {
             this.player = player;oldLevel = player.serverLevel();oldPosition = player.position();oldYaw = player.getYRot();oldPitch = player.getXRot();
@@ -226,7 +179,7 @@ public final class CoreClientCheck {
             var structure = level.registryAccess().registryOrThrow(Registries.STRUCTURE).get(id("core_maze"));
             var start = level.getChunkAt(located).getStartForStructure(structure);
             if (start == null || !start.isValid()) throw new IllegalStateException("Natural core maze has no structure start");
-            var box = start.getBoundingBox();bounds = box;
+            var box = start.getBoundingBox();
             for (int x = box.minX() >> 4; x <= box.maxX() >> 4; x++) for (int z = box.minZ() >> 4; z <= box.maxZ() >> 4; z++) level.getChunk(x, z);
             CoreConsoleBlockEntity found = null;ItemStack book = ItemStack.EMPTY;
             for (var pos : BlockPos.betweenClosed(box.minX(), box.minY() + 1, box.minZ(), box.maxX(), box.minY() + 1, box.maxZ())) {
@@ -256,59 +209,23 @@ public final class CoreClientCheck {
                 player.getInventory().setItem(1, new ItemStack(Items.COOKED_BEEF, 16));
                 player.getInventory().selected = 0;
             }
-            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.CORE_SURVEYOR.get()));
+            if (FULL_COMBAT) {
+                player.getInventory().setItem(0, new ItemStack(Items.DIAMOND_SWORD));
+                player.getInventory().setItem(3, new ItemStack(AeronauticsInnerworld.CORE_SURVEYOR.get()));
+            } else player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.CORE_SURVEYOR.get()));
             player.teleportTo(level, entrance.getX() + .5, entrance.getY(), entrance.getZ() + .5, 0, 0);player.containerMenu.broadcastChanges();
+            if (FULL_COMBAT) expedition = new CoreMazeExpedition(player, entrance);
             since = level.getGameTime();
         }
 
         private void advance() {
             level.resetEmptyTime();
-            if (level.getGameTime() - since > (stage >= 10 ? 6000 : 240)) throw new IllegalStateException("Core scene stalled at stage " + stage + ", player=" + player.position());
-            if (stage >= 11 && stage <= 15) {
-                minimumHealth = Math.min(minimumHealth, player.getHealth());
-                if (player.getHealth() <= 8) throw new IllegalStateException("Maze walkthrough needs recovery at " + player.position());
-                walk.advance(player.position());
-                if (stage <= 13) {
-                    var node = BlockPos.of(originalConsole.getLongArray("Nodes")[stage - 11]);
-                    if (level.getBlockState(node).getValue(LeverBlock.POWERED)) {
-                        LogUtils.getLogger().info("Walked to and restored core node {} at {}, health {}", stage - 10, node, player.getHealth());
-                        if (stage == 13) walkTo(console.getBlockPos(), 14);
-                        else walkTo(BlockPos.of(originalConsole.getLongArray("Nodes")[stage - 10]), stage + 1);
-                    }
-                } else if (stage == 14 && console.getBossId() != null && level.getEntity(console.getBossId()) instanceof CoreWarden active) {
-                    warden = active;
-                    if (warden.getHealth() != warden.getMaxHealth() || warden.isNoAi()) throw new IllegalStateException("Walkthrough requires a fresh active Warden");
-                    walkTo(valve, 15);
-                } else if (stage == 15 && warden.isCoreExposed()) {
-                    player.getInventory().selected = 0;player.containerMenu.broadcastChanges();next(10);
-                }
-                return;
-            }
-            if (stage == 10) {
-                sawHeatWarning |= warden.getHeatZone() != null;
-                minimumHealth = Math.min(minimumHealth, player.getHealth());
-                if (player.getHealth() <= 8) throw new IllegalStateException("Survival duel needs recovery: player=" + player.getHealth() + ", Warden=" + warden.getHealth());
-                if ((int)warden.getHealth() / 20 != (int)lastBossHealth / 20) {
-                    LogUtils.getLogger().info("Survival Warden duel: boss health {}, player health {}, elapsed {} ticks",
-                            warden.getHealth(), player.getHealth(), level.getGameTime() - since);
-                    lastBossHealth = warden.getHealth();
-                }
-                if (!warden.isAlive() && console.getBossId() == null && console.hasVictory()) {
-                    if (!sawHeatWarning) throw new IllegalStateException("Full Warden combat did not reach a heat-zone warning");
-                    var advancement = player.server.getAdvancements().get(id("exploration/core_victory"));
-                    if (!player.getAdvancements().getOrStartProgress(advancement).isDone()) throw new IllegalStateException("Survival victory was not recorded");
-                    LogUtils.getLogger().info("Full-health Warden survival victory: {} ticks, minimum health {}, sword wear {}, shield wear {}",
-                            level.getGameTime() - since, minimumHealth, player.getInventory().getItem(0).getDamageValue(),
-                            player.getOffhandItem().getDamageValue());
-                    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();next(6);
-                }
+            if (level.getGameTime() - since > (FULL_COMBAT && stage == 0 ? 12000 : 240)) throw new IllegalStateException("Core scene stalled at stage " + stage + ", player=" + player.position());
+            if (FULL_COMBAT && stage == 0) {
+                if (expedition.advance()) {player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();next(6);}
                 return;
             }
             if (stage == 0 && player.getCooldowns().isOnCooldown(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
-                if (FULL_COMBAT) {
-                    player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));player.containerMenu.broadcastChanges();
-                    walkTo(BlockPos.of(originalConsole.getLongArray("Nodes")[0]), 11);return;
-                }
                 for (long packed : originalConsole.getLongArray("Nodes")) {
                     var pos = BlockPos.of(packed);level.setBlockAndUpdate(pos, level.getBlockState(pos).setValue(LeverBlock.POWERED, true));
                 }
@@ -351,11 +268,8 @@ public final class CoreClientCheck {
 
         private void next(int stage) {this.stage = stage;since = level.getGameTime();}
 
-        private void walkTo(BlockPos control, int stage) {
-            walk = new CoreMazeWalk(level, bounds, player.blockPosition(), control);next(stage);
-        }
-
         private void cleanUp() {
+            if (expedition != null) expedition.cleanUp();
             if (transit != null) transit.cleanUp();
             if (warden != null) warden.discard();
             blocks.forEach(level::setBlockAndUpdate);

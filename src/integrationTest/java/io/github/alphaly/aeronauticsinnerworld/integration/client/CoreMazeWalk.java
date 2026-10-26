@@ -16,7 +16,7 @@ final class CoreMazeWalk {
     private final ArrayDeque<BlockPos> steps = new ArrayDeque<>();
     private final BlockPos control;
     private final boolean interact;
-    private final boolean precise;
+    private final boolean stepsAllowed;
     private volatile BlockPos target;
     private boolean used;
 
@@ -30,7 +30,7 @@ final class CoreMazeWalk {
 
     CoreMazeWalk(ServerLevel level, BoundingBox bounds, BlockPos from, BlockPos control, boolean interact, boolean stepsAllowed) {
         this.control = control;this.interact = interact;
-        precise = stepsAllowed;
+        this.stepsAllowed = stepsAllowed;
         var parents = new HashMap<BlockPos, BlockPos>();
         var queue = new ArrayDeque<BlockPos>();
         parents.put(from, from);queue.add(from);
@@ -53,12 +53,11 @@ final class CoreMazeWalk {
         }
         if (end == null) throw new IllegalStateException("No walking approach to core control " + control);
         while (!end.equals(from)) {steps.addFirst(end);end = parents.get(end);}
-        if (precise) steps.addFirst(from);
         target = steps.poll();
     }
 
     void advance(Vec3 position) {
-        if (target != null && position.distanceToSqr(Vec3.atBottomCenterOf(target)) < (precise ? .01 : .12)) target = steps.poll();
+        if (target != null && position.distanceToSqr(Vec3.atBottomCenterOf(target)) < .12) target = steps.poll();
     }
 
     boolean arrived() {return target == null;}
@@ -72,13 +71,21 @@ final class CoreMazeWalk {
             var offset = Vec3.atBottomCenterOf(next).subtract(client.player.position());
             client.player.setYRot((float)Math.toDegrees(Math.atan2(-offset.x, offset.z)));
             client.player.setXRot(0);
-            if (precise) client.options.keyShift.setDown(offset.horizontalDistanceSqr() < .64 && Math.abs(offset.y) < .2);
-            client.options.keyUp.setDown(offset.horizontalDistanceSqr() > (precise ? .0025 : .07));
+            if (stepsAllowed) client.options.keyShift.setDown(false);
+            client.options.keyUp.setDown(offset.horizontalDistanceSqr() > .07);
             client.options.keyJump.setDown(offset.y > .6);
             return;
         }
         client.options.keyUp.setDown(false);
         client.options.keyJump.setDown(false);
+        if (stepsAllowed) {
+            client.options.keyShift.setDown(false);
+            if (client.player.isShiftKeyDown()) {
+                client.player.setShiftKeyDown(false);
+                client.player.connection.send(new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(client.player,
+                        net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
+            }
+        }
         if (!interact || used) return;
         client.player.getInventory().selected = 2;
         var point = new Vec3(control.getX() + .5, control.getY() + .15, control.getZ() + .5);

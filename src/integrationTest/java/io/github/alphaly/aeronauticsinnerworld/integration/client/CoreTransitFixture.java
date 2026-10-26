@@ -50,6 +50,7 @@ final class CoreTransitFixture {
         pair(core, coreStation, owner, GlobalPos.of(Mantle.LEVEL, mantleStation));
         var feet = coreStation.relative(outward);
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        for (int slot = 0; slot < 9; slot++) if (player.getInventory().getItem(slot).isEmpty()) player.getInventory().setItem(slot, new ItemStack(Items.COBBLESTONE));
         player.getInventory().setItem(17, new ItemStack(Items.COPPER_INGOT, 17));player.containerMenu.broadcastChanges();
         player.setPortalCooldown(0);
         player.teleportTo(core, feet.getX() + .5, feet.getY(), feet.getZ() + .5, outward.getOpposite().toYRot(), 15);

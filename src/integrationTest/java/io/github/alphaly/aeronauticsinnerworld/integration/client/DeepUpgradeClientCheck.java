@@ -65,7 +65,8 @@ public final class DeepUpgradeClientCheck {
     private static CompletableFuture<Void> step, cleanup;
     private static Scene scene;
     private static RuntimeException failure;
-    private static boolean drilling() {return Boolean.getBoolean("innerworld.deepUpgradeDrill");}
+    static boolean story() {return Boolean.getBoolean("innerworld.deepStory");}
+    private static boolean drilling() {return Boolean.getBoolean("innerworld.deepUpgradeDrill") || story();}
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -74,13 +75,14 @@ public final class DeepUpgradeClientCheck {
         if (!captured) {captured = true;oldPause = client.options.pauseOnLostFocus;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > (drilling() ? 8400 : 4200) && cleanup == null) throw new IllegalStateException("Deep recovery timed out at stage " + stage);
+            if (++ticks > (story() ? 16800 : drilling() ? 8400 : 4200) && cleanup == null) throw new IllegalStateException("Deep recovery timed out at stage " + stage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
                 cleanup.join();finished = true;client.options.pauseOnLostFocus = oldPause;client.options.save();
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("deep-upgrade-check.result"), drilling() ? "drill-verified" : "verified");
-                LogUtils.getLogger().info("Deep upgrade passed: native wet entry, archive cargo, walking return and coupler crafting");
+                Files.writeString(client.gameDirectory.toPath().resolve("deep-upgrade-check.result"), story() ? "story-verified" : drilling() ? "drill-verified" : "verified");
+                LogUtils.getLogger().info(story() ? "Deep story passed: natural supplies, native crafting and drilling, walking maze, full Warden combat and core heart returned to the mantle"
+                        : "Deep upgrade passed: native wet entry, archive cargo, walking return and coupler crafting");
                 client.stop();return;
             }
             if (client.player == null || client.level == null || client.getSingleplayerServer() == null || ticks < 100) return;
@@ -88,21 +90,21 @@ public final class DeepUpgradeClientCheck {
             if (setup == null) {var id = client.player.getUUID();setup = server.submit(() -> new Scene(server.getPlayerList().getPlayer(id)));return;}
             if (!setup.isDone()) return;
             scene = setup.join();
-            if (stage != scene.stage) {ProbeConstruction.release(client);stage = scene.stage;frames = 0;}
+            if (stage != scene.stage) {ProbeConstruction.release(client);if (client.player.containerMenu instanceof ChestMenu) client.player.closeContainer();stage = scene.stage;frames = 0;filled = false;taken = false;}
             frames++;
             if (stage == 0) {
                 var offset = Vec3.atBottomCenterOf(scene.landing).add(0, .5, 0).subtract(client.player.position());
                 look(client, client.player.getEyePosition().add(offset));client.player.setXRot(-25);
                 client.options.keyUp.setDown(offset.horizontalDistanceSqr() > .02);client.options.keyJump.setDown(offset.y > .05);
-            } else if (stage >= 1 && stage <= 3) {
+            } else if (stage >= 1 && stage <= 3 || stage == 8) {
                 if (stage == 3 && client.player.containerMenu instanceof ChestMenu) client.player.closeContainer();
                 if (!fight(client)) scene.walk.tickClient(client);
-                if (stage == 2 && client.player.containerMenu instanceof ChestMenu menu && frames % 5 == 0) {
-                    for (int slot = 0; slot < menu.getRowCount() * 9; slot++) if (recovered(menu.getSlot(slot).getItem())) {
+                if ((stage == 2 || stage == 8) && client.player.containerMenu instanceof ChestMenu menu && frames % 5 == 0) {
+                    for (int slot = 0; slot < menu.getRowCount() * 9; slot++) if (stage == 8 ? menu.getSlot(slot).getItem().is(AeronauticsInnerworld.RELIC_ALLOY.get()) : recovered(menu.getSlot(slot).getItem())) {
                         client.gameMode.handleInventoryMouseClick(menu.containerId, slot, 0, ClickType.QUICK_MOVE, client.player);break;
                     }
                 }
-            } else if (stage == 4) craft(client);
+            } else if (stage == 4 || stage == 7) craft(client);
             else if (stage == 6) {if (!fight(client)) scene.drill.tickClient(client);}
             else if (stage == 5) {
                 ProbeConstruction.release(client);
@@ -156,11 +158,15 @@ public final class DeepUpgradeClientCheck {
             client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);return;
         }
         if (!filled) {
+            if (stage == 7) {
+                ingredient(client, menu, Items.COMPASS, 1);ingredient(client, menu, AeronauticsInnerworld.HARMONIC_CRYSTAL.get(), 2);
+                ingredient(client, menu, AeronauticsInnerworld.RELIC_ALLOY.get(), 3);filled = true;return;
+            }
             ingredient(client, menu, AeronauticsInnerworld.RELIC_ALLOY.get(), 1, 3, 7, 9);
             ingredient(client, menu, AeronauticsInnerworld.HARMONIC_CRYSTAL.get(), 2, 8);
             ingredient(client, menu, AllItems.PRECISION_MECHANISM.get(), 4, 6);
             ingredient(client, menu, AeronauticsInnerworld.PRESSURE_MATRIX.get(), 5);filled = true;
-        } else if (!taken && menu.getSlot(0).getItem().is(AeronauticsInnerworld.DEEP_BORE_COUPLER.get().asItem())) {
+        } else if (!taken && menu.getSlot(0).getItem().is(stage == 7 ? AeronauticsInnerworld.CORE_SURVEYOR.get() : AeronauticsInnerworld.DEEP_BORE_COUPLER.get().asItem())) {
             client.gameMode.handleInventoryMouseClick(menu.containerId, 0, 0, ClickType.QUICK_MOVE, client.player);taken = true;
         }
     }
@@ -185,12 +191,12 @@ public final class DeepUpgradeClientCheck {
         private final int selected, experience, experienceLevel, score;
         private final float experienceProgress;
         private final BoundingBox bounds;
-        private final BlockPos intake, landing, hatch, chest;
+        private final BlockPos intake, landing, hatch, chest, supplyChest;
         private final Map<BlockPos, BlockState> hatches = new HashMap<>();
         private final Map<BlockPos, CompoundTag> containers = new HashMap<>(), spawners = new HashMap<>();
         private final Map<AdvancementHolder, Set<String>> progress = new HashMap<>();
         private final Set<UUID> entities = new HashSet<>();
-        private final int alloy, mechanisms;
+        private final int alloy, archiveAlloy, mechanisms;
         private final long started;
         private volatile int stage;
         private volatile CoreMazeWalk walk;
@@ -212,7 +218,7 @@ public final class DeepUpgradeClientCheck {
             if (start == null || !start.isValid() || !(start.getPieces().getFirst() instanceof DeepWorksPiece piece)) throw new IllegalStateException("Deep recovery has no natural intake");
             bounds = start.getBoundingBox();intake = piece.getEntrance();
             for (int x = bounds.minX() >> 4; x <= bounds.maxX() >> 4; x++) for (int z = bounds.minZ() >> 4; z <= bounds.maxZ() >> 4; z++) level.getChunk(x, z);
-            BlockPos dry = null, supplies = null;double nearest = Double.MAX_VALUE;
+            BlockPos dry = null, supplies = null, front = null;double nearest = Double.MAX_VALUE;
             for (var pos : BlockPos.betweenClosed(bounds.minX(), bounds.minY(), bounds.minZ(), bounds.maxX(), bounds.maxY(), bounds.maxZ())) {
                 var state = level.getBlockState(pos);
                 if (pos.getY() == intake.getY() + 3 && state.isAir() && level.isEmptyBlock(pos.above())
@@ -222,16 +228,19 @@ public final class DeepUpgradeClientCheck {
                 if (level.getBlockEntity(pos) instanceof ChestBlockEntity box) {
                     containers.put(pos.immutable(), box.saveWithFullMetadata(level.registryAccess()));
                     if (count(box, AeronauticsInnerworld.PRESSURE_MATRIX.get()) > 0) supplies = pos.immutable();
+                    else if (count(box, AeronauticsInnerworld.RELIC_ALLOY.get()) > 0) front = pos.immutable();
                 }
                 if (level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) spawners.put(pos.immutable(), spawner.saveWithFullMetadata(level.registryAccess()));
             }
             if (dry == null || supplies == null || !level.getFluidState(intake).is(FluidTags.LAVA)) throw new IllegalStateException("Deep recovery has no wet intake, dry landing or matrix archive");
-            landing = dry;chest = supplies;
+            landing = dry;chest = supplies;supplyChest = front;
             hatch = hatches.keySet().stream().filter(pos -> pos.getY() == landing.getY()).min(java.util.Comparator.comparingDouble(pos -> pos.distSqr(landing))).orElseThrow();
             var cargo = (ChestBlockEntity) level.getBlockEntity(chest);
             if (level.getBlockState(chest).getMenuProvider(level, chest) == null) throw new IllegalStateException("Natural archive chest is blocked above");
-            alloy = count(cargo, AeronauticsInnerworld.RELIC_ALLOY.get());mechanisms = count(cargo, AllItems.PRECISION_MECHANISM.get());
-            if (alloy < 4 || mechanisms < 1 || count(cargo, AeronauticsInnerworld.PRESSURE_MATRIX.get()) != 2) throw new IllegalStateException("Natural archive cannot supply its upgrade materials");
+            archiveAlloy = count(cargo, AeronauticsInnerworld.RELIC_ALLOY.get());mechanisms = count(cargo, AllItems.PRECISION_MECHANISM.get());
+            if (story() && supplyChest == null) throw new IllegalStateException("Natural works have no front supplies for the surveyor");
+            alloy = archiveAlloy + (story() ? count((ChestBlockEntity) level.getBlockEntity(supplyChest), AeronauticsInnerworld.RELIC_ALLOY.get()) : 0);
+            if (archiveAlloy < 4 || mechanisms < 1 || count(cargo, AeronauticsInnerworld.PRESSURE_MATRIX.get()) != 2) throw new IllegalStateException("Natural archive cannot supply its upgrade materials");
             for (var key : List.of("relay", "crystal", "deep_works", "deep_drill", "core")) {
                 var advancement = player.server.getAdvancements().get(id("expedition/" + key));
                 var criteria = ImmutableSet.copyOf(player.getAdvancements().getOrStartProgress(advancement).getCompletedCriteria());progress.put(advancement, criteria);
@@ -246,8 +255,9 @@ public final class DeepUpgradeClientCheck {
             player.getInventory().setItem(0, new ItemStack(Items.DIAMOND_SWORD));player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
             player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
             player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));player.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
-            player.getInventory().setItem(3, new ItemStack(AeronauticsInnerworld.HARMONIC_CRYSTAL.get(), 2));
+            player.getInventory().setItem(3, new ItemStack(AeronauticsInnerworld.HARMONIC_CRYSTAL.get(), story() ? 3 : 2));
             player.getInventory().setItem(4, AllItems.PRECISION_MECHANISM.asStack());
+            if (story()) {player.getInventory().setItem(5, new ItemStack(Items.COOKED_BEEF, 16));player.getInventory().setItem(6, new ItemStack(Items.COMPASS));}
             var position = Vec3.atBottomCenterOf(intake);player.teleportTo(level, position.x, position.y, position.z, 0, -25);player.containerMenu.broadcastChanges();
             started = level.getGameTime();LogUtils.getLogger().info("Deep recovery starts: intake={}, landing={}, hatch={}, archive={}, alloy={}, mechanisms={}", intake, landing, hatch, chest, alloy, mechanisms);
         }
@@ -259,30 +269,40 @@ public final class DeepUpgradeClientCheck {
 
         void advance() {
             level.resetEmptyTime();minimumHealth = Math.min(minimumHealth, player.getHealth());
-            if (!player.isAlive() || player.getHealth() < 6 || level.getGameTime() - started > (drilling() ? 8100 : 3600))
+            if (!player.isAlive() || player.getHealth() < 6 || level.getGameTime() - started > (story() ? 16200 : drilling() ? 8100 : 3600))
                 throw new IllegalStateException("Deep recovery failed: stage=" + stage + ", position=" + player.position() + ", health=" + player.getHealth());
             if (stage == 0 && player.getY() >= landing.getY() && player.position().subtract(Vec3.atBottomCenterOf(landing)).horizontalDistanceSqr() < .3
                     && level.getFluidState(BlockPos.containing(player.getEyePosition())).isEmpty()) {
                 walk = new CoreMazeWalk(level, bounds, player.blockPosition(), hatch);next(1);
-            } else if (stage >= 1 && stage <= 3) {
+            } else if (stage >= 1 && stage <= 3 || stage == 8) {
                 walk.advance(player.position());
                 if (stage == 1 && level.getBlockState(hatch).getValue(PressureHatchBlock.OPEN)) {
                     walk = new CoreMazeWalk(level, bounds, player.blockPosition(), chest);next(2);
-                } else if (stage == 2 && count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) == 2 && count(AeronauticsInnerworld.RELIC_ALLOY.get()) == alloy
+                } else if (stage == 2 && count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) == 2 && count(AeronauticsInnerworld.RELIC_ALLOY.get()) == archiveAlloy
                         && count(AllItems.PRECISION_MECHANISM.get()) == mechanisms + 1 && count(Items.WRITTEN_BOOK) == 1) {
                     var box = (ChestBlockEntity) level.getBlockEntity(chest);
                     for (int slot = 0; slot < box.getContainerSize(); slot++) if (recovered(box.getItem(slot))) throw new IllegalStateException("Deep archive duplicated its recovered cargo");
+                    if (story()) {walk = new CoreMazeWalk(level, bounds, player.blockPosition(), supplyChest);next(8);}
+                    else {walk = new CoreMazeWalk(level, bounds, player.blockPosition(), landing, false);next(3);}
+                } else if (stage == 8 && count(AeronauticsInnerworld.RELIC_ALLOY.get()) == alloy) {
+                    if (count((ChestBlockEntity) level.getBlockEntity(supplyChest), AeronauticsInnerworld.RELIC_ALLOY.get()) != 0) throw new IllegalStateException("Front supplies duplicated their alloy");
                     walk = new CoreMazeWalk(level, bounds, player.blockPosition(), landing, false);next(3);
                 } else if (stage == 3 && walk.arrived()) {prepareBench();next(4);}
             } else if (stage == 4 && count(AeronauticsInnerworld.DEEP_BORE_COUPLER.get().asItem()) == 1) {
                 if (count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) != 1 || count(AeronauticsInnerworld.RELIC_ALLOY.get()) != alloy - 4
-                        || count(AllItems.PRECISION_MECHANISM.get()) != mechanisms - 1 || count(AeronauticsInnerworld.HARMONIC_CRYSTAL.get()) != 0)
+                        || count(AllItems.PRECISION_MECHANISM.get()) != mechanisms - 1 || count(AeronauticsInnerworld.HARMONIC_CRYSTAL.get()) != (story() ? 1 : 0))
                     throw new IllegalStateException("Deep upgrade did not consume its recovered ingredients exactly once");
                 for (var key : List.of("deep_works", "deep_drill")) if (!player.getAdvancements().getOrStartProgress(player.server.getAdvancements().get(id("expedition/" + key))).isDone())
                     throw new IllegalStateException("Deep recovery task did not complete: " + key);
                 LogUtils.getLogger().info("Deep recovery complete: alloy remaining={}, matrices remaining=1, mechanisms remaining={}, couplers=1, minimum health={}, ticks={}", alloy - 4, mechanisms - 1, minimumHealth, level.getGameTime() - started);
-                if (drilling()) {player.closeContainer();drill = new DeepDrillConnection(player, landing, bounds);next(6);} else next(5);
+                if (story()) next(7);
+                else if (drilling()) {player.closeContainer();drill = new DeepDrillConnection(player, landing, bounds);next(6);} else next(5);
+            } else if (stage == 7 && count(AeronauticsInnerworld.CORE_SURVEYOR.get()) == 1) {
+                if (count(AeronauticsInnerworld.RELIC_ALLOY.get()) != alloy - 5 || count(AeronauticsInnerworld.HARMONIC_CRYSTAL.get()) != 0 || count(Items.COMPASS) != 0)
+                    throw new IllegalStateException("Native surveyor crafting changed its expedition materials");
+                player.closeContainer();drill = new DeepDrillConnection(player, landing, bounds);next(6);
             } else if (stage == 6 && drill.advance()) {
+                if (story() && count(AeronauticsInnerworld.CORE_HEART.get()) != 1) throw new IllegalStateException("Connected story did not bring its trophy back to the mantle");
                 next(5);
             }
         }

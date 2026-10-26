@@ -279,12 +279,14 @@ neoForge.runs.create('deepUpgradeTestClient') {
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.deepUpgradeClientCheck', 'true'
     systemProperty 'innerworld.deepUpgradeDrill', providers.gradleProperty('deepUpgradeDrill').getOrElse('false')
+    systemProperty 'innerworld.deepStory', providers.gradleProperty('deepStory').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
 tasks.named('runDeepUpgradeTestClient') {
     def result = layout.projectDirectory.file('run/client/deep-upgrade-check.result')
-    def expected = providers.gradleProperty('deepUpgradeDrill').getOrElse('false') == 'true' ? 'drill-verified' : 'verified'
+    def expected = providers.gradleProperty('deepStory').getOrElse('false') == 'true' ? 'story-verified'
+            : providers.gradleProperty('deepUpgradeDrill').getOrElse('false') == 'true' ? 'drill-verified' : 'verified'
     doFirst {
         if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
             throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')

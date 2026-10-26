@@ -46,12 +46,14 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 final class DeepDrillConnection {
+    private static final int FUEL = 16;
     private final ServerPlayer player;
     private final ServerLevel mantle, core;
     private final BoundingBox sourceBounds;
     private final BlockPos landing, root, controller, engine, sourceStation, headStation, coupler, chest;
     private final Map<GlobalPos, BlockState> original = new LinkedHashMap<>();
     private final Set<UUID> oldGlue = new HashSet<>();
+    private final Set<UUID> oldCoreEntities = new HashSet<>();
     private final int alloy, matrices;
     private final long started;
     private long phaseStarted;
@@ -68,12 +70,14 @@ final class DeepDrillConnection {
     private volatile int frames;
     private UUID identity;
     private BlockPos coreRoot, coreStation, coreChest;
+    private volatile CoreMazeExpedition expedition;
 
     DeepDrillConnection(ServerPlayer player, BlockPos landing, BoundingBox bounds) {
         this.player = player;this.landing = landing;sourceBounds = bounds;
         mantle = player.server.getLevel(Mantle.LEVEL);core = player.server.getLevel(Core.LEVEL);started = mantle.getGameTime();phaseStarted = started;
         alloy = count(AeronauticsInnerworld.RELIC_ALLOY.get());matrices = count(AeronauticsInnerworld.PRESSURE_MATRIX.get());
         root = findRoot();controller = root.above();engine = root.above(2).south();
+        core.getEntities(null, coreArea()).forEach(entity -> oldCoreEntities.add(entity.getUUID()));
         headStation = root.offset(-1, 1, -1);coupler = root.offset(1, 1, 1);chest = root.offset(-1, 1, 1);
         BlockPos station = null;
         for (var side : Direction.Plane.HORIZONTAL) {
@@ -98,7 +102,7 @@ final class DeepDrillConnection {
         set(mantle, sourceStation, AeronauticsInnerworld.BORE_STATION.get().defaultBlockState().setValue(BoreStationBlock.FACING, facing));
         glue(root.offset(-1, 0, -1), root.offset(1, 0, 1));
         for (var pos : java.util.List.of(chest, headStation, coupler)) glue(pos.below(), pos);
-        player.getInventory().add(new ItemStack(Items.COAL, 4));player.getInventory().add(AllItems.WRENCH.asStack());
+        player.getInventory().add(new ItemStack(Items.COAL, FUEL));player.getInventory().add(AllItems.WRENCH.asStack());
         player.getInventory().add(new ItemStack(AeronauticsInnerworld.DRILL_REMOTE.get()));player.containerMenu.broadcastChanges();
         approach(mantle, coupler.below(), Direction.UP, true);
         LogUtils.getLogger().info("Earned deep upgrade drill prepared: root={}, source={}, recovered cargo={} alloy/{} matrix", root, sourceStation, alloy, matrices);
@@ -140,6 +144,7 @@ final class DeepDrillConnection {
     private BoreStationBlockEntity station(ServerLevel level, BlockPos pos) {return (BoreStationBlockEntity) level.getBlockEntity(pos);}
     private GlobalPos owner() {return GlobalPos.of(Mantle.LEVEL, controller);}
     private AABB column() {return new AABB(root.getX() - 2, 0, root.getZ() - 2, root.getX() + 3, 256, root.getZ() + 3);}
+    private AABB coreArea() {return new AABB(root).inflate(80);}
 
     private void approach(ServerLevel level, BlockPos pos, Direction requiredFace, boolean crouch) {
         var bounds = level == mantle ? sourceBounds : new BoundingBox(root.getX() - 4, 30, root.getZ() - 4, root.getX() + 4, 36, root.getZ() + 4);
@@ -166,9 +171,10 @@ final class DeepDrillConnection {
     void tickClient(Minecraft client) {
         if (client.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu) client.player.closeContainer();
         if (phase != 2 && phase != 12 && client.player.containerMenu instanceof ChestMenu) client.player.closeContainer();
-        var expected = phase == 12 || phase == 13 ? Core.LEVEL : Mantle.LEVEL;
+        var expected = phase == 12 || phase == 13 || phase == 15 ? Core.LEVEL : Mantle.LEVEL;
         if (!client.level.dimension().equals(expected)) return;
         if (observed != phase) {observed = phase;frames = 0;ProbeConstruction.release(client);sneak(client, false);}
+        if (phase == 15) {expedition.tickClient(client);return;}
         if (walk != null && !walk.arrived()) {walk.tickClient(client);return;}
         ProbeConstruction.release(client);frames++;
         if (phase == 0) {if (frames <= 10) equip(client, AeronauticsInnerworld.DEEP_BORE_COUPLER.get().asItem());sneak(client, true);if (frames == 10) use(client);}
@@ -200,7 +206,14 @@ final class DeepDrillConnection {
         client.player.setShiftKeyDown(down);client.player.connection.send(new ServerboundPlayerCommandPacket(client.player,
                 down ? ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY : ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
     }
-    private static void empty(Minecraft client) {for (int slot = 0; slot < 9; slot++) if (client.player.getInventory().getItem(slot).isEmpty()) {client.player.getInventory().selected = slot;return;}throw new IllegalStateException("Deep drill operator has no empty hand slot");}
+    static void empty(Minecraft client) {
+        for (int slot = 0; slot < 36; slot++) if (client.player.getInventory().getItem(slot).isEmpty()) {
+            if (slot < 9) client.player.getInventory().selected = slot;
+            else {client.gameMode.handleInventoryMouseClick(client.player.inventoryMenu.containerId, slot, 0, ClickType.SWAP, client.player);client.player.getInventory().selected = 0;}
+            return;
+        }
+        throw new IllegalStateException("Deep drill operator must store cargo before freeing a hand slot");
+    }
     private static void equip(Minecraft client, Item item) {
         for (int slot = 0; slot < 36; slot++) if (client.player.getInventory().getItem(slot).is(item)) {
             if (slot < 9) client.player.getInventory().selected = slot;
@@ -225,14 +238,14 @@ final class DeepDrillConnection {
         if (head != null && (phase == 7 || phase == 9) && (mantle.getGameTime() - phaseStarted) % 200 == 0)
             LogUtils.getLogger().info("Native deep cutting: phase={}, head={}, speed={}, stalled={}, cutter={}", phase, head.position(), machine().getSpeed(), head.isStalled(),
                     head.getContraption().getActors().stream().map(actor -> actor.getRight()).filter(context -> context.stall).map(context -> context.localPos + ":" + context.data).findFirst().orElse("clear"));
-        if (!player.isAlive() || player.isInLava() || player.getHealth() < 6 || mantle.getGameTime() - started > 7200
-                || mantle.getGameTime() - (phase == 7 || phase == 9 ? progressed : phaseStarted) > 600)
+        if (!player.isAlive() || player.isInLava() || player.getHealth() < 6 || mantle.getGameTime() - started > (DeepUpgradeClientCheck.story() ? 14000 : 7200)
+                || phase != 15 && mantle.getGameTime() - (phase == 7 || phase == 9 ? progressed : phaseStarted) > 600)
             throw new IllegalStateException("Earned deep drill failed: phase=" + phase + ", position=" + player.position() + ", status=" + machine().getStatus()
                     + ", head=" + (head == null ? "none" : head.position()) + ", speed=" + machine().getSpeed()
                     + ", arrived=" + (walk == null || walk.arrived()) + ", menu=" + player.containerMenu.getClass().getSimpleName());
         switch (phase) {
             case 0 -> {if (mantle.getBlockState(coupler).is(AeronauticsInnerworld.DEEP_BORE_COUPLER.get())) {if (count(AeronauticsInnerworld.DEEP_BORE_COUPLER.get().asItem()) != 0) throw new IllegalStateException("Coupler placement duplicated its crafted item");next(1);approach(mantle, engine, null, false);}}
-            case 1 -> {if (Math.abs(machine().getSpeed()) == 32 && count(Items.COAL) < 4) {next(2);approach(mantle, chest, null, false);}}
+            case 1 -> {if (Math.abs(machine().getSpeed()) == 32 && count(Items.COAL) < FUEL) {next(2);approach(mantle, chest, null, false);}}
             case 2 -> {
                 if (count(AeronauticsInnerworld.RELIC_ALLOY.get()) != 0 || count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) != 0) break;
                 verifyChest(mantle, chest);next(3);approach(mantle, controller, null, false);
@@ -271,17 +284,22 @@ final class DeepDrillConnection {
                 next(11);approach(mantle, sourceStation, null, false);
             }
             case 11 -> {if (player.serverLevel() == core) {next(12);approach(core, coreChest, null, false);}}
-            case 12 -> {if (count(AeronauticsInnerworld.RELIC_ALLOY.get()) == alloy && count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) == matrices) {next(13);approach(core, coreStation, null, false);}}
+            case 12 -> {if (count(AeronauticsInnerworld.RELIC_ALLOY.get()) == alloy && count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) == matrices) {
+                player.closeContainer();
+                if (DeepUpgradeClientCheck.story()) {expedition = new CoreMazeExpedition(player, coreRoot.offset(0, 1, -1));next(15);}
+                else {next(13);approach(core, coreStation, null, false);}
+            }}
             case 13 -> {
                 if (player.serverLevel() != mantle) break;
                 if (count(AeronauticsInnerworld.RELIC_ALLOY.get()) != alloy || count(AeronauticsInnerworld.PRESSURE_MATRIX.get()) != matrices
                         || player.position().distanceToSqr(Vec3.atBottomCenterOf(landing)) > .1) throw new IllegalStateException("Core cargo did not return to its original dry source exit");
-                if (Math.abs(machine().getSpeed()) != 32 || ((PortableEngineBlockEntity) mantle.getBlockEntity(engine)).inventory.getItem(0).getCount() >= 4)
+                if (Math.abs(machine().getSpeed()) != 32 || ((PortableEngineBlockEntity) mantle.getBlockEntity(engine)).inventory.getItem(0).getCount() >= FUEL)
                     throw new IllegalStateException("Core supply connection did not consume its ordinary coal");
                 LogUtils.getLogger().info("Earned deep drill complete: head={}, core floor={}, cargo={} alloy/{} matrix, fuel remaining={}, ticks={}", identity, coreRoot, alloy, matrices,
                         ((PortableEngineBlockEntity) mantle.getBlockEntity(engine)).inventory.getItem(0).getCount(), mantle.getGameTime() - started);next(14);return true;
             }
             case 14 -> {return true;}
+            case 15 -> {if (expedition.advance()) {next(13);approach(core, coreStation, null, false);}}
             default -> throw new IllegalStateException("Unknown deep drilling phase " + phase);
         }
         return false;
@@ -296,9 +314,13 @@ final class DeepDrillConnection {
     private void next(int value) {phase = value;phaseStarted = mantle.getGameTime();LogUtils.getLogger().info("Native earned drill phase {}", value);}
 
     void cleanUp() {
+        if (expedition != null) expedition.cleanUp();
         player.closeContainer();
         if (machine() != null && machine().movedContraption != null) {machine().movedContraption.getContraption().stop(machine().movedContraption.level());machine().movedContraption.discard();machine().disassemble();}
         for (var level : java.util.List.of(mantle, core)) for (var entity : level.getEntitiesOfClass(SuperGlueEntity.class, column())) if (!oldGlue.contains(entity.getUUID())) entity.discard();
+        for (var entity : core.getEntities(null, coreArea())) if (!oldCoreEntities.contains(entity.getUUID())
+                && (entity instanceof net.minecraft.world.entity.Mob || entity instanceof net.minecraft.world.entity.item.ItemEntity
+                || entity instanceof net.minecraft.world.entity.ExperienceOrb || entity instanceof net.minecraft.world.entity.projectile.AbstractArrow)) entity.discard();
         original.keySet().forEach(pos -> Clearable.tryClear(player.server.getLevel(pos.dimension()).getBlockEntity(pos.pos())));
         original.forEach((pos, state) -> {var level = player.server.getLevel(pos.dimension());if (!level.getBlockState(pos.pos()).equals(state)) level.setBlockAndUpdate(pos.pos(), state);});
     }
