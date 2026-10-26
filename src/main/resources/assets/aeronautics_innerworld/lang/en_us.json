@@ -104,7 +104,7 @@
   "book.aeronautics_innerworld.page.3": "Drilling\n\nEmpty-hand use assembles, pauses or resumes. While paused, use a wrench to change direction; sneak-use it to place the head. Bind a remote to the controller, then use it to toggle or sneak-use to redirect.",
   "book.aeronautics_innerworld.page.4": "Into the mantle\n\nDrill down to Y=-58 to enter the mantle. Resume down into the ceiling, then excavate sideways to form a base. Keep the Overworld controller powered. The mantle ceiling occupies Y=200–255.",
   "book.aeronautics_innerworld.page.5": "Bore stations\n\nBind both stations with the remote. Keep the first within 32 blocks of its controller; carry the second on the head. Excavate a dry, two-block exit with solid footing. Pause and place the head to connect.",
-  "book.aeronautics_innerworld.page.6": "The dry dock\n\nExcavate a dry dock. Stack two matching hatches for a walkable entrance; either handle opens both. Keep the hull sealed and dry, then assemble the probe in the mantle.",
+  "book.aeronautics_innerworld.page.6": "The dry dock\n\nExcavate dry rooms and dock space. Use a charged respawn anchor in the mantle; beds explode.\n\nBuild a dry, sealed hull. Matching stacked hatches form a walkable entrance.",
   "book.aeronautics_innerworld.page.7": "Assembly and power\n\nGlue the hull and equipment, then use the Aeronautics Physics Assembler. Fueled Portable Engines supply rotation through shafts and gearboxes. Check stress, fuel, coolant and cabin sealing before launch.",
   "book.aeronautics_innerworld.page.8": "Thrust and turning\n\nImmersed thrusters move the probe; reverse rotation to back up. Create Clutches stop shafts and Gearshifts reverse them. Control left and right drives separately to turn. Redstone Links enable cabin controls.",
   "book.aeronautics_innerworld.page.9": "Trim and sealing\n\n32 RPM holds depth. Sneak empty-hand on ballast to cycle RPM control, ascend and descend; set both alike. Each supports 128 mass.\n\nFace regulators inward at 16+ RPM and seal the cabin.",
@@ -203,5 +203,7 @@
   "item.aeronautics_innerworld.route_compass": "Route Compass",
   "message.aeronautics_innerworld.trim_hold": "RPM control",
   "message.aeronautics_innerworld.trim_ascend": "Ascend",
-  "message.aeronautics_innerworld.trim_descend": "Descend"
+  "message.aeronautics_innerworld.trim_descend": "Descend",
+  "book.aeronautics_innerworld.page.25": "Dry-dock voyages\n\nAdd level landing skids. Feed lava from above across ballast and drives. Keep the cabin sealed.\n\nReturn above the sill. Close all gates after entry; wait for lava to drain.",
+  "book.aeronautics_innerworld.page.26": "Dock cargo\n\nDry the bay. Face two powered Aeronautics connectors across two air blocks. Hoppers unload samples and load supplies in both directions.\n\nRetract a connector before launch."
 }

@@ -104,7 +104,7 @@
   "book.aeronautics_innerworld.page.3": "钻探操作\n\n空手右键装配、暂停或继续。暂停后扳手右键循环选向。潜行扳手将钻头放回世界。操纵器右键控制器绑定，之后可跨层启停，潜行右键选向。",
   "book.aeronautics_innerworld.page.4": "抵达地幔\n\n向下钻至 Y=-58，钻头进入地幔并暂停。继续向下切入顶部岩体，再横向开挖基地。控制器与动力留在主世界，须持续供能。顶部岩体位于 Y=200–255。",
   "book.aeronautics_innerworld.page.5": "人员通行\n\n主世界站放在控制器32格内，用已绑定操纵器接入；目的站随钻头下行，也需绑定。挖出目的站前两格干燥出口及稳固地面，暂停并落地组件后即可往返。",
-  "book.aeronautics_innerworld.page.6": "整备船坞\n\n在岩体中开挖干燥船坞。上下叠放同朝向舱门，形成两格登船口；操作其中一扇即可联动开关。用舱壳与观察窗围好舱室，先排空积液，再在地幔内组装探测器。",
+  "book.aeronautics_innerworld.page.6": "干燥船坞\n\n开挖干燥基地和船坞。地幔用充能重生锚设置重生点；床会爆炸。\n\n在干坞内建造密封船体。同朝向的两扇耐压舱门上下叠放，操作任意一扇即可联动开关。",
   "book.aeronautics_innerworld.page.7": "装配与供能\n\n使用强力胶连接船体与设备，再用 Aeronautics 物理装配器组装。便携式发动机燃煤供能；传动杆、齿轮箱和齿轮传递动力。出航前检查应力、燃料、冷却与密封。",
   "book.aeronautics_innerworld.page.8": "推进与转向\n\n推进器浸入熔岩后工作，反转动力即可倒车。用 Create 离合器控制启停，换向齿轮箱控制正反转。左右推进器分开控制可转弯，红石链路与无线控制器可将操作带入舱内。",
   "book.aeronautics_innerworld.page.9": "配平与密封\n\n32 RPM 可定深。潜行空手右键配平舱，依次切换转速控制、上浮、下潜；两台应选择相同模式。每台支承上限为128质量单位。\n\n调节器朝向舱内并提供至少16 RPM，保持舱室完整密封。",
@@ -203,5 +203,7 @@
   "item.aeronautics_innerworld.route_compass": "航路罗盘",
   "message.aeronautics_innerworld.trim_hold": "转速控制",
   "message.aeronautics_innerworld.trim_ascend": "上浮",
-  "message.aeronautics_innerworld.trim_descend": "下潜"
+  "message.aeronautics_innerworld.trim_descend": "下潜",
+  "book.aeronautics_innerworld.page.25": "干坞出入\n\n用同高滑橇支撑船体，顶部灌流覆盖配平舱与推进器，保持舱室密封后出坞。\n\n返航时先上浮越过坞口底板，定深驶入。船体完全进入后关闭航行闸与灌流口，等待熔岩消退，再开舱。",
+  "book.aeronautics_innerworld.page.26": "干坞装卸\n\n船坞排干后，两侧对接连接器相向放置，中间留两格空气，供电锁定。\n\n用漏斗将采样货舱接入船侧，岸侧取货；补给按反向接入船载箱子。满仓时保留物资，缩回一侧解锁后再出坞。"
 }

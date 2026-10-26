@@ -27,8 +27,11 @@
           "{\"translate\": \"book.aeronautics_innerworld.page.7\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.8\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.9\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.25\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.10\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.24\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.11\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.26\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.12\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.13\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.14\"}",
@@ -40,8 +43,7 @@
           "{\"translate\": \"book.aeronautics_innerworld.page.20\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.21\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.22\"}",
-          "{\"translate\": \"book.aeronautics_innerworld.page.23\"}",
-          "{\"translate\": \"book.aeronautics_innerworld.page.24\"}"
+          "{\"translate\": \"book.aeronautics_innerworld.page.23\"}"
         ],
         "resolved": true
       }
