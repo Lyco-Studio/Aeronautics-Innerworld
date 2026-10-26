@@ -113,7 +113,7 @@
   "book.aeronautics_innerworld.page.9": "Trim and sealing\n\n32 RPM holds depth. Sneak empty-hand on ballast to cycle RPM control, ascend and descend; set both alike. Each supports 128 mass.\n\nFace regulators inward at 16+ RPM and seal the cabin.",
   "book.aeronautics_innerworld.page.10": "Scanning and berth\n\nPower the sounder at 16+ RPM for mineral scans and forward clearance. Empty-hand use lists targets and faults. It records its berth on placement; sneak-use in a dry dock to reset return distance and bearing.",
   "book.aeronautics_innerworld.page.11": "Sampling and cargo\n\nThe sampler mines deposits up to 4 blocks ahead. Clear obstructions and hold position. Its nine-slot hold pauses when full; empty-hand use unloads a stack. Seek harmonic ore near Y=164–196 and smelt the raw ore.",
-  "book.aeronautics_innerworld.page.12": "Cooling supplies\n\nUse coolant cells on the regulator: 120 seconds per cell, 240 per stabilized cell, up to 600 stored. Craft ordinary cells from copper sheets, glass and water. Harmonic crystals improve coolant and repair yields.",
+  "book.aeronautics_innerworld.page.12": "Cooling supplies\n\nUse cells on the regulator: 120s each, 240s stabilized, 600s stored. Craft with copper sheets, glass and water buckets. Fill water in the Overworld; crafting returns empty buckets.",
   "book.aeronautics_innerworld.page.13": "Damage control\n\nHeat warns at 60%%. Ten seconds at full heat damages a drive and hull; continued heat opens a breach. Locate faults with the sounder and cool down. Repair kits restore drives and cracked plates at 70%% heat or below.",
   "book.aeronautics_innerworld.page.14": "Patch and return\n\nClose breaches with emergency patches. A stocked regulator gives crew five seconds of emergency fire resistance. Reseal and restore power. Follow the berth bearing home; open the hatch only in a dry dock.",
   "book.aeronautics_innerworld.page.15": "Outside the hull\n\nFire resistance does not stop mantle heat exposure: a warning follows three seconds and damage follows five. Keep the cabin sealed and cooled. Leave the probe in dry spaces; maintain a stocked recovery base.",
@@ -246,5 +246,9 @@
   "book.aeronautics_innerworld.page.28": "Salvage\n\nPower the sampler. Face loose loot within 4 blocks and keep the intake clear.\n\nEmpty-hand use unloads one stack. Select another empty slot to repeat. Full cargo leaves the remainder outside.",
   "message.aeronautics_innerworld.sonar_no_death": "No death location is recorded for rescue navigation.",
   "message.aeronautics_innerworld.sonar_recovery_bearing": "Wreck %s Y%s",
-  "message.aeronautics_innerworld.sonar_recovery_last_known": "Last known %s Y%s"
+  "message.aeronautics_innerworld.sonar_recovery_last_known": "Last known %s Y%s",
+  "book.aeronautics_innerworld.page.29": "First materials\n\nBring nether bricks, made by smelting netherrack, and nether quartz. Press copper into sheets. Mix quartz and redstone into rose quartz; polish it for electron tubes.",
+  "book.aeronautics_innerworld.page.30": "First engine\n\nUse hand cranks to cut then press an iron sheet, for eight rounds. Assembly succeeds 50%% of the time. Craft the assembly with an iron sheet and a blast furnace.",
+  "book.aeronautics_innerworld.page.31": "Base foundry\n\nPut a blaze burner below a basin and a mixer two blocks above it. Supply at least 32 RPM and fuel the burner. Empty-hand right-click the basin top for alloy.",
+  "book.aeronautics_innerworld.page.32": "Alloy recasting\n\nMix 1 relic alloy, 2 harmonic crystals, 2 molten scales and 2 iron ingots in a heated basin for 2 alloy. Find the first alloy in ruins; keep one ingot to seed the next batch."
 }

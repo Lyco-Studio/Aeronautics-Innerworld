@@ -19,6 +19,8 @@
         "generation": 0,
         "pages": [
           "{\"translate\": \"book.aeronautics_innerworld.page.1\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.29\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.30\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.2\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.3\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.4\"}",
@@ -33,6 +35,8 @@
           "{\"translate\": \"book.aeronautics_innerworld.page.11\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.26\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.12\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.31\"}",
+          "{\"translate\": \"book.aeronautics_innerworld.page.32\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.13\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.14\"}",
           "{\"translate\": \"book.aeronautics_innerworld.page.15\"}",

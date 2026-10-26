@@ -113,7 +113,7 @@
   "book.aeronautics_innerworld.page.9": "配平与密封\n\n32 RPM 可定深。潜行空手右键配平舱，依次切换转速控制、上浮、下潜；两台应选择相同模式。每台支承上限为128质量单位。\n\n调节器朝向舱内并提供至少16 RPM，保持舱室完整密封。",
   "book.aeronautics_innerworld.page.10": "扫描与泊位\n\n回声探测仪至少16 RPM，扫描16格内谐振矿并测量前方净空。空手右键查看坐标与故障。放置时记下泊位；在干燥船坞潜行空手右键可重设，状态栏显示返航距离和方位。",
   "book.aeronautics_innerworld.page.11": "采样与回收\n\n采样器在船上采掘正前方4格内的矿体，先清除遮挡。九格货舱满载时停采；空手右键卸出一组，潜行查看状态。谐振矿多在熔岩上部 Y=164–196，返航后熔炼粗矿。",
-  "book.aeronautics_innerworld.page.12": "冷却补给\n\n用冷却芯右键调节器。普通芯提供120秒冷却，稳定芯240秒，储备上限600秒。铜板、玻璃和水桶可制造普通芯；谐振晶体能升级冷却芯，或提高维修包产量。",
+  "book.aeronautics_innerworld.page.12": "冷却补给\n\n用冷却芯右键调节器。普通芯120秒，稳定芯240秒，上限600秒。铜板、玻璃和水桶可制造普通芯，合成后返还空桶。\n\n地幔不能放水；出发前在主世界装满水桶。",
   "book.aeronautics_innerworld.page.13": "故障与抢修\n\n热量60%%开始预警，满热持续10秒会损坏设备与舱壳，继续过热会击穿。用探测仪定位，补充冷却并降速；裂损舱壳或设备在热量不高于70%%时可用维修包修复。",
   "book.aeronautics_innerworld.page.14": "封堵与返航\n\n破口立即放置应急封堵板。冷却充足时调节器会喷淋，提供5秒抗火。重新封闭并供能后恢复保护。依照泊位方位返航，进入干燥船坞后再开舱，补充燃料与备件。",
   "book.aeronautics_innerworld.page.15": "舱外危险\n\n抗火药水无法抵消地幔热暴露。熔岩暴露3秒预警，5秒开始持续受伤。保持密封与冷却；出舱调查需要干燥空间。基地和补给站是失去载具后重新准备的依托。",
@@ -246,5 +246,9 @@
   "book.aeronautics_innerworld.page.28": "船载回收\n\n给采样器供能，对准前方4格内的散落物，保持采样口畅通。\n\n空手右键每次卸下一组。物品进入手中后，切到空槽再卸下一组。满仓时余物留在原处。",
   "message.aeronautics_innerworld.sonar_no_death": "尚无死亡地点可用于救援导航。",
   "message.aeronautics_innerworld.sonar_recovery_bearing": "残骸%s Y%s",
-  "message.aeronautics_innerworld.sonar_recovery_last_known": "末次%s Y%s"
+  "message.aeronautics_innerworld.sonar_recovery_last_known": "末次%s Y%s",
+  "book.aeronautics_innerworld.page.29": "首航材料\n\n先准备下界砖物品和石英；下界岩烧成下界砖。铜锭压成铜板，供舱壳、观察窗和冷却使用。石英与红石合成玫瑰石英，用砂纸打磨后制作电子管。",
+  "book.aeronautics_innerworld.page.30": "首台发动机\n\n先用手摇曲柄驱动锯和压机。铁板先切割、再压制，交替完成八轮，取得发动机总成。每次完成有50%%成功率，失败后继续准备铁板重试。总成再与铁板、高炉合成发动机。",
+  "book.aeronautics_innerworld.page.31": "基地熔铸\n\n工作盆下放烈焰燃烧室，盆上两格放搅拌器。输入至少32 RPM，右键投煤保持加热。\n\n空手右键盆顶取出产物，侧面过滤器可限制加工目标。",
+  "book.aeronautics_innerworld.page.32": "合金重铸\n\n一份遗迹合金、两枚谐振晶体、两份熔甲鳞片和两个铁锭，在加热工作盆中搅拌，产出两份合金。\n\n先从遗迹取得首份合金，留一份作为下一批重铸的原料。"
 }

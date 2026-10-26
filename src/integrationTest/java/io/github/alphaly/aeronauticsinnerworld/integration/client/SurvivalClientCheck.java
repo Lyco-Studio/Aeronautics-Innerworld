@@ -164,7 +164,7 @@ public final class SurvivalClientCheck {
                 if (client.screen instanceof BookViewScreen book) {
                     if (++guideFrames == 1) {
                         BookLayoutChecks.check(client, client.player.getMainHandItem());
-                        book.setPage(7);
+                        book.setPage(2);
                     }
                     if (guideFrames >= 6) {
                         Screenshot.grab(client.gameDirectory, "mantle-expedition-manual.png", client.getMainRenderTarget(),

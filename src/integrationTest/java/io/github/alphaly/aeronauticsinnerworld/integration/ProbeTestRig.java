@@ -238,6 +238,7 @@ public final class ProbeTestRig {
     }
 
     public boolean ready() {
+        level.getChunkSource().addRegionTicket(ENVIRONMENT, new ChunkPos(origin), 3, origin);
         removeOldRig();
         return level.getEntitiesOfClass(SuperGlueEntity.class,
                 SuperGlueEntity.span(source(-2, -2, -2), source(7, 6, 9))).containsAll(glue);
