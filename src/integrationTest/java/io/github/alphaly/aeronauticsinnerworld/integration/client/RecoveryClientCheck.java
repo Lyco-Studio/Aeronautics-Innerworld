@@ -7,6 +7,7 @@ import dev.simulated_team.simulated.content.blocks.portable_engine.PortableEngin
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeRecovery;
 import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
@@ -54,6 +56,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 
@@ -70,6 +73,22 @@ public final class RecoveryClientCheck {
     private static CompletableFuture<Void> step, cleanup;
     private static Scene scene;
     private static RuntimeException failure;
+    private static boolean movingBearingSeen, wreckHudSeen, wrongWreckHud;
+
+    @SubscribeEvent
+    public static void recordHud(ClientChatReceivedEvent.System event) {
+        if (!enabled() || scene == null || !event.isOverlay()
+                || !(event.getMessage().getContents() instanceof TranslatableContents message)
+                || !message.getKey().equals("message.aeronautics_innerworld.sonar_hud")) return;
+        var args = message.getArgs();
+        if (scene.stage == 14 && args[3] instanceof Component bearing
+                && bearing.getContents() instanceof TranslatableContents target
+                && target.getKey().equals("message.aeronautics_innerworld.sonar_recovery_bearing")) movingBearingSeen = true;
+        if (scene.stage == 20) {
+            if (args[4] instanceof Number heat && heat.intValue() >= 60) wreckHudSeen = true;
+            else wrongWreckHud = true;
+        }
+    }
 
     @SubscribeEvent
     public static void recordDeath(LivingDeathEvent event) {
@@ -79,6 +98,7 @@ public final class RecoveryClientCheck {
         scene.diedFromHeat = event.getSource().is(ResourceKey.create(Registries.DAMAGE_TYPE,
                 ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, "mantle_heat")));
         scene.deathPoint = event.getEntity().position();
+        scene.deathLocal = scene.rig.subLevel.logicalPose().transformPositionInverse(scene.deathPoint);
     }
 
     @SubscribeEvent
@@ -269,7 +289,7 @@ public final class RecoveryClientCheck {
         private boolean diedFromHeat;
         private Vec3 deathPoint;
         private GlobalPos lastDeath;
-        private Vec3 walkTarget;
+        private Vec3 walkTarget, deathLocal;
         private double departureZ;
         private volatile BlockPos patchTarget, repairTarget;
         private int expectedRepairs;
@@ -363,6 +383,9 @@ public final class RecoveryClientCheck {
                 if (!player.level().dimension().equals(Mantle.LEVEL) || player.position().distanceTo(Vec3.atCenterOf(anchor)) > 4
                         || level.getBlockState(anchor).getValue(RespawnAnchorBlock.CHARGE) != expectedCharge)
                     throw new IllegalStateException("Native respawn did not return to the charged mantle anchor");
+                var recovery = ProbeRecovery.deathTarget(player);
+                if (recovery == null || !recovery.getUUID("Ship").equals(rig.subLevel.getUniqueId()))
+                    throw new IllegalStateException("Native death and respawn lost the ship recovery anchor");
                 if (stage == 4) {
                     if (player.getInventory().countItem(AeronauticsInnerworld.MOLTEN_SCALE.get()) != 3
                             || player.getInventory().items.stream().noneMatch(stack -> ItemStack.isSameItemSameComponents(stack, tool)))
@@ -407,13 +430,15 @@ public final class RecoveryClientCheck {
                         expectedRepairs = repairCount();next(20);
                     } else next(9);
                 }
-            } else if (stage == 9 && lastDeath.pos().equals(rig.sounder().getWaypoint())) {
+            } else if (stage == 9 && hasCurrentWreckTarget(rig)) {
                 if (!player.getMainHandItem().is(Items.RECOVERY_COMPASS) || player.getMainHandItem().getCount() != 1
                         || player.getMainHandItem().has(DataComponents.LODESTONE_TRACKER)
                         || !WRECK_ORIGIN.equals(rig.sounder().getHome()))
                     throw new IllegalStateException("Recovery navigation modified the compass or home berth");
-                LogUtils.getLogger().info("Native recovery compass loaded the actual world death location into probe navigation");next(10);
+                LogUtils.getLogger().info("Native recovery compass loaded the current wreck position into probe navigation; vanilla death={}", lastDeath.pos());next(10);
             } else if (stage == 20) {
+                if (wrongWreckHud) throw new IllegalStateException("The rescue probe overwrote the wreck crew HUD");
+                if (!wreckHudSeen || !movingBearingSeen) return;
                 if (rig.cabin().getHeat() > 70) return;
                 repairTarget = nextRepair();
                 if (repairTarget == null) {
@@ -425,6 +450,11 @@ public final class RecoveryClientCheck {
             } else if (stage >= 11 && stage <= 19) {
                 advanceVoyage();
             }
+        }
+
+        private boolean hasCurrentWreckTarget(ProbeTestRig navigator) {
+            var target = navigator.sounder().getWaypoint();
+            return target != null && Vec3.atCenterOf(target).distanceTo(rig.subLevel.logicalPose().transformPosition(deathLocal)) < 2;
         }
 
         private Iterable<BlockPos> hullCells() {
@@ -501,9 +531,9 @@ public final class RecoveryClientCheck {
                 }
                 if (engines != 7) throw new IllegalStateException("The rescue boat lost an engine");
                 next(12);
-            } else if (stage == 12 && lastDeath.pos().equals(rescue.sounder().getWaypoint())) {
+            } else if (stage == 12 && hasCurrentWreckTarget(rescue)) {
                 departureZ = rescue.world(new BlockPos(2, 1, 2)).z;next(13);
-            } else if (stage == 13 && rescue.world(new BlockPos(2, 1, 2)).z <= rig.world(new BlockPos(2, 1, 2)).z + .5) {
+            } else if (stage == 13 && rescue.world(new BlockPos(2, 1, 2)).z <= rescue.sounder().getWaypoint().getZ() + .5) {
                 double travelled = departureZ - rescue.world(new BlockPos(2, 1, 2)).z;
                 if (travelled < 28 || !rescue.cabin().isSealed() || player.getPersistentData().getInt("InnerworldHeatExposure") != 0)
                     throw new IllegalStateException("The rescue approach did not preserve a protected native voyage");
@@ -512,7 +542,7 @@ public final class RecoveryClientCheck {
                 var ballast = (ProbeDriveBlockEntity) level.getBlockEntity(rescue.local(new BlockPos(1, 0, 2)));
                 var other = (ProbeDriveBlockEntity) level.getBlockEntity(rescue.local(new BlockPos(3, 0, 2)));
                 currentTrim = ballast.getTrimMode();
-                double delta = rig.world(new BlockPos(0, 1, 2)).y - rescue.world(RESCUE_HATCH).y;
+                double delta = rescue.sounder().getWaypoint().getY() + .5 - rescue.world(RESCUE_HATCH).y;
                 trimRequest = delta < -.65 ? -1 : delta > .65 ? 1 : 0;
                 var velocity = RigidBodyHandle.of(rescue.subLevel).getLinearVelocity();
                 if (Math.abs(delta) <= .65 && currentTrim == 0 && other.getTrimMode() == 0

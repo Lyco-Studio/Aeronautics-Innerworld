@@ -96,7 +96,7 @@
   "message.aeronautics_innerworld.repair_unneeded": "No repair needed.",
   "message.aeronautics_innerworld.cabin_hot": "Heat %s%% · coolant %ss — cool down or return to dock!",
   "message.aeronautics_innerworld.cabin_emergency": "Hull breach! Emergency spray active for 5 seconds. Seal the opening!",
-  "message.aeronautics_innerworld.heat_exposure": "Mantle heat exposure: about %s seconds before heat damage; seek a dry space or sealed cabin.",
+  "message.aeronautics_innerworld.heat_exposure": "Heat exposure: %ss left · Seek shelter.",
   "death.attack.mantle_heat": "%1$s succumbed to mantle heat",
   "item.aeronautics_innerworld.expedition_manual": "Mantle Expedition Manual",
   "book.aeronautics_innerworld.page.1": "Preparations\n\nBuild rotational power and processing in the Overworld. Bring a drill head, controller, remote, two bore stations, Super Glue, a wrench and supplies. Andesite Casing unlocks equipment recipes.",
@@ -192,7 +192,7 @@
   "book.aeronautics_innerworld.page.22": "Warden\n\nDodge warning rings. Pull a coolant lever to expose the core for 8s.\n\nAfter victory, sneak-use the console with four crystals for a rematch.",
   "advancement.aeronautics_innerworld.core_entry.title": "Beyond Isolation",
   "advancement.aeronautics_innerworld.core_entry.description": "Reach the core and prepare a camp for the labyrinth.",
-  "book.aeronautics_innerworld.page.23": "Recovery\n\nA compass, two crystals and two relic alloy make a recovery compass. Use it on a powered sounder to navigate to your last mantle death.\n\nKeep a spare probe and repair supplies.",
+  "book.aeronautics_innerworld.page.23": "Recovery\n\nMake a recovery compass with a compass, two crystals and two relic alloy. Use it on a powered sounder to follow your wreck or its last known position.\n\nKeep a stocked spare probe.",
   "message.aeronautics_innerworld.sonar_home_bearing": "Home %s",
   "message.aeronautics_innerworld.sonar_target_bearing": "Goal %s Y%s",
   "message.aeronautics_innerworld.sonar_waypoint": "Active waypoint: %s, %s, %s",
@@ -241,5 +241,7 @@
   "book.aeronautics_innerworld.page.27": "Heat leaks\n\nFrom phase two, leave orange rings before blue fire ignites.\n\nValves extinguish heat. Heatweave gear reduces it; shields and ordinary armor do not.",
   "message.aeronautics_innerworld.sampler_salvaging": "Recovering loose cargo; any remainder stays outside when cargo is full.",
   "book.aeronautics_innerworld.page.28": "Salvage\n\nPower the sampler. Face loose loot within 4 blocks and keep the intake clear.\n\nEmpty-hand use unloads one stack. Select another empty slot to repeat. Full cargo leaves the remainder outside.",
-  "message.aeronautics_innerworld.sonar_no_death": "No death location is recorded for rescue navigation."
+  "message.aeronautics_innerworld.sonar_no_death": "No death location is recorded for rescue navigation.",
+  "message.aeronautics_innerworld.sonar_recovery_bearing": "Wreck %s Y%s",
+  "message.aeronautics_innerworld.sonar_recovery_last_known": "Last known %s Y%s"
 }

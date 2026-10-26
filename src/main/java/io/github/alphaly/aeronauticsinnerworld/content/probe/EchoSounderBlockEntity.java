@@ -2,7 +2,9 @@ package io.github.alphaly.aeronauticsinnerworld.content.probe;
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import dev.ryanhcode.sable.Sable;
+import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
 import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
+import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
@@ -27,9 +29,11 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-public final class EchoSounderBlockEntity extends KineticBlockEntity {
+public final class EchoSounderBlockEntity extends KineticBlockEntity implements BlockEntitySubLevelActor {
     private BlockPos home;
     private BlockPos waypoint;
+    private CompoundTag recoveryTarget;
+    private boolean recoveryLoaded;
     private BlockPos mineral;
     private BlockPos relay;
     private boolean deepWorks;
@@ -82,6 +86,38 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                 : ship.logicalPose().transformPosition(Vec3.atCenterOf(worldPosition));
     }
 
+    public boolean isHudFor(Player player) {
+        double distance = player.distanceToSqr(position());
+        if (player.isSpectator() || distance > 64) return false;
+        var ship = Sable.HELPER.getContaining(this);
+        if (ship == null) return Sable.HELPER.getTrackingOrVehicleSubLevel(player) == null;
+        if (!ProbeRecovery.contains(ship, player)) return false;
+        if (ship instanceof ServerSubLevel serverShip) {
+            for (var actor : serverShip.getPlot().getBlockEntityActors()) {
+                if (actor instanceof EchoSounderBlockEntity other && other != this && Math.abs(other.getSpeed()) >= 16) {
+                    double otherDistance = player.distanceToSqr(other.position());
+                    if (otherDistance < distance || otherDistance == distance
+                            && other.worldPosition.asLong() < worldPosition.asLong()) return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private void updateRecoveryWaypoint() {
+        recoveryLoaded = false;
+        if (recoveryTarget == null) return;
+        var ship = SubLevelContainer.getContainer(level).getSubLevel(recoveryTarget.getUUID("Ship"));
+        if (ship == null || ship.isRemoved()) return;
+        var current = BlockPos.containing(ship.logicalPose().transformPosition(new Vec3(
+                recoveryTarget.getDouble("X"), recoveryTarget.getDouble("Y"), recoveryTarget.getDouble("Z"))));
+        if (!current.equals(waypoint)) {
+            waypoint = current;
+            setChanged();
+        }
+        recoveryLoaded = true;
+    }
+
     @Override
     public void tick() {
         super.tick();
@@ -115,9 +151,11 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                     Component.translatable("direction.aeronautics_innerworld." + direction.getName()));
             bearing = waypoint == null ? Component.translatable("message.aeronautics_innerworld.sonar_home_bearing", distance)
                     : Component.translatable("message.aeronautics_innerworld.sonar_target_bearing", distance, waypoint.getY());
+            if (recoveryTarget != null) bearing = Component.translatable("message.aeronautics_innerworld."
+                    + (recoveryLoaded ? "sonar_recovery_bearing" : "sonar_recovery_last_known"), distance, waypoint.getY());
         }
         for (var player : level.players()) {
-            if (player.distanceToSqr(position) <= 64) {
+            if (isHudFor(player)) {
                 if (threat != null && threat.isAlive()) {
                     var direction = Direction.getNearest(threat.getX() - position.x, 0, threat.getZ() - position.z);
                     player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_combat_hud",
@@ -134,6 +172,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
     }
 
     public void scan() {
+        updateRecoveryWaypoint();
         var origin = position();
         var center = BlockPos.containing(origin);
         var ship = Sable.HELPER.getContaining(this);
@@ -203,6 +242,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
         if (player.isShiftKeyDown()) {
             if (waypoint != null) {
                 waypoint = null;
+                recoveryTarget = null;
                 setChanged();
                 player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_home"), true);
                 return;
@@ -290,14 +330,18 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
                 return;
             }
             waypoint = death.get().pos().immutable();
+            recoveryTarget = ProbeRecovery.deathTarget(player);
+            updateRecoveryWaypoint();
         } else if (tracker != null) {
             if (tracker.target().isEmpty() || !tracker.target().get().dimension().equals(level.dimension())) {
                 player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_dimension"), true);
                 return;
             }
             waypoint = tracker.target().get().pos().immutable();
+            recoveryTarget = null;
         } else {
             scan();
+            recoveryTarget = null;
             waypoint = relay != null ? relay : mineral != null ? mineral : BlockPos.containing(position());
             var recorded = stack.getCount() == 1 ? stack : stack.copyWithCount(1);
             // Untracked lodestone targets retain discovered coordinates after a site or ore is removed.
@@ -322,6 +366,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
             tag.putLong("Home", home.asLong());
         }
         if (waypoint != null) tag.putLong("Waypoint", waypoint.asLong());
+        if (recoveryTarget != null) tag.put("RecoveryTarget", recoveryTarget.copy());
     }
 
     @Override
@@ -329,5 +374,8 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity {
         super.read(tag, registries, clientPacket);
         home = tag.contains("Home") ? BlockPos.of(tag.getLong("Home")) : null;
         waypoint = tag.contains("Waypoint") ? BlockPos.of(tag.getLong("Waypoint")) : null;
+        var target = tag.getCompound("RecoveryTarget");
+        recoveryTarget = waypoint != null && target.hasUUID("Ship") ? target.copy() : null;
+        recoveryLoaded = false;
     }
 }

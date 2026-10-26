@@ -229,7 +229,7 @@ public final class ProbeTestRig {
     public boolean ready() {
         removeOldRig();
         return level.getEntitiesOfClass(SuperGlueEntity.class,
-                SuperGlueEntity.span(origin.offset(-2, -2, -2), origin.offset(7, 6, 9))).size() == glue.size();
+                SuperGlueEntity.span(origin.offset(-2, -2, -2), origin.offset(7, 6, 9))).containsAll(glue);
     }
 
     public int sourceCopperDrops() {

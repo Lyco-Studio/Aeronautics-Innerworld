@@ -3,6 +3,7 @@ package io.github.alphaly.aeronauticsinnerworld.integration;
 import com.mojang.authlib.GameProfile;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeRecovery;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -26,6 +27,79 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder(AeronauticsInnerworld.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class ExpeditionChecks {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void tracksMovingWreckAndKeepsProbeHudsSeparate(GameTestHelper helper) {
+        var level = helper.getLevel().getServer().getLevel(Mantle.LEVEL);
+        var wreck = new ProbeTestRig(level, new BlockPos(4096, 180, 1024));
+        var rescue = new ProbeTestRig(level, new BlockPos(4103, 180, 1024));
+        wreck.workEquipment();rescue.workEquipment();
+        var player = new FakePlayer(level, new GameProfile(UUID.fromString("caf7ed82-364e-48fe-97ed-2179a5230b89"), "RescueNavigator"));
+        var anchor = new Vec3[1];
+        var death = new BlockPos[1];
+        var lastKnown = new BlockPos[1];
+        helper.onEachTick(level::resetEmptyTime);
+        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+            public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo test) { }
+            public void testPassed(net.minecraft.gametest.framework.GameTestInfo test, net.minecraft.gametest.framework.GameTestRunner runner) { cleanUp(); }
+            public void testFailed(net.minecraft.gametest.framework.GameTestInfo test, net.minecraft.gametest.framework.GameTestRunner runner) { cleanUp(); }
+            public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest, net.minecraft.gametest.framework.GameTestInfo newTest,
+                    net.minecraft.gametest.framework.GameTestRunner runner) { }
+            private void cleanUp() {wreck.cleanUp();rescue.cleanUp();}
+        });
+        helper.startSequence().thenWaitUntil(() -> helper.assertTrue(wreck.ready() && rescue.ready(), "Waiting for nearby probes"))
+                .thenExecute(() -> {
+                    wreck.assemble();rescue.assemble();wreck.power();rescue.power();
+                    wreck.motor(ProbeTestRig.SAMPLER, 0);rescue.motor(ProbeTestRig.SAMPLER, 0);
+                }).thenExecuteAfter(35, () -> {
+                    player.setPos(wreck.world(new BlockPos(2, 1, 2)));
+                    helper.assertTrue(wreck.sounder().isHudFor(player) && !rescue.sounder().isHudFor(player),
+                            "A nearby probe claimed another probe's crew HUD");
+                    death[0] = player.blockPosition();
+                    anchor[0] = wreck.subLevel.logicalPose().transformPositionInverse(player.position());
+                    ProbeRecovery.recordDeath(new net.neoforged.neoforge.event.entity.living.LivingDeathEvent(player, player.damageSources().generic()));
+                    player.setLastDeathLocation(java.util.Optional.of(GlobalPos.of(Mantle.LEVEL, death[0])));
+                    helper.assertTrue(ProbeRecovery.deathTarget(player) != null, "Ship death did not retain a recovery anchor");
+                    player.setPos(rescue.world(new BlockPos(2, 1, 2)));
+                    helper.assertTrue(rescue.sounder().isHudFor(player) && !wreck.sounder().isHudFor(player),
+                            "Boarding the rescue probe retained the wreck HUD");
+                    var extraPos = rescue.local(ProbeTestRig.SOUNDER.east());
+                    level.setBlockAndUpdate(extraPos, AeronauticsInnerworld.ECHO_SOUNDER.get().defaultBlockState());
+                    var extra = (io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity) level.getBlockEntity(extraPos);
+                    extra.setSpeed(32);
+                    helper.assertTrue(rescue.sounder().isHudFor(player) && !extra.isHudFor(player),
+                            "Multiple sounders in one probe competed for the same HUD");
+                    use(player, new ItemStack(Items.RECOVERY_COMPASS), rescue.local(ProbeTestRig.SOUNDER), Direction.UP);
+                    wreck.ballast(-96);
+                }).thenExecuteAfter(70, () -> {
+                    rescue.sounder().scan();
+                    var expected = BlockPos.containing(wreck.subLevel.logicalPose().transformPosition(anchor[0]));
+                    helper.assertTrue(expected.equals(rescue.sounder().getWaypoint()) && !expected.equals(death[0]),
+                            "Recovery waypoint did not follow a sinking native ship: death=" + death[0] + ", expected=" + expected
+                                    + ", target=" + rescue.sounder().getWaypoint() + ", data="
+                                    + rescue.sounder().saveWithFullMetadata(level.registryAccess()) + ", anchor=" + ProbeRecovery.deathTarget(player));
+                    lastKnown[0] = rescue.sounder().getWaypoint();
+                    wreck.unload();
+                    int loaded = level.getChunkSource().getLoadedChunksCount();
+                    rescue.sounder().scan();
+                    helper.assertTrue(lastKnown[0].equals(rescue.sounder().getWaypoint())
+                                    && level.getChunkSource().getLoadedChunksCount() == loaded,
+                            "An unavailable wreck erased its last known target or forced chunk loading");
+                    helper.runAfterDelay(2, wreck::restore);
+                    rescue.unload();helper.runAfterDelay(2, rescue::restore);
+                }).thenExecuteAfter(5, () -> {
+                    rescue.sounder().scan();
+                    helper.assertTrue(BlockPos.containing(wreck.subLevel.logicalPose().transformPosition(anchor[0]))
+                                    .equals(rescue.sounder().getWaypoint()), "Reload lost the moving recovery target");
+                    player.setLastDeathLocation(java.util.Optional.of(GlobalPos.of(Mantle.LEVEL, death[0].above(10))));
+                    helper.assertTrue(ProbeRecovery.deathTarget(player) == null, "A later death reused an unrelated ship anchor");
+                    player.setShiftKeyDown(true);rescue.sounder().interact(player);player.setShiftKeyDown(false);
+                    wreck.ballast(-96);
+                }).thenExecuteAfter(25, () -> {
+                    rescue.sounder().scan();
+                    helper.assertTrue(rescue.sounder().getWaypoint() == null, "Canceling rescue navigation retained a moving target");
+                }).thenSucceed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void samplesAndRepairsMantleProbe(GameTestHelper helper) {
         var level = helper.getLevel().getServer().getLevel(Mantle.LEVEL);
