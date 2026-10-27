@@ -22,5 +22,5 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
-      - run: ./gradlew --no-daemon build compileIntegrationTestJava
+      - run: ./gradlew --no-daemon build compileIntegrationTestJava releaseBundle
       - run: python3 tools/check_resources.py

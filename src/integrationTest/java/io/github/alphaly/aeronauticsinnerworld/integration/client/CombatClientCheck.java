@@ -1,5 +1,6 @@
 package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
+import com.google.common.collect.ImmutableSet;
 import com.mojang.logging.LogUtils;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.client.LavaStalkerRenderer;
@@ -8,10 +9,12 @@ import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -209,6 +212,11 @@ public final class CombatClientCheck {
         private final List<MobEffectInstance> oldEffects;
         private final boolean hadExposure;
         private final int oldExposure;
+        private final AdvancementHolder defense;
+        private final Set<String> oldDefense;
+        private final int oldExperience, oldExperienceLevel, oldScore;
+        private final float oldExperienceProgress;
+        private int rewardExperience;
         private final ProbeTestRig rig;
         private final ItemStack manual;
         private LavaStalker predator;
@@ -239,6 +247,13 @@ public final class CombatClientCheck {
             oldEffects = player.getActiveEffects().stream().map(MobEffectInstance::new).toList();
             hadExposure = player.getPersistentData().contains("InnerworldHeatExposure");
             oldExposure = player.getPersistentData().getInt("InnerworldHeatExposure");
+            oldExperience = player.totalExperience;
+            oldExperienceLevel = player.experienceLevel;
+            oldExperienceProgress = player.experienceProgress;
+            oldScore = player.getScore();
+            defense = player.server.getAdvancements().get(ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, "expedition/defense"));
+            oldDefense = ImmutableSet.copyOf(player.getAdvancements().getOrStartProgress(defense).getCompletedCriteria());
+            for (var criterion : oldDefense) player.getAdvancements().revoke(defense, criterion);
             var level = player.server.getLevel(Mantle.LEVEL);
             java.util.stream.StreamSupport.stream(level.getAllEntities().spliterator(), false)
                     .filter(entity -> entity.getTags().contains("innerworld_combat_client_loot")).toList()
@@ -274,6 +289,7 @@ public final class CombatClientCheck {
                 player.onUpdateAbilities();
                 player.setHealth(player.getMaxHealth());
                 player.getInventory().clearContent();
+                rewardExperience = player.totalExperience;
                 player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.PRESSURE_BOLT.get(), 32));
                 player.containerMenu.broadcastChanges();
                 predator = AeronauticsInnerworld.LAVA_STALKER.get().create(rig.level);
@@ -296,6 +312,10 @@ public final class CombatClientCheck {
                 rig.motor(ProbeTestRig.CANNON, 32);
             }
             if (ticks > 55 && !killed && predator.isDeadOrDying()) {
+                if (!player.getAdvancements().getOrStartProgress(defense).isDone()
+                        || player.getInventory().countItem(Items.COOKED_BEEF) != 4 || player.totalExperience < rewardExperience + 30)
+                    throw new IllegalStateException("Native cannon kill did not grant its crew defense milestone and rewards");
+                LogUtils.getLogger().info("Native cannon kill credited its crew: defense complete, cooked beef=4, reward experience={}", player.totalExperience - rewardExperience);
                 killed = true;
                 rig.motor(ProbeTestRig.CANNON, 0);
                 predator.discard();
@@ -419,6 +439,9 @@ public final class CombatClientCheck {
             }
             remains.forEach(ItemEntity::discard);
             rig.cleanUp();
+            for (var criterion : ImmutableSet.copyOf(player.getAdvancements().getOrStartProgress(defense).getCompletedCriteria()))
+                player.getAdvancements().revoke(defense, criterion);
+            for (var criterion : oldDefense) player.getAdvancements().award(defense, criterion);
             player.teleportTo(oldLevel, oldPosition.x, oldPosition.y, oldPosition.z, oldYaw, oldPitch);
             player.setGameMode(oldMode);
             player.getAbilities().flying = oldFlying;
@@ -429,6 +452,10 @@ public final class CombatClientCheck {
                 player.getInventory().setItem(slot, oldInventory.get(slot));
             }
             player.getInventory().selected = oldSelected;
+            player.totalExperience = oldExperience;
+            player.experienceLevel = oldExperienceLevel;
+            player.experienceProgress = oldExperienceProgress;
+            player.setScore(oldScore);
             player.setHealth(oldHealth);
             player.setPortalCooldown(oldPortalCooldown);
             player.clearFire();

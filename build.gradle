@@ -577,6 +577,29 @@ tasks.withType(Jar).configureEach {
     from('LICENSE') { into 'META-INF' }
 }
 
+tasks.register('releaseBundle', Zip) {
+    group = 'build'
+    description = 'Package the mod, installation notes, player guides and loader configuration example.'
+    archiveClassifier = 'bundle'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    from(tasks.named('jar')) { into 'mods' }
+    from('INSTALL.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md')
+    from('gradle/wrapper') {
+        include 'LICENSE', 'NOTICE'
+        into 'gradle/wrapper'
+    }
+    from('docs') {
+        include 'PROGRESSION.md', 'DRILL_BUILD.md', 'PROBE_BUILD.md', 'DOCK_BUILD.md', 'EXPEDITION_SUPPLIES.md', 'CORE_DRILL.md'
+        into 'docs'
+    }
+    from('gradle/development-fml.toml') {
+        into 'examples'
+        rename { 'fml.toml' }
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

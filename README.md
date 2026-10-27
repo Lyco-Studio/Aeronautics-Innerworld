@@ -4,6 +4,8 @@
 
 玩法设计见 [游戏策划案](docs/DESIGN.md)。
 
+安装与加载配置见 [安装说明](INSTALL.md)，从主世界准备到地核通关的完整行动顺序见[三维度生存路线](docs/PROGRESSION.md)。
+
 用一本书和一个铜锭合成地幔远征手册，可在游戏内查阅钻探、接驳、船体建造、驾驶、采样、损管及船坞装卸补给流程。取得安山机壳后，现有设备与补给配方会加入原版配方书；取得书时会解锁手册配方。进度界面提供从钻探准备到样本加工的探索路线。
 
 可选安装 [Patchouli](https://modrinth.com/mod/patchouli) 的 NeoForge 1.21.1 版本（93 或更新版），再用一本书、一个铜锭和一份红石合成**地心远征任务簿**。任务簿提供可点击的任务树、前置章节解锁、完成标记、配方与作业参考，覆盖钻探准备、首航采样、防护支线、深层升级和故事通关。首页进度按钮可打开完整分支树。
@@ -174,11 +176,14 @@
 
 ```sh
 ./gradlew build
+./gradlew releaseBundle
 ./gradlew runClient
 ./gradlew runServer
 ```
 
 构建产物位于 `build/libs/`。首次运行需要联网下载 Minecraft 和开发依赖。启动专用服务器前，应阅读 Minecraft EULA，并按服务器提示完成配置。
+
+`releaseBundle` 在 `build/distributions/` 生成包含 mod、安装说明、玩家指南与加载配置示例的归档，依赖按安装说明单独安装。
 
 可运行 `python3 tools/check_resources.py` 检查资源与翻译。仓库的构建工作流使用 JDK 21 完成编译和资源检查；需要游戏世界或图形桌面的运行场景见 [实施目标与验证说明](GOAL.md)。
 
