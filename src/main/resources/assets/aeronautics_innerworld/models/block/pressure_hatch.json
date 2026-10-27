@@ -2,7 +2,7 @@
   "parent": "minecraft:block/block",
   "textures": {
     "hatch": "aeronautics_innerworld:block/pressure_hatch",
-    "frame": "aeronautics_innerworld:block/industrial_casing",
+    "frame": "aeronautics_innerworld:block/refractory_hull",
     "particle": "aeronautics_innerworld:block/pressure_hatch",
     "metal": "aeronautics_innerworld:block/steel_trim",
     "brass": "aeronautics_innerworld:block/brass_trim",

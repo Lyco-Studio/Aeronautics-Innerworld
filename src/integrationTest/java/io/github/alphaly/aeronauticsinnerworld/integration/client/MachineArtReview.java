@@ -1,6 +1,7 @@
 package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.AllBlocks;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -72,10 +73,12 @@ final class MachineArtReview {
             client.player.lookAt(Anchor.EYES, gallery.target);
             if (++viewTicks == 50) capture(client, "innerworld-machines-polished.png");
             if (viewTicks == 55) {
-                server.submit(() -> gallery.viewHull());
+                server.submit(() -> gallery.viewMachines());
             }
-            if (viewTicks == 105) capture(client, "innerworld-hull-polished.png");
-            if (viewTicks == 110) cleanup = server.submit(gallery::restore);
+            if (viewTicks == 105) capture(client, "innerworld-machines-detail.png");
+            if (viewTicks == 110) server.submit(() -> gallery.viewHull());
+            if (viewTicks == 160) capture(client, "innerworld-hull-polished.png");
+            if (viewTicks == 165) cleanup = server.submit(gallery::restore);
         } catch (RuntimeException exception) {
             failure = exception;
             cleanup = client.getSingleplayerServer().submit(() -> {if (gallery != null) gallery.restore();});
@@ -104,13 +107,13 @@ final class MachineArtReview {
             oldMode = player.gameMode.getGameModeForPlayer();oldFlying = player.getAbilities().flying;
             var level = player.serverLevel();
             origin = new BlockPos(player.getBlockX(), level.getMaxBuildHeight() - 30, player.getBlockZ());
-            for (var pos : BlockPos.betweenClosed(origin.offset(-2,0,-2), origin.offset(27,7,3))) {
+            for (var pos : BlockPos.betweenClosed(origin.offset(-2,0,-2), origin.offset(27,10,3))) {
                 if (!level.getBlockState(pos).isAir()) throw new IllegalStateException("Art review needs an empty sky area");
             }
             try {
                 for (int x = -2; x <= 27; x++) for (int z = -2; z <= 3; z++)
                     place(x,0,z, (z == -2 ? Blocks.SEA_LANTERN : Blocks.POLISHED_DEEPSLATE).defaultBlockState());
-                for (int x = -1; x <= 14; x++) for (int y = 1; y <= 6; y++)
+                for (int x = -1; x <= 14; x++) for (int y = 1; y <= 9; y++)
                     place(x,y,2, Blocks.DEEPSLATE_BRICKS.defaultBlockState());
                 var devices = List.of(AeronauticsInnerworld.DRILL_CONTROLLER.get(), AeronauticsInnerworld.MOLTEN_THRUSTER.get(),
                         AeronauticsInnerworld.MANTLE_BALLAST.get(), AeronauticsInnerworld.CABIN_REGULATOR.get(),
@@ -121,6 +124,10 @@ final class MachineArtReview {
                     place(i < 4 ? i * 4 : (i - 4) * 4 + 2, i < 4 ? 1 : 4, 0,
                             block.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.NORTH));
                 }
+                var references = List.of(AllBlocks.ANDESITE_CASING.get(), AllBlocks.GEARBOX.get(),
+                        AllBlocks.FLUID_TANK.get(), AllBlocks.COPPER_CASING.get());
+                for (int i = 0; i < references.size(); i++)
+                    place(i*4,7,0,references.get(i).defaultBlockState());
                 for (int x = 19; x <= 25; x++) for (int y = 1; y <= 4; y++)
                     place(x,y,0,AeronauticsInnerworld.REFRACTORY_HULL.get().defaultBlockState());
                 for (int x = 20; x <= 21; x++) for (int y = 2; y <= 3; y++)
@@ -128,8 +135,10 @@ final class MachineArtReview {
                 for (int y = 1; y <= 2; y++)
                     place(24,y,0,AeronauticsInnerworld.PRESSURE_HATCH.get().defaultBlockState());
                 place(22,1,0,AeronauticsInnerworld.DAMAGED_HULL.get().defaultBlockState());
-                view = Vec3.atLowerCornerOf(origin).add(10.5,2,-16);
-                target = Vec3.atLowerCornerOf(origin).add(6.5,2.7,.5);
+                place(17,1,0,AllBlocks.ANDESITE_CASING.get().defaultBlockState());
+                place(17,2,0,AllBlocks.COPPER_CASING.get().defaultBlockState());
+                view = Vec3.atLowerCornerOf(origin).add(10.5,3.3,-18);
+                target = Vec3.atLowerCornerOf(origin).add(6.5,4,.5);
                 player.setGameMode(GameType.SPECTATOR);
                 player.teleportTo(level, view.x,view.y,view.z,0,0);
             } catch (RuntimeException exception) {restore();throw exception;}
@@ -144,6 +153,12 @@ final class MachineArtReview {
         private void viewHull() {
             target = Vec3.atLowerCornerOf(origin).add(22.5,2.1,.5);
             view = Vec3.atLowerCornerOf(origin).add(24.5,1.3,-8);
+            player.teleportTo(player.serverLevel(),view.x,view.y,view.z,0,0);
+        }
+
+        private void viewMachines() {
+            target = Vec3.atLowerCornerOf(origin).add(6.5,1.6,.5);
+            view = Vec3.atLowerCornerOf(origin).add(9.5,.4,-6.5);
             player.teleportTo(player.serverLevel(),view.x,view.y,view.z,0,0);
         }
 
