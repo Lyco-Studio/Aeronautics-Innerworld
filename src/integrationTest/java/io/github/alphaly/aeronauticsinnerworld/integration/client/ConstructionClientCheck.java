@@ -55,6 +55,7 @@ public final class ConstructionClientCheck {
     private static int ticks, observed = -1, frames;
     private static boolean capturedPause, oldPause, finished, inputs;
     private static boolean engineProduction() {return Boolean.getBoolean("innerworld.constructionEngine");}
+    private static int engineCount() {return Integer.getInteger("innerworld.engineCount", 1);}
 
     @SubscribeEvent
     public static void tick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
@@ -67,11 +68,11 @@ public final class ConstructionClientCheck {
                 finished = true;
                 try {cleanup.join();} finally {client.options.pauseOnLostFocus = oldPause;client.options.save();}
                 if (failure != null) throw failure;
-                Files.writeString(client.gameDirectory.toPath().resolve("construction-check.result"), engineProduction() ? "engine-verified" : "verified");
+                Files.writeString(client.gameDirectory.toPath().resolve("construction-check.result"), engineProduction() ? engineCount() > 1 ? "engine-batch-verified" : "engine-verified" : "verified");
                 LogUtils.getLogger().info("Native survival construction passed: workbench recipes, placement, fuel, glue, excavation and unloading");
                 client.stop();return;
             }
-            if (++ticks > (engineProduction() ? 21000 : 5000)) throw new IllegalStateException("Construction timed out at " + observed);
+            if (++ticks > (engineProduction() ? 21000 + 2000L * (engineCount() - 1) : 5000)) throw new IllegalStateException("Construction timed out at " + observed);
             if (client.level == null || client.player == null || client.getSingleplayerServer() == null || ticks < 100) return;
             var server = client.getSingleplayerServer();
             if (setup == null) {var id = client.player.getUUID();setup = server.submit(() -> new Scene(server.getPlayerList().getPlayer(id)));return;}
@@ -103,7 +104,7 @@ public final class ConstructionClientCheck {
                 equip(client, Items.COAL);look(client, Vec3.atCenterOf(scene.engine));
                 if (frames == 10) use(client, scene.engine, null);
             } else if (observed == 14 || observed == 16) {
-                client.player.getInventory().selected = 0;look(client, Vec3.atCenterOf(scene.controller));
+                DeepDrillConnection.empty(client);look(client, Vec3.atCenterOf(scene.controller));
                 if (frames == 10) use(client, scene.controller, null);
             } else if (observed == 17) {
                 equip(client, AllItems.WRENCH.get());sneak(client, true);look(client, Vec3.atCenterOf(scene.controller));
@@ -172,7 +173,7 @@ public final class ConstructionClientCheck {
     }
 
     private static void chest(Minecraft client, boolean unloading) {
-        client.player.getInventory().selected = 0;
+        DeepDrillConnection.empty(client);
         var pos = unloading ? scene.placedChest : scene.root.east();
         if (!(client.player.containerMenu instanceof ChestMenu menu)) {
             look(client, Vec3.atCenterOf(pos));if (frames % 10 == 0) use(client, pos, null);return;
@@ -231,7 +232,7 @@ public final class ConstructionClientCheck {
             var candidate = player.blockPosition().offset(24, 0, 0);
             while (true) {
                 boolean clear = true;
-                for (var pos : BlockPos.betweenClosed(candidate.offset(-3, -1, -2), candidate.offset(7, 3, 9)))
+                for (var pos : BlockPos.betweenClosed(candidate.offset(-3, -1, -2), candidate.offset(7, 4, 9)))
                     if (!level.isEmptyBlock(pos)) {clear = false;break;}
                 if (clear) break;
                 candidate = candidate.above(6);
@@ -240,8 +241,14 @@ public final class ConstructionClientCheck {
             base = candidate;controller = base.offset(0, 1, 2);root = controller.south();engine = controller.north();bench = base.east(2);
             bounds = new BoundingBox(base.getX() - 3, base.getY(), base.getZ() - 2, base.getX() + 7, base.getY(), base.getZ() + 9);
             level.getEntitiesOfClass(SuperGlueEntity.class, new AABB(Vec3.atLowerCornerOf(base.offset(-3, -1, -2)), Vec3.atLowerCornerOf(base.offset(8, 4, 10)))).forEach(entity -> oldGlue.add(entity.getUUID()));
-            for (var pos : BlockPos.betweenClosed(base.offset(-3, -1, -2), base.offset(7, 3, 9))) terrain.put(pos.immutable(), level.getBlockState(pos));
-            for (int x = -3; x <= 7; x++) for (int z = -2; z <= 9; z++) level.setBlockAndUpdate(base.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+            for (var pos : BlockPos.betweenClosed(base.offset(-3, -1, -2), base.offset(7, 4, 9))) terrain.put(pos.immutable(), level.getBlockState(pos));
+            for (int x = -3; x <= 7; x++) for (int z = -2; z <= 9; z++) {
+                level.setBlockAndUpdate(base.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+                level.setBlockAndUpdate(base.offset(x, 4, z), (x == -1 || x == 5) && (z == 0 || z == 7)
+                        ? Blocks.GLOWSTONE.defaultBlockState() : Blocks.STONE.defaultBlockState());
+                if (x == -3 || x == 7 || z == -2 || z == 9) for (int y = 0; y < 4; y++)
+                    level.setBlockAndUpdate(base.offset(x, y, z), Blocks.STONE.defaultBlockState());
+            }
             level.setBlockAndUpdate(controller.below(), Blocks.STONE.defaultBlockState());level.setBlockAndUpdate(bench, Blocks.CRAFTING_TABLE.defaultBlockState());
             level.setBlockAndUpdate(root.south(), Blocks.DEEPSLATE.defaultBlockState());level.setBlockAndUpdate(root.south(2), Blocks.DEEPSLATE.defaultBlockState());
             player.setGameMode(GameType.SURVIVAL);player.getInventory().clearContent();player.getInventory().selected = 0;
@@ -250,12 +257,13 @@ public final class ConstructionClientCheck {
             player.getInventory().setItem(4, new ItemStack(Items.REDSTONE));
             engineItem = SimBlocks.PORTABLE_ENGINES.get(engineProduction() ? DyeColor.RED : DyeColor.BROWN).asItem();
             if (!engineProduction()) player.getInventory().setItem(5, new ItemStack(engineItem));
-            else {player.getInventory().setItem(11, new ItemStack(Items.IRON_INGOT, 64));player.getInventory().setItem(12, new ItemStack(Items.BLAST_FURNACE));}
+            else {player.getInventory().setItem(11, new ItemStack(Items.IRON_INGOT, 64));player.getInventory().setItem(12, new ItemStack(Items.BLAST_FURNACE, engineCount()));
+                if (engineCount() > 1) player.getInventory().setItem(13, new ItemStack(Items.BREAD, 64));}
             player.getInventory().setItem(6, new ItemStack(Items.CHEST));player.getInventory().setItem(7, AllItems.SUPER_GLUE.asStack());
             player.getInventory().setItem(8, new ItemStack(Items.COAL, 4));player.getInventory().setItem(9, AllItems.WRENCH.asStack());
             player.getInventory().setItem(10, new ItemStack(Items.COPPER_INGOT, 17));
             player.teleportTo(level, base.getX() + .5, base.getY(), base.getZ() + .5, 0, 0);player.containerMenu.broadcastChanges();
-            workshop = engineProduction() ? new EngineWorkshop(player, base.offset(-2, 0, 7), bench, bounds) : null;
+            workshop = engineProduction() ? new EngineWorkshop(player, base.offset(-2, 0, 7), bench, bounds, engineCount()) : null;
             if (workshop != null) stage = -1;
             started = level.getGameTime();
         }
@@ -273,7 +281,7 @@ public final class ConstructionClientCheck {
         private void next(int value) {stage = value;LogUtils.getLogger().info("Native construction stage {}: player={}", value, player.position());}
         private void walking(int value, BlockPos destination) {walk = new CoreMazeWalk(level, bounds, player.blockPosition(), destination, false);next(value);}
         private void advance(int frame) {
-            if (!player.isAlive() || level.getGameTime() - started > (engineProduction() ? 20000 : 4000)) throw new IllegalStateException("Construction failed at " + stage);
+            if (!player.isAlive() || level.getGameTime() - started > (engineProduction() ? 20000 + 2000L * (engineCount() - 1) : 4000)) throw new IllegalStateException("Construction failed at " + stage);
             if (stage == -1) {if (workshop.advance()) walking(-2, base);return;}
             if (stage == -2) {walk.advance(player.position());if (walk.arrived()) next(0);return;}
             if (stage == 0 && player.getInventory().countItem(AeronauticsInnerworld.DRILL_CONTROLLER.get().asItem()) == 1) next(1);
@@ -287,6 +295,8 @@ public final class ConstructionClientCheck {
             } else if (stage == 3 && level.getBlockEntity(engine) instanceof PortableEngineBlockEntity) {
                 if (level.getBlockState(engine).getValue(BlockStateProperties.HORIZONTAL_FACING) != Direction.SOUTH)
                     throw new IllegalStateException("Engine did not connect to the controller shaft: " + level.getBlockState(engine) + ", crouched=" + player.isShiftKeyDown());
+                if (player.getInventory().countItem(engineItem) != (engineProduction() ? engineCount() - 1 : 0))
+                    throw new IllegalStateException("Native engine placement changed the production batch");
                 walking(4, base.offset(2, 0, 4));
             } else if (stage == 4 || stage == 8 || stage == 10 || stage == 12 || stage == 18) {
                 walk.advance(player.position());

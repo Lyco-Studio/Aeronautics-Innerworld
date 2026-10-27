@@ -307,5 +307,7 @@
   "book.aeronautics_innerworld.tasks.deep_drill.label": "$(l:missions/deep_drill)Coupler$()",
   "book.aeronautics_innerworld.tasks.core.label": "$(l:missions/core)Core$()",
   "book.aeronautics_innerworld.tasks.victory.label": "$(l:missions/victory)Victory$()",
-  "book.aeronautics_innerworld.tasks.progress": "Complete the objective on the left to record this milestone. Rewards arrive automatically and are granted once for this task. Reopening the journal keeps your progress."
+  "book.aeronautics_innerworld.tasks.progress": "Complete the objective on the left to record this milestone. Rewards arrive automatically and are granted once for this task. Reopening the journal keeps your progress.",
+  "book.aeronautics_innerworld.page.33": "Batch engines\n\nReserve seven iron sheets and seven blast furnaces. Complete all eight rounds for every workpiece. Keep successes and byproducts; make more assemblies if needed.",
+  "book.aeronautics_innerworld.page.34": "Batch handling\n\nUnfinished assemblies do not stack. Load up to five per hopper; collect outputs before refilling. Keep hull supplies in chests and bring plenty of food for cranking."
 }

@@ -307,5 +307,7 @@
   "book.aeronautics_innerworld.tasks.deep_drill.label": "$(l:missions/deep_drill)升级$()",
   "book.aeronautics_innerworld.tasks.core.label": "$(l:missions/core)地核$()",
   "book.aeronautics_innerworld.tasks.victory.label": "$(l:missions/victory)通关$()",
-  "book.aeronautics_innerworld.tasks.progress": "完成左页目标即可记录该里程碑。奖励会自动发放，每个任务仅发放一次；重新打开任务簿后进度保留。"
+  "book.aeronautics_innerworld.tasks.progress": "完成左页目标即可记录该里程碑。奖励会自动发放，每个任务仅发放一次；重新打开任务簿后进度保留。",
+  "book.aeronautics_innerworld.page.33": "批量制造\n\n预留七张铁板和七座高炉用于最终合成。加工用铁板逐件完成八轮切割、压制，收齐每轮工件后再换设备。保留成功总成和副产物，不足七份时继续加工。",
+  "book.aeronautics_innerworld.page.34": "供料与储存\n\n未完成总成不能堆叠，五槽漏斗分批供料。及时取回输出，再补入同一步骤的工件。建艇原料先存箱中，预留加工背包格，并为手摇准备足够食物。"
 }

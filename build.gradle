@@ -177,6 +177,7 @@ neoForge.runs.create('constructionTestClient') {
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.constructionClientCheck', 'true'
     systemProperty 'innerworld.constructionEngine', providers.gradleProperty('constructionEngine').getOrElse('false')
+    systemProperty 'innerworld.engineCount', providers.gradleProperty('engineCount').getOrElse('1')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -189,7 +190,8 @@ tasks.named('runConstructionTestClient') {
         result.asFile.delete()
     }
     doLast {
-        def expected = providers.gradleProperty('constructionEngine').getOrElse('false') == 'true' ? 'engine-verified' : 'verified'
+        def expected = providers.gradleProperty('constructionEngine').getOrElse('false') == 'true'
+                ? providers.gradleProperty('engineCount').getOrElse('1').toInteger() > 1 ? 'engine-batch-verified' : 'engine-verified' : 'verified'
         if (!result.asFile.isFile() || result.asFile.text != expected) {
             throw new GradleException('Construction check failed; inspect the client diagnostics.')
         }

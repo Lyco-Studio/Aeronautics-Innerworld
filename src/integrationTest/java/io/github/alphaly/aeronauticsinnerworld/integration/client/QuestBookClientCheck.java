@@ -76,7 +76,7 @@ public final class QuestBookClientCheck {
             if (!setup.isDone()) return;
             scene = setup.join();
             if (work != null) {if (!work.isDone()) return;work.join();work = null;}
-            if (reload != null) {if (!reload.isDone()) return;reload.join();reload = null;open("tree", 0);frames = 0;}
+            if (reload != null) {if (!reload.isDone() || client.getOverlay() != null) return;reload.join();reload = null;open(view == 9 ? "reference/industry" : "tree", view == 9 ? 2 : 0);frames = 0;}
             if (client.getOverlay() != null) return;
             if (scene.stage == 0) {craft(client);work = client.getSingleplayerServer().submit(scene::advance);return;}
             frames++;
@@ -102,6 +102,11 @@ public final class QuestBookClientCheck {
                     case 7 -> {
                         work = client.getSingleplayerServer().submit(scene::advance);
                         if (scene.stage != 3) return;
+                        open("reference/industry", 2);
+                    }
+                    case 8 -> {capture(client, "quest-industry-zh.png");reload = language(client, "en_us");}
+                    case 9 -> {
+                        capture(client, "quest-industry-en.png");
                         cleanup = client.getSingleplayerServer().submit(scene::cleanUp);return;
                     }
                     default -> throw new IllegalStateException("Unknown journal view " + view);
@@ -120,6 +125,7 @@ public final class QuestBookClientCheck {
     }
 
     private static CompletableFuture<Void> language(Minecraft client, String locale) {
+        client.setScreen(null);
         client.getLanguageManager().setSelected(locale);client.options.languageCode = locale;
         return client.reloadResourcePacks();
     }
@@ -134,7 +140,7 @@ public final class QuestBookClientCheck {
                     var label = Component.translatable("book.aeronautics_innerworld.tasks." + key + ".label").getString().replaceAll("\\$\\([^)]*\\)", "");
                     require(client.font.width(label) <= 40, "Tree label exceeds its node: " + locale + " " + key);
                 }
-                for (int page = 1; page <= 32; page++) require(client.font.wordWrapHeight(Component.translatable("book.aeronautics_innerworld.page." + page), 114) <= 128,
+                for (int page = 1; page <= 34; page++) require(client.font.wordWrapHeight(Component.translatable("book.aeronautics_innerworld.page." + page), 114) <= 128,
                         "Reference text exceeds its page: " + locale + " " + page);
             }
         } finally {
