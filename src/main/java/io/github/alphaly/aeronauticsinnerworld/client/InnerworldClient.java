@@ -29,6 +29,8 @@ public final class InnerworldClient {
                     .factory(MachineShaftRenderer::visual).apply();
             SimpleBlockEntityVisualizer.builder(AeronauticsInnerworld.CABIN_REGULATOR_ENTITY.get())
                     .factory(MachineShaftRenderer::visual).apply();
+            SimpleBlockEntityVisualizer.builder(AeronauticsInnerworld.HEAT_ENGINE_ENTITY.get())
+                    .factory(MachineShaftRenderer::visual).apply();
             SimpleBlockEntityVisualizer.builder(AeronauticsInnerworld.ECHO_SOUNDER_ENTITY.get())
                     .factory(MachineShaftRenderer::visual).apply();
             SimpleBlockEntityVisualizer.builder(AeronauticsInnerworld.MANTLE_SAMPLER_ENTITY.get())
@@ -53,6 +55,7 @@ public final class InnerworldClient {
         event.registerBlockEntityRenderer(AeronauticsInnerworld.DRILL_CONTROLLER_ENTITY.get(), MachineShaftRenderer::new);
         event.registerBlockEntityRenderer(AeronauticsInnerworld.PROBE_DRIVE_ENTITY.get(), MachineShaftRenderer::new);
         event.registerBlockEntityRenderer(AeronauticsInnerworld.CABIN_REGULATOR_ENTITY.get(), MachineShaftRenderer::new);
+        event.registerBlockEntityRenderer(AeronauticsInnerworld.HEAT_ENGINE_ENTITY.get(), MachineShaftRenderer::new);
         event.registerBlockEntityRenderer(AeronauticsInnerworld.ECHO_SOUNDER_ENTITY.get(), MachineShaftRenderer::new);
         event.registerBlockEntityRenderer(AeronauticsInnerworld.MANTLE_SAMPLER_ENTITY.get(), MachineShaftRenderer::new);
         event.registerBlockEntityRenderer(AeronauticsInnerworld.PRESSURE_CANNON_ENTITY.get(), MachineShaftRenderer::new);

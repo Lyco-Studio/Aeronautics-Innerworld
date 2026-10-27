@@ -15,6 +15,8 @@ import dev.simulated_team.simulated.content.blocks.portable_engine.PortableEngin
 import net.minecraft.world.item.DyeColor;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDeviceBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
@@ -158,6 +160,24 @@ public final class ProbeTestRig {
         engineColor = color;
         survivalPower();
         engine(SOUNDER.south(), Direction.NORTH);
+    }
+
+    public void heatPower() {
+        workEquipment();
+        survivalPower();
+        for (var pos : List.copyOf(original.keySet())) {
+            if (level.getBlockEntity(pos) instanceof PortableEngineBlockEntity engine) {
+                var output = engine.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
+                engine.inventory.clearContent();
+                level.setBlockAndUpdate(pos, AeronauticsInnerworld.HEAT_ENGINE.get().defaultBlockState()
+                        .setValue(HeatEngineBlock.FACING, output.getOpposite()));
+            }
+        }
+    }
+
+    public List<HeatEngineBlockEntity> heatEngines() {
+        return java.util.stream.StreamSupport.stream(subLevel.getPlot().getBlockEntityActors().spliterator(), false)
+                .filter(HeatEngineBlockEntity.class::isInstance).map(HeatEngineBlockEntity.class::cast).toList();
     }
 
     public void landingSkids() {
@@ -400,7 +420,7 @@ public final class ProbeTestRig {
     }
 
     public CabinRegulatorBlockEntity cabin() {
-        return (CabinRegulatorBlockEntity) level.getBlockEntity(local(CABIN));
+        return (CabinRegulatorBlockEntity) level.getBlockEntity(subLevel == null ? source(CABIN) : local(CABIN));
     }
 
     public void unload() {

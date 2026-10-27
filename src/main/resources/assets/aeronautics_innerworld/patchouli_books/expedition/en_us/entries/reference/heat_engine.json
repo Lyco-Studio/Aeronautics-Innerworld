@@ -1,0 +1,16 @@
+{
+  "name": "book.aeronautics_innerworld.tasks.reference.heat_engine",
+  "icon": "aeronautics_innerworld:heat_engine",
+  "category": "aeronautics_innerworld:reference",
+  "sortnum": 4,
+  "pages": [
+    {
+      "type": "patchouli:crafting",
+      "recipe": "aeronautics_innerworld:heat_engine"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "book.aeronautics_innerworld.heat_engine.guide"
+    }
+  ]
+}

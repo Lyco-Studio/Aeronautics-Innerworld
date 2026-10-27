@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " C ",
+    "CEC",
+    " T "
+  ],
+  "key": {
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "E": {
+      "tag": "aeronautics_innerworld:portable_engines"
+    },
+    "T": {
+      "item": "create:fluid_tank"
+    }
+  },
+  "result": {
+    "id": "aeronautics_innerworld:heat_engine",
+    "count": 1
+  }
+}

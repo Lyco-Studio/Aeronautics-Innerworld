@@ -25,6 +25,9 @@ final class BookLayoutChecks {
                         oversized.add(locale + " page " + (i + 1) + " height=" + height);
                     }
                 }
+                var engineGuide = net.minecraft.network.chat.Component.translatable("book.aeronautics_innerworld.heat_engine.guide")
+                        .getString().replace("$(br2)", "\n\n");
+                if (client.font.wordWrapHeight(engineGuide,114)>128) oversized.add(locale+" heat engine guide");
             }
         } finally {
             Language.inject(original);

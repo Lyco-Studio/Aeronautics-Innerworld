@@ -118,6 +118,12 @@ final class MachineArtReview {
             if (viewTicks == 440) capture(client, "innerworld-items-polished.png");
             if (viewTicks == 445) {
                 client.setScreen(null);
+                client.options.fov().set(50);
+                server.submit(() -> gallery.viewEngine());
+            }
+            if (viewTicks == 495) capture(client, "innerworld-heat-engine.png");
+            if (viewTicks == 500) {
+                client.setScreen(null);
                 cleanup = server.submit(gallery::restore);
             }
         } catch (RuntimeException exception) {
@@ -178,6 +184,9 @@ final class MachineArtReview {
         ItemArtScreen() {
             super(Component.literal("Item art review"));
             var client = Minecraft.getInstance();
+            var manual = client.level.getRecipeManager().byKey(ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID,"expedition_manual"))
+                    .orElseThrow().value().getResultItem(client.level.registryAccess());
+            BookLayoutChecks.check(client,manual);
             client.level.getRecipeManager().byKey(ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID,"expedition_taskbook"))
                     .ifPresent(recipe -> items.add(recipe.value().getResultItem(client.level.registryAccess()).copy()));
             for (var stack : items) if (client.getItemRenderer().getModel(stack,client.level,client.player,0)
@@ -249,7 +258,7 @@ final class MachineArtReview {
                 var devices = List.of(AeronauticsInnerworld.DRILL_CONTROLLER.get(), AeronauticsInnerworld.MOLTEN_THRUSTER.get(),
                         AeronauticsInnerworld.MANTLE_BALLAST.get(), AeronauticsInnerworld.CABIN_REGULATOR.get(),
                         AeronauticsInnerworld.ECHO_SOUNDER.get(), AeronauticsInnerworld.MANTLE_SAMPLER.get(),
-                        AeronauticsInnerworld.PRESSURE_CANNON.get());
+                        AeronauticsInnerworld.PRESSURE_CANNON.get(),AeronauticsInnerworld.HEAT_ENGINE.get());
                 for (int i = 0; i < devices.size(); i++) {
                     var block = devices.get(i);
                     place(i < 4 ? i * 4 : (i - 4) * 4 + 2, i < 4 ? 1 : 4, 0,
@@ -322,6 +331,12 @@ final class MachineArtReview {
             player.setItemSlot(EquipmentSlot.MAINHAND,AeronauticsInnerworld.DRILL_REMOTE.toStack());
             player.setItemSlot(EquipmentSlot.OFFHAND,AeronauticsInnerworld.CORE_SURVEYOR.toStack());
             player.containerMenu.broadcastChanges();
+            player.teleportTo(player.serverLevel(),view.x,view.y,view.z,0,0);
+        }
+
+        private void viewEngine() {
+            target = Vec3.atLowerCornerOf(origin).add(14.5,4.5,.5);
+            view = Vec3.atLowerCornerOf(origin).add(16,4.1,-4.5);
             player.teleportTo(player.serverLevel(),view.x,view.y,view.z,0,0);
         }
 

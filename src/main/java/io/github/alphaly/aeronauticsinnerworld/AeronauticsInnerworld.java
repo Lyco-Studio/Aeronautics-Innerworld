@@ -16,6 +16,8 @@ import io.github.alphaly.aeronauticsinnerworld.content.drill.BoreStationBlockEnt
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDeviceBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlock;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
@@ -111,6 +113,10 @@ public final class AeronauticsInnerworld {
             () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
                     .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.CABIN));
     public static final DeferredItem<BlockItem> CABIN_REGULATOR_ITEM = ITEMS.registerSimpleBlockItem(CABIN_REGULATOR);
+    public static final DeferredBlock<HeatEngineBlock> HEAT_ENGINE = BLOCKS.register("heat_engine",
+            () -> new HeatEngineBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()));
+    public static final DeferredItem<BlockItem> HEAT_ENGINE_ITEM = ITEMS.registerSimpleBlockItem(HEAT_ENGINE);
     public static final DeferredBlock<ProbeDeviceBlock> ECHO_SOUNDER = BLOCKS.register("echo_sounder",
             () -> new ProbeDeviceBlock(BlockBehaviour.Properties.of().strength(4).sound(SoundType.METAL)
                     .requiresCorrectToolForDrops(), ProbeDeviceBlock.Kind.SOUNDER));
@@ -183,6 +189,9 @@ public final class AeronauticsInnerworld {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CabinRegulatorBlockEntity>> CABIN_REGULATOR_ENTITY =
             BLOCK_ENTITIES.register("cabin_regulator", () -> BlockEntityType.Builder.of(CabinRegulatorBlockEntity::new,
                     CABIN_REGULATOR.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HeatEngineBlockEntity>> HEAT_ENGINE_ENTITY =
+            BLOCK_ENTITIES.register("heat_engine", () -> BlockEntityType.Builder.of(HeatEngineBlockEntity::new,
+                    HEAT_ENGINE.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BoreStationBlockEntity>> BORE_STATION_ENTITY =
             BLOCK_ENTITIES.register("bore_station", () -> BlockEntityType.Builder.of(
                     BoreStationBlockEntity::new, BORE_STATION.get()).build(null));
@@ -272,6 +281,7 @@ public final class AeronauticsInnerworld {
             event.accept(MOLTEN_THRUSTER_ITEM);
             event.accept(MANTLE_BALLAST_ITEM);
             event.accept(CABIN_REGULATOR_ITEM);
+            event.accept(HEAT_ENGINE_ITEM);
             event.accept(ECHO_SOUNDER_ITEM);
             event.accept(MANTLE_SAMPLER_ITEM);
             event.accept(PRESSURE_CANNON_ITEM);
