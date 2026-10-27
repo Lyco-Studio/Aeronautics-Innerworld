@@ -44,6 +44,7 @@ public final class ProbeTestRig {
     private final Map<BlockPos, BlockState> original = new HashMap<>();
     private final BlockPos origin;
     private final Rotation rotation;
+    private DyeColor engineColor = DyeColor.BROWN;
     private BlockPos plotOrigin;
     private SubLevelData saved;
     private final boolean mobSpawning;
@@ -124,10 +125,7 @@ public final class ProbeTestRig {
     public void workEquipment() {
         device(SOUNDER, AeronauticsInnerworld.ECHO_SOUNDER.get(), Direction.NORTH);
         device(SAMPLER, AeronauticsInnerworld.MANTLE_SAMPLER.get(), Direction.NORTH);
-        place(SOUNDER.south(), SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
-        ((PortableEngineBlockEntity) level.getBlockEntity(source(SOUNDER.south()))).inventory.setItem(0,
-                new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, 4));
+        engine(SOUNDER.south(), Direction.NORTH);
         ((EchoSounderBlockEntity) level.getBlockEntity(source(SOUNDER))).setHome(origin);
         ((MantleSamplerBlockEntity) level.getBlockEntity(source(SAMPLER))).inventory.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COPPER_INGOT, 17));
@@ -154,6 +152,12 @@ public final class ProbeTestRig {
                     .setValue(LeverBlock.FACE, AttachFace.FLOOR).setValue(LeverBlock.POWERED, true));
             place(new BlockPos(x, 2, 5), Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.FLOOR));
         }
+    }
+
+    public void survivalPower(DyeColor color) {
+        engineColor = color;
+        survivalPower();
+        engine(SOUNDER.south(), Direction.NORTH);
     }
 
     public void landingSkids() {
@@ -197,7 +201,7 @@ public final class ProbeTestRig {
     }
 
     private void engine(BlockPos pos, Direction facing) {
-        place(pos, SimBlocks.PORTABLE_ENGINES.get(DyeColor.BROWN).getDefaultState()
+        place(pos, SimBlocks.PORTABLE_ENGINES.get(engineColor).getDefaultState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
         ((PortableEngineBlockEntity) level.getBlockEntity(source(pos))).inventory.setItem(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, 4));

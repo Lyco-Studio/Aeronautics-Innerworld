@@ -27,6 +27,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.GameType;
@@ -74,7 +75,9 @@ public final class SurvivalClientCheck {
         return Boolean.getBoolean("innerworld.survivalSteering");
     }
 
-    private static boolean constructing() {return Boolean.getBoolean("innerworld.survivalBuild");}
+    private static boolean industry() {return Boolean.getBoolean("innerworld.survivalIndustry");}
+    private static boolean warehouseOnly() {return Boolean.getBoolean("innerworld.industryWarehouseOnly");}
+    private static boolean constructing() {return Boolean.getBoolean("innerworld.survivalBuild") || industry();}
     private static boolean docking() {return Boolean.getBoolean("innerworld.survivalDock");}
 
     @SubscribeEvent
@@ -86,7 +89,7 @@ public final class SurvivalClientCheck {
         if (!capturedOptions) {oldPause = client.options.pauseOnLostFocus;capturedOptions = true;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         try {
-            if (++ticks > (docking() ? 15000 : constructing() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
+            if (++ticks > (industry() ? 55000 : docking() ? 15000 : constructing() ? 12000 : steering() ? 6000 : 1800) && cleanup == null) {
                 throw new IllegalStateException("Survival client check timed out");
             }
             if (cleanup != null) {
@@ -98,8 +101,10 @@ public final class SurvivalClientCheck {
                     if (failure != null) {
                         throw failure;
                     }
-                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), docking() ? constructing() ? "build-dock-expedition-verified" : "dock-expedition-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
-                    LogUtils.getLogger().info(docking() ? "Native dock expedition passed: natural sampling, cargo return, native processing and same-boat coolant upgrade"
+                    Files.writeString(client.gameDirectory.toPath().resolve("survival-check.result"), industry() ? warehouseOnly() ? "warehouse-build-verified" : "industry-build-verified" : docking() ? constructing() ? "build-dock-expedition-verified" : "dock-expedition-verified" : constructing() ? "build-verified" : steering() ? "steering-verified" : "verified");
+                    LogUtils.getLogger().info(industry() ? warehouseOnly() ? "Native warehouse build passed: fixture engines, chest staging, block construction and occupied assembly"
+                            : "Native industrial probe build passed: earned engines, retained manufacturing byproducts, chest staging and occupied assembly"
+                            : docking() ? "Native dock expedition passed: natural sampling, cargo return, native processing and same-boat coolant upgrade"
                             : constructing() ? "Native survival probe build passed: block placement, fuel, glue and occupied assembly"
                             : steering() ? "Survival steering check passed: fueled quarter-turn, countersteer and native propulsion stop"
                             : "Survival client check passed: bilingual guide, fueled probe and mechanical controls over the client connection");
@@ -122,7 +127,8 @@ public final class SurvivalClientCheck {
                 return;
             }
             scene = setup.join();
-            if (scene.construction != null && !scene.construction.complete) scene.construction.tickClient(client);
+            if (scene.workshop != null && !scene.workshop.complete) scene.workshop.tickClient(client);
+            else if (scene.construction != null && !scene.construction.complete) scene.construction.tickClient(client);
             else if (scene.rig.subLevel == null) assemble(client);
             if (docking()) {
                 if (scene.processing != null) scene.processing.tickClient(client);
@@ -347,6 +353,7 @@ public final class SurvivalClientCheck {
         private final int oldFire;
         private final ProbeTestRig rig;
         private final ProbeConstruction construction;
+        private final ProbeWorkshop workshop;
         private final WirelessDock dock;
         private volatile DockReturnProcessing processing;
         private final BlockPos assembler;
@@ -378,7 +385,8 @@ public final class SurvivalClientCheck {
             dock = docking() ? new WirelessDock(player.server.getLevel(Mantle.LEVEL)) : null;
             if (constructing()) {
                 construction = docking() ? new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), WirelessDock.ORIGIN, WirelessDock.ROTATION, true)
-                        : new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), new BlockPos(768, 204, 128));
+                        : new ProbeConstruction(player, player.server.getLevel(Mantle.LEVEL), new BlockPos(768, 204, 128),
+                                net.minecraft.world.level.block.Rotation.NONE, false, industry() ? DyeColor.RED : DyeColor.BROWN);
                 rig = construction.rig;assembler = construction.assembler;
             } else {
                 construction = null;
@@ -390,19 +398,22 @@ public final class SurvivalClientCheck {
             SubLevelContainer.getContainer(rig.level).getAllSubLevels().forEach(structure -> previousStructures.add(structure.getUniqueId()));
             player.setGameMode(GameType.SURVIVAL);player.getInventory().clearContent();player.getInventory().selected = 0;
             player.removeAllEffects();player.clearFire();player.setHealth(player.getMaxHealth());
-            if (construction != null) construction.supply();
+            if (construction != null && !industry()) construction.supply();
             var position = construction == null ? Vec3.atBottomCenterOf(docking() ? rig.source(new BlockPos(2, 1, 2)) : assembler.south()).add(0, .05, 0) : construction.startingPosition();
             player.teleportTo(rig.level, position.x, position.y, position.z, 0, 0);player.containerMenu.broadcastChanges();
+            workshop = industry() ? new ProbeWorkshop(player, construction, warehouseOnly()) : null;
         }
 
         private boolean tick() {
             rig.level.resetEmptyTime();
+            if (workshop != null && !workshop.complete) {workshop.advance();return false;}
             if (construction != null && !construction.complete) {construction.advance();return false;}
             if (rig.subLevel == null) {
                 for (var structure : SubLevelContainer.getContainer(rig.level).getAllSubLevels()) {
                     if (!previousStructures.contains(structure.getUniqueId())) {
                         rig.acceptClientAssembly(structure);
                         if (construction != null) construction.verifyAssembly();
+                        if (workshop != null) workshop.verifyStoredRemainders();
                         LogUtils.getLogger().info("Fueled probe assembled through native client lever input: {}", structure.getUniqueId());
                         break;
                     }
@@ -546,6 +557,7 @@ public final class SurvivalClientCheck {
 
         private void cleanUp() {
             if (processing != null) processing.cleanUp();
+            if (workshop != null) workshop.cleanUp();
             rig.cleanUp();
             if (construction != null) construction.cleanUp();
             if (dock != null) dock.cleanUp();

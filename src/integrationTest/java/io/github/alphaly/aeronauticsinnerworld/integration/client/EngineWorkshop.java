@@ -156,12 +156,12 @@ final class EngineWorkshop {
         else if (stage == 6) craft(client);
     }
 
-    private static void takeAmount(Minecraft client, Item item, int amount) {
+    static void takeAmount(Minecraft client, Item item, int amount) {
+        DeepDrillConnection.empty(client);int hotbar = client.player.getInventory().selected;
         int source = -1;
         for (int slot = 0; slot < 36; slot++) if (client.player.getInventory().getItem(slot).is(item) && client.player.getInventory().getItem(slot).getCount() >= amount) {source = slot;break;}
         if (source < 0) throw new IllegalStateException("Engine workshop exhausted " + item);
         if (client.player.getInventory().getItem(source).getCount() == amount && source < 9) {client.player.getInventory().selected = source;return;}
-        DeepDrillConnection.empty(client);int hotbar = client.player.getInventory().selected;
         int inventorySlot = source < 9 ? 36 + source : source;
         int destination = 36 + hotbar;
         client.gameMode.handleInventoryMouseClick(client.player.inventoryMenu.containerId, inventorySlot, 0, ClickType.PICKUP, client.player);

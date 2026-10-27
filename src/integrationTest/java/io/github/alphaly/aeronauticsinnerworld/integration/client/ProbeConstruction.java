@@ -31,6 +31,7 @@ import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
@@ -55,7 +56,7 @@ final class ProbeConstruction {
     private final ProbeFabrication fabrication;
     private final java.util.Set<java.util.UUID> previousGlue = new java.util.HashSet<>();
     private final java.util.Set<BlockPos> fuelled = new java.util.HashSet<>();
-    private final long started;
+    private long started = -1;
     private volatile Action action;
     private volatile CoreMazeWalk walk;
     private volatile int frames;
@@ -75,6 +76,10 @@ final class ProbeConstruction {
     }
 
     ProbeConstruction(ServerPlayer player, ServerLevel level, BlockPos origin, Rotation rotation, boolean reuseExcavation) {
+        this(player, level, origin, rotation, reuseExcavation, DyeColor.BROWN);
+    }
+
+    ProbeConstruction(ServerPlayer player, ServerLevel level, BlockPos origin, Rotation rotation, boolean reuseExcavation, DyeColor engineColor) {
         this.player = player;this.level = level;this.origin = origin;this.rotation = rotation;this.reuseExcavation = reuseExcavation;
         bounds = BoundingBox.fromCorners(at(-3, -2, -3), at(5, 4, 9));
         level.getEntitiesOfClass(SuperGlueEntity.class, SuperGlueEntity.span(at(-4, -3, -4), at(6, 7, 10)))
@@ -97,7 +102,7 @@ final class ProbeConstruction {
         if (reuseExcavation) {scaffold(-3, -1, 0);scaffold(-3, 0, 1);scaffold(-3, 1, 2);scaffold(-2, 1, 2);scaffold(-2, 1, 1);}
         else {scaffold(-3, -1, -2);scaffold(-3, 0, -1);scaffold(-3, 1, 0);scaffold(-2, 1, 0);}
         scaffold(5, 2, 6);
-        rig = new ProbeTestRig(level, origin, false, rotation);rig.workEquipment();rig.survivalPower();rig.landingSkids();
+        rig = new ProbeTestRig(level, origin, false, rotation);rig.workEquipment();rig.survivalPower(engineColor);rig.landingSkids();
         assembler = rig.moveAssemblerInside();plan = rig.takeConstructionPlan();
         var bench = at(-2, -1, reuseExcavation ? -1 : -3);
         temporary(bench, Blocks.CRAFTING_TABLE.defaultBlockState());fabrication = new ProbeFabrication(player, level, bench);
@@ -105,7 +110,6 @@ final class ProbeConstruction {
             throw new IllegalStateException("Excavated construction bay is obstructed at " + pos);
         if (plan.values().stream().anyMatch(state -> state.is(com.simibubi.create.AllBlocks.CREATIVE_MOTOR.get())))
             throw new IllegalStateException("Construction plan contains creative power");
-        started = level.getGameTime();
         LogUtils.getLogger().info("Native probe construction begins: {} blocks at {}", plan.size(), origin);
     }
 
@@ -121,17 +125,21 @@ final class ProbeConstruction {
     private void scaffold(int x, int y, int z) {temporary(at(x, y, z), Blocks.STONE.defaultBlockState());}
     Vec3 startingPosition() {return Vec3.atBottomCenterOf(reuseExcavation ? at(-3, -1, -1) : at(-3, -1, -3));}
 
-    void supply() {
+    Map<Item, Integer> assemblySupplies() {
         var counts = new LinkedHashMap<Item, Integer>();
         plan.values().forEach(state -> counts.merge(state.getBlock().asItem(), 1, Integer::sum));
         counts.keySet().removeIf(item -> BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(AeronauticsInnerworld.MOD_ID));
+        counts.put(AllItems.WRENCH.get(), 1);counts.put(AllItems.SUPER_GLUE.get(), 1);counts.put(Items.COAL, 28);
+        return counts;
+    }
+
+    void supply() {
+        var counts = assemblySupplies();
         ProbeFabrication.ingredients().forEach((item, count) -> counts.merge(item, count, Integer::sum));
         var items = new ArrayList<ItemStack>();
         counts.forEach((item, count) -> {
             while (count > 0) {int size = Math.min(count, item.getDefaultInstance().getMaxStackSize());items.add(new ItemStack(item, size));count -= size;}
         });
-        items.add(AllItems.WRENCH.asStack());items.add(AllItems.SUPER_GLUE.asStack());
-        for (int index = 0; index < 7; index++) items.add(new ItemStack(Items.COAL, 4));
         if (items.size() > 35) throw new IllegalStateException("Construction supplies do not fit the normal inventory");
         for (int slot = 0; slot < items.size(); slot++) player.getInventory().setItem(slot + 1, items.get(slot));
     }
@@ -154,6 +162,7 @@ final class ProbeConstruction {
         client.options.keyShift.setDown(current.kind == Kind.PLACE);
         look(client, inputPoint);
         if (frames != 10) return;
+        if (current.kind == Kind.FUEL) EngineWorkshop.takeAmount(client, Items.COAL, 4);
         net.minecraft.world.phys.BlockHitResult hit = null;
         double[] offsets = current.kind == Kind.GLUE ? new double[] {0} : new double[] {0, -.25, .25};
         search: for (double a : offsets) for (double b : offsets) {
@@ -179,6 +188,7 @@ final class ProbeConstruction {
 
     void advance() {
         if (complete) return;
+        if (started < 0) started = level.getGameTime();
         if (!player.isAlive() || level.getGameTime() - started > 16000)
             throw new IllegalStateException("Probe construction failed after " + operations + " operations: " + action);
         if (!fabrication.complete) {
@@ -410,8 +420,7 @@ final class ProbeConstruction {
 
     private static void equip(Minecraft client, Item item) {
         if (item == Items.AIR) {
-            for (int slot = 0; slot < 9; slot++) if (client.player.getInventory().getItem(slot).isEmpty()) {client.player.getInventory().selected = slot;return;}
-            throw new IllegalStateException("No empty construction hotbar slot");
+            DeepDrillConnection.empty(client);return;
         }
         for (int slot = 0; slot < 36; slot++) if (client.player.getInventory().getItem(slot).is(item)) {
             if (slot < 9) client.player.getInventory().selected = slot;

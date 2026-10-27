@@ -224,6 +224,8 @@ neoForge.runs.create('survivalTestClient') {
     systemProperty 'innerworld.survivalSteering', providers.gradleProperty('survivalSteering').getOrElse('false')
     systemProperty 'innerworld.survivalBuild', providers.gradleProperty('survivalBuild').getOrElse('false')
     systemProperty 'innerworld.survivalDock', providers.gradleProperty('survivalDock').getOrElse('false')
+    systemProperty 'innerworld.survivalIndustry', providers.gradleProperty('survivalIndustry').getOrElse('false')
+    systemProperty 'innerworld.industryWarehouseOnly', providers.gradleProperty('industryWarehouseOnly').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -464,11 +466,17 @@ tasks.named('runRelayTestClient') {
 }
 tasks.named('runSurvivalTestClient') {
     def result = layout.projectDirectory.file('run/client/survival-check.result')
-    def expected = providers.gradleProperty('survivalDock').getOrElse('false') == 'true'
+    def expected = providers.gradleProperty('survivalIndustry').getOrElse('false') == 'true'
+            ? providers.gradleProperty('industryWarehouseOnly').getOrElse('false') == 'true' ? 'warehouse-build-verified' : 'industry-build-verified'
+            : providers.gradleProperty('survivalDock').getOrElse('false') == 'true'
             ? (providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-dock-expedition-verified' : 'dock-expedition-verified')
             : providers.gradleProperty('survivalBuild').getOrElse('false') == 'true' ? 'build-verified'
             : providers.gradleProperty('survivalSteering').getOrElse('false') == 'true' ? 'steering-verified' : 'verified'
     doFirst {
+        if (providers.gradleProperty('survivalIndustry').getOrElse('false') == 'true'
+                && providers.gradleProperty('survivalDock').getOrElse('false') == 'true') {
+            throw new GradleException('Run the industrial build separately from the dock expedition.')
+        }
         if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
             throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
         }

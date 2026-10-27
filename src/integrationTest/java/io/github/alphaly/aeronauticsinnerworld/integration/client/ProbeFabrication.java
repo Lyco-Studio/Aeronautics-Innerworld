@@ -35,7 +35,8 @@ final class ProbeFabrication {
     private final ServerPlayer player;
     private final ServerLevel level;
     final BlockPos bench;
-    private final long started;
+    private volatile long started = -1;
+    private Map<Item, Integer> before;
     private volatile int step;
     private int observed = -1, frames;
     private boolean placed, taken;
@@ -43,7 +44,7 @@ final class ProbeFabrication {
     volatile boolean complete;
 
     ProbeFabrication(ServerPlayer player, ServerLevel level, BlockPos bench) {
-        this.player = player;this.level = level;this.bench = bench;started = level.getGameTime();
+        this.player = player;this.level = level;this.bench = bench;
     }
 
     static Map<Item, Integer> ingredients() {
@@ -56,6 +57,7 @@ final class ProbeFabrication {
 
     void tickClient(Minecraft client) {
         ProbeConstruction.release(client);
+        if (started < 0) return;
         if (observed != step) {observed = step;frames = 0;placed = false;taken = false;}
         if (step >= STEPS.size()) return;
         if (++frames > 200) {
@@ -68,7 +70,7 @@ final class ProbeFabrication {
         if (!(client.player.containerMenu instanceof CraftingMenu menu)) {
             if (frames % 10 != 0) return;
             if (client.level.dimension() != level.dimension() || client.player.position().distanceTo(Vec3.atCenterOf(bench)) > 8) return;
-            client.player.getInventory().selected = 0;
+            DeepDrillConnection.empty(client);
             var target = Vec3.atCenterOf(bench).add(0, .49, 0);var delta = target.subtract(client.player.getEyePosition());
             client.player.setYRot((float)Math.toDegrees(Math.atan2(-delta.x, delta.z)));
             client.player.setXRot((float)-Math.toDegrees(Math.atan2(delta.y, delta.horizontalDistance())));
@@ -98,6 +100,11 @@ final class ProbeFabrication {
 
     void advance() {
         if (complete) return;
+        if (started < 0) {
+            before = new java.util.LinkedHashMap<>();
+            ingredients().forEach((item, amount) -> before.put(item, player.getInventory().countItem(item)));
+            started = level.getGameTime();
+        }
         var current = STEPS.get(step);
         if (level.getGameTime() - started > 2000) throw new IllegalStateException("Probe fabrication timed out at " + current.recipe);
         int count = player.getInventory().countItem(current.output());
@@ -107,8 +114,8 @@ final class ProbeFabrication {
         for (int slot = 0; slot <= 9; slot++) if (!menu.getSlot(slot).getItem().isEmpty()) return;
         LogUtils.getLogger().info("Native probe fabrication: {} x{}", current.recipe, count);
         if (++step < STEPS.size()) return;
-        for (var ingredient : ingredients().keySet()) if (player.getInventory().countItem(ingredient) != 0)
-            throw new IllegalStateException("Probe fabrication left a prepared ingredient unused: " + ingredient);
+        for (var ingredient : ingredients().entrySet()) if (player.getInventory().countItem(ingredient.getKey()) != before.get(ingredient.getKey()) - ingredient.getValue())
+            throw new IllegalStateException("Probe fabrication consumed the wrong ingredient count: " + ingredient.getKey());
         if (player.getInventory().countItem(AeronauticsInnerworld.REFRACTORY_HULL.asItem()) != 117
                 || player.getInventory().countItem(AeronauticsInnerworld.MULTI_AXIS_CUTTER.asItem()) != 0)
             throw new IllegalStateException("Device crafting did not consume its hulls and cutter");
