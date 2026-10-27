@@ -12,6 +12,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import java.util.List;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
@@ -120,26 +122,51 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
             trimMode = trimMode == 0 ? 1 : trimMode == 1 ? -1 : 0;
             verticalTrim = 0;
             setChanged();
+            sendData();
+            player.displayClientMessage(Component.translatable("goggle.aeronautics_innerworld.trim",
+                    Component.translatable("message.aeronautics_innerworld.trim_" + (trimMode == 0 ? "hold" : trimMode > 0 ? "ascend" : "descend"))), true);
         }
-        showStatus(player);
     }
 
     public void fail() {
         faulted = true;
         setChanged();
+        sendData();
     }
 
     public void repair() {
         faulted = false;
         setChanged();
+        sendData();
     }
 
-    public void showStatus(Player player) {
-        player.displayClientMessage(Component.translatable("message.aeronautics_innerworld."
-                + (ballast() ? "ballast_status" : "thruster_status"), Math.round(getSpeed()),
-                Math.round(supportedMass), Component.translatable("message.aeronautics_innerworld."
-                        + (faulted ? "probe_faulted" : immersed ? "probe_in_lava" : "probe_dry")),
-                Component.translatable("message.aeronautics_innerworld.trim_" + (trimMode == 0 ? "hold" : trimMode > 0 ? "ascend" : "descend"))), true);
+    @Override
+    public void tick() {
+        super.tick();
+        if (!level.isClientSide) {
+            if (dev.ryanhcode.sable.Sable.HELPER.getContaining(this) == null) {
+                immersed = false;
+                supportedMass = 0;
+            }
+            if (level.getGameTime() % 20 == 0) sendData();
+        }
+    }
+
+    @Override
+    public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {
+        super.addToGoggleTooltip(tooltip, sneaking);
+        tooltip.add(Component.empty());
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.drive"))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("    ").append(Component.translatable("message.aeronautics_innerworld."
+                + (faulted ? "probe_faulted" : immersed ? "probe_in_lava" : "probe_dry")))
+                .withStyle(faulted ? ChatFormatting.RED : immersed ? ChatFormatting.AQUA : ChatFormatting.GOLD));
+        if (ballast()) {
+            tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.supported_mass", Math.round(supportedMass))));
+            tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.trim",
+                    Component.translatable("message.aeronautics_innerworld.trim_" + (trimMode == 0 ? "hold" : trimMode > 0 ? "ascend" : "descend")))));
+        }
+        return true;
     }
 
     @Override
@@ -147,6 +174,10 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         super.write(tag, registries, clientPacket);
         tag.putBoolean("Faulted", faulted);
         tag.putInt("TrimMode", trimMode);
+        if (clientPacket) {
+            tag.putBoolean("Immersed", immersed);
+            tag.putDouble("SupportedMass", supportedMass);
+        }
     }
 
     @Override
@@ -154,5 +185,7 @@ public final class ProbeDriveBlockEntity extends KineticBlockEntity implements B
         super.read(tag, registries, clientPacket);
         faulted = tag.getBoolean("Faulted");
         trimMode = Mth.clamp(tag.getInt("TrimMode"), -1, 1);
+        immersed = clientPacket && tag.getBoolean("Immersed");
+        supportedMass = clientPacket ? tag.getDouble("SupportedMass") : 0;
     }
 }

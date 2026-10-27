@@ -10,6 +10,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import java.util.List;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Clearable;
@@ -30,6 +32,7 @@ public final class PressureCannonBlockEntity extends KineticBlockEntity implemen
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
+            if (level != null && !level.isClientSide) sendData();
         }
     };
     private int cooldown;
@@ -112,8 +115,23 @@ public final class PressureCannonBlockEntity extends KineticBlockEntity implemen
             player.getInventory().add(remaining);
             ammunition.extractItem(0, stack.getCount() - remaining.getCount(), false);
             player.containerMenu.broadcastChanges();
+            showStatus(player);
         }
-        showStatus(player);
+    }
+
+    @Override
+    public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {
+        super.addToGoggleTooltip(tooltip, sneaking);
+        int count = ammunition.getStackInSlot(0).getCount();
+        String state = Sable.HELPER.getContaining(this) == null ? "cannon_unassembled"
+                : Math.abs(getSpeed()) < 16 ? "cannon_unpowered" : count == 0 ? "cannon_empty" : "cannon_ready";
+        tooltip.add(Component.empty());
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.cannon"))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.ammunition", count))
+                .withStyle(count == 0 ? ChatFormatting.GOLD : ChatFormatting.AQUA));
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld." + state)));
+        return true;
     }
 
     @Override

@@ -263,12 +263,6 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         return region != null && !region.isDirty();
     }
 
-    public void showStatus(Player player) {
-        player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.cabin_status",
-                statusComponent(),
-                volume, Math.round(getHeat()), getCoolant()), true);
-    }
-
     private Component statusComponent() {
         boolean sealed = level != null && level.isClientSide ? syncedSealed : isSealed();
         return Component.translatable("message.aeronautics_innerworld."
@@ -287,6 +281,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
                 .withStyle(getHeat() >= 80 ? ChatFormatting.RED : getHeat() >= 60 ? ChatFormatting.GOLD : ChatFormatting.GRAY));
         tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.coolant", getCoolant()))
                 .withStyle(getCoolant() <= 120 ? ChatFormatting.GOLD : ChatFormatting.AQUA));
+        if (sneaking) tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.volume", volume)));
         return true;
     }
 
@@ -318,6 +313,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         tag.putInt("HotSeconds", hotSeconds);
         if (clientPacket) {
             tag.putBoolean("CabinSealed", isSealed());
+            tag.putInt("CabinVolume", volume);
         }
         if (damagedOffset != null) {
             tag.putLong("DamagedPlate", damagedOffset.asLong());
@@ -334,6 +330,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         hotSeconds = net.minecraft.util.Mth.clamp(tag.getInt("HotSeconds"), 0, 10);
         if (clientPacket) {
             syncedSealed = tag.getBoolean("CabinSealed");
+            volume = tag.getInt("CabinVolume");
         }
         damagedOffset = tag.contains("DamagedPlate") ? BlockPos.of(tag.getLong("DamagedPlate")) : null;
     }

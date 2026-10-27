@@ -1,6 +1,15 @@
 package io.github.alphaly.aeronauticsinnerworld.integration.client;
 
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.AllItems;
+import com.simibubi.create.content.trains.display.FlapDisplayBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.combat.PressureCannonBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.integration.ProbeInstrumentChecks;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.network.chat.Component;
 import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
 import dev.ryanhcode.sable.sublevel.water_occlusion.WaterOcclusionContainer;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
@@ -136,6 +145,7 @@ public final class ProbeClientCheck {
                             || synced.getCoolant() <= 0 || Math.abs(synced.getCoolant() - scene.coolantSnapshot) > 1) {
                         throw new IllegalStateException("Cabin coolant readout did not synchronize after supply or emergency cooling");
                     }
+                    verifyInstruments(client);
                     var tooltip = new java.util.ArrayList<net.minecraft.network.chat.Component>();
                     synced.addToGoggleTooltip(tooltip, false);
                     var sealed = net.minecraft.network.chat.Component.translatable("message.aeronautics_innerworld.cabin_sealed").getString();
@@ -143,11 +153,26 @@ public final class ProbeClientCheck {
                         throw new IllegalStateException("Goggle readout did not receive the sealed cabin state");
                     }
                 }
+                if (scene.ticks == 120 || scene.ticks == 155) {
+                    Screenshot.grab(client.gameDirectory, scene.ticks == 120 ? "probe-goggles.png" : "probe-display.png", client.getMainRenderTarget(),
+                            message -> LogUtils.getLogger().info("Instrument screenshot: {}", message.getString()));
+                }
+                if (scene.ticks == 184) {
+                    if (!(client.level.getBlockEntity(scene.rig.local(ProbeTestRig.LEFT_DRIVE)) instanceof ProbeDriveBlockEntity drive)
+                            || !drive.isFaulted()) throw new IllegalStateException("Drive fault did not reach the client goggles");
+                }
                 if (scene.ticks == 182) {
                     Screenshot.grab(client.gameDirectory, "mantle-probe-service-check.png", client.getMainRenderTarget(),
                             message -> LogUtils.getLogger().info("Probe service screenshot: {}", message.getString()));
                 }
                 if (finished) {
+                    var sampler = (MantleSamplerBlockEntity) client.level.getBlockEntity(scene.rig.local(ProbeTestRig.SAMPLER));
+                    var cargo = new java.util.ArrayList<Component>();
+                    sampler.addToGoggleTooltip(cargo, false);
+                    if (cargo.stream().noneMatch(line -> line.getString().contains(Component.translatable(
+                            "goggle.aeronautics_innerworld.cargo", 0, 0).getString()))) {
+                        throw new IllegalStateException("Sampler unloading left stale client cargo");
+                    }
                     if (!sawCabinFog || !sawExteriorFog) {
                         throw new IllegalStateException("Probe check did not render both cabin and exterior fog");
                     }
@@ -165,6 +190,47 @@ public final class ProbeClientCheck {
         } catch (RuntimeException e) {
             failure = e;
         }
+    }
+
+    private static void verifyInstruments(Minecraft client) {
+        var sounder = (EchoSounderBlockEntity) client.level.getBlockEntity(scene.rig.local(ProbeTestRig.SOUNDER));
+        if (sounder == null || sounder.getReadout(EchoSounderBlockEntity.Readout.NAVIGATION).stream()
+                .noneMatch(line -> ProbeInstrumentChecks.hasKey(line, "goggle.aeronautics_innerworld.velocity"))) {
+            throw new IllegalStateException("Moving sounder telemetry did not reach the client");
+        }
+        var boardPart = (FlapDisplayBlockEntity) client.level.getBlockEntity(scene.rig.local(ProbeTestRig.INSTRUMENT_DISPLAY));
+        var board = boardPart == null ? null : boardPart.getController();
+        if (board == null || board.getLines().stream().flatMap(line -> line.getSections().stream())
+                .map(section -> section.getText()).filter(java.util.Objects::nonNull)
+                .noneMatch(text -> ProbeInstrumentChecks.hasKey(text, "goggle.aeronautics_innerworld.velocity"))) {
+            throw new IllegalStateException("Native display board did not receive ship navigation");
+        }
+        var language = net.minecraft.locale.Language.getInstance();
+        try {
+            for (var locale : java.util.List.of("en_us", "zh_cn")) {
+                net.minecraft.locale.Language.inject(net.minecraft.client.resources.language.ClientLanguage.loadFrom(
+                        client.getResourceManager(), java.util.List.of("en_us", locale), false));
+                for (var page : EchoSounderBlockEntity.Readout.values()) for (var line : sounder.getReadout(page)) {
+                    if (client.font.width(line) > (page == EchoSounderBlockEntity.Readout.NAVIGATION ? board.getMaxCharCount() * 7 : 210)) {
+                        throw new IllegalStateException("Instrument line exceeds three-block display: " + locale + " / " + line.getString());
+                    }
+                }
+            }
+        } finally {net.minecraft.locale.Language.inject(language);}
+        var cannon = (PressureCannonBlockEntity) client.level.getBlockEntity(scene.rig.local(ProbeTestRig.CANNON));
+        if (cannon == null || cannon.ammunition.getStackInSlot(0).getCount() != 9) {
+            throw new IllegalStateException("Cannon ammunition did not reach the client");
+        }
+        var drive = (ProbeDriveBlockEntity) client.level.getBlockEntity(scene.rig.local(ProbeTestRig.LEFT_DRIVE));
+        if (drive == null || !drive.isImmersed()) throw new IllegalStateException("Drive immersion did not synchronize");
+        var sampler = (MantleSamplerBlockEntity) client.level.getBlockEntity(scene.rig.local(ProbeTestRig.SAMPLER));
+        var cargo = new java.util.ArrayList<Component>();
+        sampler.addToGoggleTooltip(cargo, false);
+        if (cargo.stream().noneMatch(line -> line.getString().contains(Component.translatable(
+                "goggle.aeronautics_innerworld.cargo", 18, 2).getString()))) {
+            throw new IllegalStateException("Sampler cargo readout did not synchronize");
+        }
+        if (scene.ticks == 100) BookLayoutChecks.check(client, scene.manual());
     }
 
     private static final class Scene {
@@ -207,7 +273,8 @@ public final class ProbeClientCheck {
             oldRawCount = player.getInventory().countItem(AeronauticsInnerworld.RAW_HARMONIC.get());
             var mantle = player.server.getLevel(Mantle.LEVEL);
             rig = new ProbeTestRig(mantle, new BlockPos(128, 170, 128));
-            rig.workEquipment();
+            rig.combatEquipment();
+            rig.instruments();
         }
 
         private boolean tick() {
@@ -219,6 +286,9 @@ public final class ProbeClientCheck {
             if (ticks == 1) {
                 rig.assemble();
                 rig.power();
+                rig.instrumentLink().target(rig.local(ProbeTestRig.INSTRUMENT_DISPLAY));
+                rig.instrumentLink().activeSource = AeronauticsInnerworld.PROBE_NAVIGATION.get();
+                rig.instrumentLink().setChanged();
                 rig.motor(ProbeTestRig.SAMPLER, 0);
             }
             if (ticks == 40) {
@@ -226,9 +296,10 @@ public final class ProbeClientCheck {
                     throw new IllegalStateException("Cabin was not sealed before boarding");
                 }
                 var feet = rig.subLevel.logicalPose().transformPosition(
-                        Vec3.atLowerCornerOf(rig.local(new BlockPos(1, 1, 2))).add(.5, .05, .5));
+                        Vec3.atLowerCornerOf(rig.local(new BlockPos(3, 1, 2))).add(.5, .05, .5));
                 player.teleportTo(rig.level, feet.x, feet.y, feet.z, 180, 0);
                 player.setGameMode(GameType.SURVIVAL);
+                player.setItemSlot(EquipmentSlot.HEAD, AllItems.GOGGLES.asStack());
                 player.removeAllEffects();
                 testHealth = player.getMaxHealth();
                 player.setHealth(testHealth);
@@ -263,6 +334,8 @@ public final class ProbeClientCheck {
                 rig.motor(ProbeTestRig.LEFT_DRIVE, 64);
                 rig.motor(ProbeTestRig.RIGHT_DRIVE, 64);
             }
+            if (ticks == 95) player.lookAt(EntityAnchorArgument.Anchor.EYES, rig.world(ProbeTestRig.SOUNDER));
+            if (ticks == 130) player.lookAt(EntityAnchorArgument.Anchor.EYES, rig.world(new BlockPos(1, 2, 3)));
             if (ticks == 110) {
                 if (rig.subLevel.logicalPose().position().z() < startZ + .3) {
                     throw new IllegalStateException("Occupied probe did not move forward");
@@ -317,7 +390,7 @@ public final class ProbeClientCheck {
                     throw new IllegalStateException("Fire resistance bypassed mantle heat exposure");
                 }
                 var inside = rig.subLevel.logicalPose().transformPosition(
-                        Vec3.atLowerCornerOf(rig.local(new BlockPos(1, 1, 2))).add(.5, .05, .5));
+                        Vec3.atLowerCornerOf(rig.local(new BlockPos(3, 1, 2))).add(.5, .05, .5));
                 player.teleportTo(rig.level, inside.x, inside.y, inside.z, 180, 0);
             }
             if (ticks == 250) {
@@ -330,6 +403,13 @@ public final class ProbeClientCheck {
             }
             coolantSnapshot = rig.cabin().getCoolant();
             return ticks >= 265;
+        }
+
+        private ItemStack manual() {
+            var input = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, java.util.List.of(
+                    new ItemStack(net.minecraft.world.item.Items.BOOK), new ItemStack(net.minecraft.world.item.Items.COPPER_INGOT)));
+            return rig.level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, input, rig.level)
+                    .orElseThrow().value().assemble(input, rig.level.registryAccess());
         }
 
         private int sampleCount() {

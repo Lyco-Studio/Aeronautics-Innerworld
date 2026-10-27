@@ -57,7 +57,6 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 
@@ -74,22 +73,23 @@ public final class RecoveryClientCheck {
     private static CompletableFuture<Void> step, cleanup;
     private static Scene scene;
     private static RuntimeException failure;
-    private static boolean movingBearingSeen, wreckHudSeen, wrongWreckHud;
+    private static boolean movingBearingSeen, wreckReadoutSeen;
     private static boolean optionsCaptured, oldPause;
 
-    @SubscribeEvent
-    public static void recordHud(ClientChatReceivedEvent.System event) {
-        if (!enabled() || scene == null || !event.isOverlay()
-                || !(event.getMessage().getContents() instanceof TranslatableContents message)
-                || !message.getKey().equals("message.aeronautics_innerworld.sonar_hud")) return;
-        var args = message.getArgs();
-        if (scene.stage == 14 && args[3] instanceof Component bearing
-                && bearing.getContents() instanceof TranslatableContents target
-                && target.getKey().equals("message.aeronautics_innerworld.sonar_recovery_bearing")) movingBearingSeen = true;
-        if (scene.stage == 20) {
-            if (args[4] instanceof Number heat && heat.intValue() >= 60) wreckHudSeen = true;
-            else wrongWreckHud = true;
-        }
+    private static void checkReadouts(Minecraft client) {
+        if (client.level == null || scene == null) return;
+        var rig = scene.stage == 14 ? scene.rescue : scene.stage == 20 ? scene.rig : null;
+        if (rig == null || !(client.level.getBlockEntity(rig.local(ProbeTestRig.SOUNDER))
+                instanceof io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity sounder)) return;
+        if (scene.stage == 14) movingBearingSeen |= sounder.getReadout(
+                io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity.Readout.NAVIGATION).stream()
+                .anyMatch(line -> line.getContents() instanceof TranslatableContents text
+                        && text.getKey().equals("message.aeronautics_innerworld.sonar_recovery_bearing"));
+        if (scene.stage == 20) wreckReadoutSeen |= sounder.getReadout(
+                io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity.Readout.SYSTEMS).stream()
+                .anyMatch(line -> line.getContents() instanceof TranslatableContents text
+                        && text.getKey().equals("goggle.aeronautics_innerworld.heat")
+                        && text.getArgs()[0] instanceof Number heat && heat.intValue() >= 60);
     }
 
     @SubscribeEvent
@@ -131,6 +131,7 @@ public final class RecoveryClientCheck {
             if (setup == null) {var id = client.player.getUUID();setup = server.submit(() -> new Scene(server.getPlayerList().getPlayer(id)));return;}
             if (!setup.isDone()) return;
             scene = setup.join();
+            checkReadouts(client);
             if (scene.stage != observedStage) {release(client);observedStage = scene.stage;frames = 0;clicked = false;}
             frames++;
             if (observedStage == 0 && frames == 1) BookLayoutChecks.check(client, scene.manual);
@@ -516,8 +517,7 @@ public final class RecoveryClientCheck {
                     throw new IllegalStateException("Recovery navigation modified the compass or home berth");
                 LogUtils.getLogger().info("Native recovery compass loaded the current wreck position into probe navigation; vanilla death={}", lastDeath.pos());next(rescue == null ? 10 : 37);
             } else if (stage == 20) {
-                if (wrongWreckHud) throw new IllegalStateException("The rescue probe overwrote the wreck crew HUD");
-                if (!wreckHudSeen || !movingBearingSeen) return;
+                if (!wreckReadoutSeen || !movingBearingSeen) return;
                 if (rig.cabin().getHeat() > 70) return;
                 repairTarget = nextRepair();
                 if (repairTarget == null) {

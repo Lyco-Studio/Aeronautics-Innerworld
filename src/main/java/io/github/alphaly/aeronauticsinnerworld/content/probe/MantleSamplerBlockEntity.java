@@ -10,6 +10,8 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import java.util.List;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
@@ -40,6 +42,8 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
     private float progress;
     private java.util.UUID specimen;
     private String status = "sampler_idle";
+    private int cargoCount;
+    private int cargoSlots;
 
     public MantleSamplerBlockEntity(BlockPos pos, BlockState state) {
         super(AeronauticsInnerworld.MANTLE_SAMPLER_ENTITY.get(), pos, state);
@@ -72,10 +76,17 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
         if (!(level instanceof ServerLevel server) || !level.dimension().equals(Mantle.LEVEL)) {
             return;
         }
+        workTick(server);
+        if (level.getGameTime() % 10 == 0) sendData();
+    }
+
+    private void workTick(ServerLevel server) {
         var ship = Sable.HELPER.getContaining(this);
         if (ship == null || getSpeed() == 0) {
             status = "sampler_idle";
             progress = 0;
+            target = null;
+            specimen = null;
             return;
         }
         var origin = ship.logicalPose().transformPosition(Vec3.atCenterOf(worldPosition));
@@ -237,22 +248,59 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
                     player.getInventory().add(remaining);
                     inventory.extractItem(slot, stack.getCount() - remaining.getCount(), false);
                     player.containerMenu.broadcastChanges();
+                    sendData();
                     return;
                 }
             }
         }
-        player.displayClientMessage(Component.translatable("message.aeronautics_innerworld." + status), true);
+    }
+
+    @Override
+    public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {
+        super.addToGoggleTooltip(tooltip, sneaking);
+        tooltip.add(Component.empty());
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.sampler"))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("    ").append(Component.translatable("message.aeronautics_innerworld." + status))
+                .withStyle(status.equals("sampler_full") ? ChatFormatting.GOLD : ChatFormatting.GRAY));
+        if (status.equals("sampler_working") || status.equals("sampler_grazer_working")) {
+            tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.sample_progress",
+                    Math.min(100, Math.round(progress * 5)))).withStyle(ChatFormatting.AQUA));
+        }
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.cargo", cargoCount, cargoSlots)));
+        if (target != null) tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.coordinates",
+                target.getX(), target.getY(), target.getZ())));
+        return true;
     }
 
     @Override
     protected void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.write(tag, registries, clientPacket);
-        tag.put("Inventory", inventory.serializeNBT(registries));
+        if (!clientPacket) tag.put("Inventory", inventory.serializeNBT(registries));
+        else {
+            int count = 0, slots = 0;
+            for (int i = 0; i < inventory.getSlots(); i++) {
+                var stack = inventory.getStackInSlot(i);
+                if (!stack.isEmpty()) {count += stack.getCount();slots++;}
+            }
+            tag.putInt("CargoCount", count);
+            tag.putInt("CargoSlots", slots);
+            tag.putString("SamplerStatus", status);
+            tag.putFloat("SampleProgress", progress);
+            if (target != null) tag.putLong("SampleTarget", target.asLong());
+        }
     }
 
     @Override
     protected void read(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(tag, registries, clientPacket);
-        inventory.deserializeNBT(registries, tag.getCompound("Inventory"));
+        if (!clientPacket) inventory.deserializeNBT(registries, tag.getCompound("Inventory"));
+        else {
+            cargoCount = tag.getInt("CargoCount");
+            cargoSlots = tag.getInt("CargoSlots");
+            status = tag.getString("SamplerStatus");
+            progress = tag.getFloat("SampleProgress");
+            target = tag.contains("SampleTarget") ? BlockPos.of(tag.getLong("SampleTarget")) : null;
+        }
     }
 }

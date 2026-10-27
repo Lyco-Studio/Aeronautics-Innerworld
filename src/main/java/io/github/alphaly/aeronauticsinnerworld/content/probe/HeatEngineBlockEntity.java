@@ -13,7 +13,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -87,11 +86,6 @@ public final class HeatEngineBlockEntity extends GeneratingKineticBlockEntity im
     public boolean isRunning() {return running;}
 
     public String getStatus() {return status;}
-
-    public void showStatus(Player player) {
-        player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.heat_engine_status",
-                Component.translatable("message.aeronautics_innerworld.heat_engine_" + status), Math.round(Math.abs(getSpeed()))), true);
-    }
 
     @Override
     public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {

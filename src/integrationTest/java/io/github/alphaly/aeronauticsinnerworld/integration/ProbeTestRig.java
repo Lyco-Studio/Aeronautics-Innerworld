@@ -1,6 +1,10 @@
 package io.github.alphaly.aeronauticsinnerworld.integration;
 
 import com.simibubi.create.AllBlocks;
+import com.simibubi.create.content.redstone.displayLink.DisplayLinkBlock;
+import com.simibubi.create.content.redstone.displayLink.DisplayLinkBlockEntity;
+import com.simibubi.create.content.trains.display.FlapDisplayBlockEntity;
+import com.simibubi.create.content.trains.display.FlapDisplayBlock;
 import com.simibubi.create.content.contraptions.glue.SuperGlueEntity;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -65,6 +69,8 @@ public final class ProbeTestRig {
     public static final BlockPos RIGHT_REVERSE = new BlockPos(3, 2, 5);
     public static final BlockPos BOARDING_HATCH = new BlockPos(0, 1, 2);
     public static final BlockPos CANNON = new BlockPos(1, 1, 0);
+    public static final BlockPos INSTRUMENT_DISPLAY = new BlockPos(1, 2, 2);
+    public static final BlockPos INSTRUMENT_LINK = SOUNDER.above();
 
     public ProbeTestRig(ServerLevel level, BlockPos origin) {
         this(level, origin, true);
@@ -131,6 +137,28 @@ public final class ProbeTestRig {
         ((EchoSounderBlockEntity) level.getBlockEntity(source(SOUNDER))).setHome(origin);
         ((MantleSamplerBlockEntity) level.getBlockEntity(source(SAMPLER))).inventory.setStackInSlot(0,
                 new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COPPER_INGOT, 17));
+    }
+
+    public void instruments() {
+        for (int y = 1; y <= 2; y++) for (int z = 2; z <= 4; z++) {
+            place(new BlockPos(1, y, z), AllBlocks.DISPLAY_BOARD.getDefaultState()
+                    .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
+                    .setValue(FlapDisplayBlock.UP, y == 1).setValue(FlapDisplayBlock.DOWN, y == 2));
+        }
+        place(new BlockPos(1, 2, 1), AllBlocks.COGWHEEL.getDefaultState().setValue(BlockStateProperties.AXIS, Direction.Axis.X));
+        var motor = new BlockPos(2, 2, 1);
+        place(motor, AllBlocks.CREATIVE_MOTOR.getDefaultState().setValue(BlockStateProperties.FACING, Direction.WEST));
+        ((CreativeMotorBlockEntity) level.getBlockEntity(source(motor))).generatedSpeed.setValue(32);
+        place(INSTRUMENT_LINK, AllBlocks.DISPLAY_LINK.getDefaultState().setValue(DisplayLinkBlock.FACING, Direction.UP));
+    }
+
+    public FlapDisplayBlockEntity instrumentDisplay() {
+        var pos = subLevel == null ? source(INSTRUMENT_DISPLAY) : local(INSTRUMENT_DISPLAY);
+        return ((FlapDisplayBlockEntity) level.getBlockEntity(pos)).getController();
+    }
+
+    public DisplayLinkBlockEntity instrumentLink() {
+        return (DisplayLinkBlockEntity) level.getBlockEntity(subLevel == null ? source(INSTRUMENT_LINK) : local(INSTRUMENT_LINK));
     }
 
     public void survivalPower() {

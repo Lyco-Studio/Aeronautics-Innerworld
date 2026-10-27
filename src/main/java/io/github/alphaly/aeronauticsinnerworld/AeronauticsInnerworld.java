@@ -5,6 +5,7 @@ import com.simibubi.create.api.contraption.BlockMovementChecks;
 import com.simibubi.create.api.contraption.BlockMovementChecks.CheckResult;
 import com.simibubi.create.api.contraption.ContraptionType;
 import com.simibubi.create.api.registry.CreateRegistries;
+import com.simibubi.create.api.behaviour.display.DisplaySource;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillContraption;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.drill.DrillControllerBlockEntity;
@@ -21,6 +22,7 @@ import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlockEnti
 import io.github.alphaly.aeronauticsinnerworld.content.probe.PressureHatchBlock;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.MantleSamplerBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDisplaySource;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeServiceItem;
 import io.github.alphaly.aeronauticsinnerworld.world.structure.InnerworldStructures;
 import io.github.alphaly.aeronauticsinnerworld.world.MantleSpireFeature;
@@ -75,6 +77,15 @@ public final class AeronauticsInnerworld {
     private static final DeferredRegister<ContraptionType> CONTRAPTIONS = DeferredRegister.create(CreateRegistries.CONTRAPTION_TYPE, MOD_ID);
     private static final DeferredRegister<ArmorMaterial> ARMOR_MATERIALS = DeferredRegister.create(Registries.ARMOR_MATERIAL, MOD_ID);
     private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
+    private static final DeferredRegister<DisplaySource> DISPLAY_SOURCES = DeferredRegister.create(CreateRegistries.DISPLAY_SOURCE, MOD_ID);
+    public static final DeferredHolder<DisplaySource, ProbeDisplaySource> PROBE_NAVIGATION = DISPLAY_SOURCES.register(
+            "probe_navigation", () -> new ProbeDisplaySource(EchoSounderBlockEntity.Readout.NAVIGATION));
+    public static final DeferredHolder<DisplaySource, ProbeDisplaySource> PROBE_SYSTEMS = DISPLAY_SOURCES.register(
+            "probe_systems", () -> new ProbeDisplaySource(EchoSounderBlockEntity.Readout.SYSTEMS));
+    public static final DeferredHolder<DisplaySource, ProbeDisplaySource> PROBE_SURVEY = DISPLAY_SOURCES.register(
+            "probe_survey", () -> new ProbeDisplaySource(EchoSounderBlockEntity.Readout.SURVEY));
+    public static final DeferredHolder<DisplaySource, ProbeDisplaySource> PROBE_DAMAGE = DISPLAY_SOURCES.register(
+            "probe_damage", () -> new ProbeDisplaySource(EchoSounderBlockEntity.Readout.DAMAGE));
     public static final DeferredHolder<Feature<?>, MantleSpireFeature> MANTLE_SPIRE = FEATURES.register("mantle_spire", MantleSpireFeature::new);
 
     public static final DeferredBlock<Block> MULTI_AXIS_CUTTER = BLOCKS.registerSimpleBlock(
@@ -225,6 +236,7 @@ public final class AeronauticsInnerworld {
         CONTRAPTIONS.register(modBus);
         ARMOR_MATERIALS.register(modBus);
         FEATURES.register(modBus);
+        DISPLAY_SOURCES.register(modBus);
         InnerworldStructures.register(modBus);
         modBus.addListener(this::commonSetup);
         modBus.addListener(this::buildCreativeTab);
@@ -256,6 +268,9 @@ public final class AeronauticsInnerworld {
 
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
+            for (var source : java.util.List.of(PROBE_NAVIGATION, PROBE_SYSTEMS, PROBE_SURVEY, PROBE_DAMAGE)) {
+                DisplaySource.BY_BLOCK_ENTITY.add(ECHO_SOUNDER_ENTITY.get(), source.get());
+            }
             MovementBehaviour.REGISTRY.register(MULTI_AXIS_CUTTER.get(), new MultiAxisCutterMovementBehaviour());
             BlockMovementChecks.registerNotSupportiveCheck((state, direction) ->
                     state.is(MULTI_AXIS_CUTTER) ? CheckResult.SUCCESS : CheckResult.PASS);

@@ -5,16 +5,12 @@ import com.simibubi.create.foundation.block.IBE;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.phys.BlockHitResult;
 
 public final class HeatEngineBlock extends DirectionalKineticBlock implements IBE<HeatEngineBlockEntity> {
     public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
@@ -46,9 +42,4 @@ public final class HeatEngineBlock extends DirectionalKineticBlock implements IB
         return AeronauticsInnerworld.HEAT_ENGINE_ENTITY.get();
     }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof HeatEngineBlockEntity engine) engine.showStatus(player);
-        return InteractionResult.SUCCESS;
-    }
 }

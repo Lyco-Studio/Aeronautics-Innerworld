@@ -19,6 +19,14 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.MutableComponent;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
@@ -32,6 +40,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public final class EchoSounderBlockEntity extends KineticBlockEntity implements BlockEntitySubLevelActor {
+    public enum Readout { NAVIGATION, SYSTEMS, SURVEY, DAMAGE }
+
+    private final EnumMap<Readout, List<MutableComponent>> readouts = new EnumMap<>(Readout.class);
     private BlockPos home;
     private BlockPos waypoint;
     private CompoundTag recoveryTarget;
@@ -42,6 +53,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
     private LavaStalker threat;
     private int clearance = 16;
     private int ticks;
+    private boolean hasScan;
 
     public EchoSounderBlockEntity(BlockPos pos, BlockState state) {
         super(AeronauticsInnerworld.ECHO_SOUNDER_ENTITY.get(), pos, state);
@@ -56,6 +68,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
     public void setHome(BlockPos pos) {
         home = pos.immutable();
         setChanged();
+        if (level != null) updateReadouts();
     }
 
     public BlockPos getMineral() {
@@ -88,24 +101,6 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
                 : ship.logicalPose().transformPosition(Vec3.atCenterOf(worldPosition));
     }
 
-    public boolean isHudFor(Player player) {
-        double distance = player.distanceToSqr(position());
-        if (player.isSpectator() || distance > 64) return false;
-        var ship = Sable.HELPER.getContaining(this);
-        if (ship == null) return Sable.HELPER.getTrackingOrVehicleSubLevel(player) == null;
-        if (!ProbeRecovery.contains(ship, player)) return false;
-        if (ship instanceof ServerSubLevel serverShip) {
-            for (var actor : serverShip.getPlot().getBlockEntityActors()) {
-                if (actor instanceof EchoSounderBlockEntity other && other != this && Math.abs(other.getSpeed()) >= 16) {
-                    double otherDistance = player.distanceToSqr(other.position());
-                    if (otherDistance < distance || otherDistance == distance
-                            && other.worldPosition.asLong() < worldPosition.asLong()) return false;
-                }
-            }
-        }
-        return true;
-    }
-
     private void updateRecoveryWaypoint() {
         recoveryLoaded = false;
         if (recoveryTarget == null) return;
@@ -127,50 +122,117 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
             return;
         }
         scan();
-        var position = position();
+    }
+
+    public List<MutableComponent> getReadout(Readout page) {
+        if (level == null || !level.dimension().equals(Mantle.LEVEL)) {
+            return List.of(reading("sounder_dimension"));
+        }
+        if (Math.abs(getSpeed()) < 16) return List.of(reading("sounder_unpowered").withStyle(ChatFormatting.GOLD));
+        if (!hasScan) return List.of(reading("sounder_scanning"));
+        var lines = readouts.get(page);
+        return lines == null ? List.of(reading("sounder_scanning")) : lines.stream().map(MutableComponent::copy).toList();
+    }
+
+    private static MutableComponent reading(String key, Object... args) {
+        return Component.translatable("goggle.aeronautics_innerworld." + key, args);
+    }
+
+    private static MutableComponent coordinates(BlockPos pos) {
+        return reading("coordinates", pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    private Component bearing(Vec3 origin, BlockPos destination) {
+        var direction = Direction.getNearest(destination.getX() + .5 - origin.x, 0, destination.getZ() + .5 - origin.z);
+        return Component.translatable("message.aeronautics_innerworld.sonar_bearing",
+                Math.round(origin.distanceTo(Vec3.atCenterOf(destination))),
+                Component.translatable("direction.aeronautics_innerworld." + direction.getName()));
+    }
+
+    private void updateReadouts() {
+        var origin = position();
         var ship = Sable.HELPER.getContaining(this);
         double speed = ship instanceof ServerSubLevel serverShip && RigidBodyHandle.of(serverShip).isValid()
                 ? RigidBodyHandle.of(serverShip).getLinearVelocity().length() : 0;
-        int heat = 0;
-        int coolant = 0;
-        int faults = 0;
+        int heat = 0, coolant = 0, cabins = 0, sealed = 0, engines = 0, running = 0, faults = 0;
+        var damage = new ArrayList<MutableComponent>();
+        var damagedPositions = new java.util.HashSet<BlockPos>();
         if (ship instanceof ServerSubLevel serverShip) {
             for (var actor : serverShip.getPlot().getBlockEntityActors()) {
+                BlockPos problem = null;
                 if (actor instanceof CabinRegulatorBlockEntity cabin) {
+                    cabins++;
+                    if (cabin.isSealed()) sealed++;
                     heat = Math.max(heat, Math.round(cabin.getHeat()));
                     coolant += cabin.getCoolant();
+                    problem = cabin.getDamagedPlate();
                 } else if (actor instanceof ProbeDriveBlockEntity drive && drive.isFaulted()) {
+                    problem = drive.getBlockPos();
+                } else if (actor instanceof HeatEngineBlockEntity engine) {
+                    engines++;
+                    if (engine.isRunning()) running++;
+                }
+                if (problem != null && damagedPositions.add(problem)) {
                     faults++;
+                    if (damage.size() < 8) {
+                        damage.add(reading("damaged_device", level.getBlockState(problem).isAir()
+                                ? Component.translatable("message.aeronautics_innerworld.hull_breach")
+                                : level.getBlockState(problem).getBlock().getName()).withStyle(ChatFormatting.GOLD));
+                        damage.add(coordinates(BlockPos.containing(ship.logicalPose().transformPosition(Vec3.atCenterOf(problem)))));
+                    }
                 }
             }
         }
-        Component bearing = Component.translatable("message.aeronautics_innerworld.sonar_home_bearing", "—");
+        var navigation = new ArrayList<MutableComponent>();
+        navigation.add(coordinates(BlockPos.containing(origin)));
+        navigation.add(reading("clearance", clearance).withStyle(clearance <= 4 ? ChatFormatting.GOLD : ChatFormatting.GRAY));
+        navigation.add(reading("velocity", Math.round(speed * 10) / 10.0));
         var destination = waypoint == null ? home : waypoint;
-        if (destination != null) {
-            var direction = Direction.getNearest(destination.getX() + .5 - position.x, 0, destination.getZ() + .5 - position.z);
-            var distance = Component.translatable("message.aeronautics_innerworld.sonar_bearing",
-                    Math.round(position.distanceTo(Vec3.atCenterOf(destination))),
-                    Component.translatable("direction.aeronautics_innerworld." + direction.getName()));
-            bearing = waypoint == null ? Component.translatable("message.aeronautics_innerworld.sonar_home_bearing", distance)
-                    : Component.translatable("message.aeronautics_innerworld.sonar_target_bearing", distance, waypoint.getY());
-            if (recoveryTarget != null) bearing = Component.translatable("message.aeronautics_innerworld."
-                    + (recoveryLoaded ? "sonar_recovery_bearing" : "sonar_recovery_last_known"), distance, waypoint.getY());
+        if (destination == null) navigation.add(reading("no_home"));
+        else {
+            String key = recoveryTarget != null ? recoveryLoaded ? "sonar_recovery_bearing" : "sonar_recovery_last_known"
+                    : waypoint == null ? "sonar_home_bearing" : "sonar_target_bearing";
+            navigation.add(Component.translatable("message.aeronautics_innerworld." + key,
+                    bearing(origin, destination), destination.getY()));
+            navigation.add(coordinates(destination));
         }
-        for (var player : level.players()) {
-            if (isHudFor(player)) {
-                if (threat != null && threat.isAlive()) {
-                    var direction = Direction.getNearest(threat.getX() - position.x, 0, threat.getZ() - position.z);
-                    player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_combat_hud",
-                            Math.round(position.y), threat.getName(), Math.round(position.distanceTo(threat.position())),
-                            Component.translatable("direction.aeronautics_innerworld." + direction.getName()),
-                            Math.round(threat.getY()), heat, coolant), true);
-                } else {
-                    player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_hud",
-                            Math.round(position.y), clearance, Math.round(speed * 10) / 10.0,
-                            bearing, heat, coolant, faults), true);
-                }
-            }
+        readouts.put(Readout.NAVIGATION, navigation);
+        readouts.put(Readout.SYSTEMS, List.of(
+                reading("cabins", sealed, cabins).withStyle(sealed < cabins || cabins == 0 ? ChatFormatting.GOLD : ChatFormatting.AQUA),
+                reading("heat", heat).withStyle(heat >= 80 ? ChatFormatting.RED : heat >= 60 ? ChatFormatting.GOLD : ChatFormatting.GRAY),
+                reading("coolant_total", coolant, cabins * 600).withStyle(coolant <= cabins * 120 ? ChatFormatting.GOLD : ChatFormatting.AQUA),
+                reading("engines", running, engines),
+                reading("faults", faults).withStyle(faults > 0 ? ChatFormatting.GOLD : ChatFormatting.GRAY)));
+        var survey = new ArrayList<MutableComponent>();
+        survey.add(mineral == null ? reading("no_mineral") : reading("mineral", bearing(origin, mineral)));
+        if (mineral != null) survey.add(coordinates(mineral));
+        survey.add(relay == null ? reading("no_relay") : reading("relay",
+                Component.translatable("structure.aeronautics_innerworld." + (deepWorks ? "deep_works" : "mantle_relay")), bearing(origin, relay)));
+        if (relay != null) survey.add(coordinates(relay));
+        survey.add(threat == null || !threat.isAlive() ? reading("no_contact")
+                : reading("contact", threat.getName(), bearing(origin, threat.blockPosition())).withStyle(ChatFormatting.GOLD));
+        if (threat != null && threat.isAlive()) {
+            survey.add(coordinates(threat.blockPosition()));
+            if (threat.isNeutral()) survey.add(reading("sample_wait", (threat.getSampleCooldown() + 19) / 20));
         }
+        readouts.put(Readout.SURVEY, survey);
+        if (damage.isEmpty()) damage.add(reading("no_damage"));
+        if (faults > 4) damage.add(reading("more_damage", faults - 4));
+        readouts.put(Readout.DAMAGE, damage);
+        sendData();
+    }
+
+    @Override
+    public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {
+        super.addToGoggleTooltip(tooltip, sneaking);
+        for (var page : sneaking ? List.of(Readout.SURVEY, Readout.DAMAGE) : List.of(Readout.NAVIGATION, Readout.SYSTEMS)) {
+            tooltip.add(Component.empty());
+            tooltip.add(Component.literal("    ").append(reading(page.name().toLowerCase(java.util.Locale.ROOT)))
+                    .withStyle(ChatFormatting.GRAY));
+            for (var line : getReadout(page)) tooltip.add(Component.literal("    ").append(line));
+        }
+        if (!sneaking) tooltip.add(Component.literal("    ").append(reading("sounder_details")).withStyle(ChatFormatting.DARK_GRAY));
+        return true;
     }
 
     public void scan() {
@@ -240,6 +302,8 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
                 }
             }
         }
+        hasScan = true;
+        updateReadouts();
     }
 
     public void interact(Player player) {
@@ -248,6 +312,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
                 waypoint = null;
                 recoveryTarget = null;
                 setChanged();
+                updateReadouts();
                 player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_home"), true);
                 return;
             }
@@ -258,62 +323,6 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
                 player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_home_set"), true);
             }
             return;
-        }
-        if (Math.abs(getSpeed()) < 16) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_power"), true);
-            return;
-        }
-        scan();
-        if (mineral == null) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_mineral"), false);
-        } else {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_mineral",
-                    AeronauticsInnerworld.HARMONIC_ORE.get().getName(), mineral.getX(), mineral.getY(), mineral.getZ(),
-                    Math.round(position().distanceTo(Vec3.atCenterOf(mineral)) * 10) / 10.0), false);
-        }
-        if (home != null) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_home",
-                    home.getX(), home.getY(), home.getZ()), false);
-        }
-        if (waypoint != null) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_waypoint",
-                    waypoint.getX(), waypoint.getY(), waypoint.getZ()), false);
-        }
-        if (relay == null) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_no_relay"), false);
-        } else {
-            var position = position();
-            var direction = Direction.getNearest(relay.getX() + .5 - position.x, 0, relay.getZ() + .5 - position.z);
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_relay",
-                    Component.translatable("structure.aeronautics_innerworld." + (deepWorks ? "deep_works" : "mantle_relay")),
-                    relay.getX(), relay.getY(), relay.getZ(), Math.round(position.distanceTo(Vec3.atCenterOf(relay))),
-                    Component.translatable("direction.aeronautics_innerworld." + direction.getName())), false);
-        }
-        if (threat != null && threat.isAlive()) {
-            player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_threat",
-                    threat.getName(), threat.blockPosition().getX(), threat.blockPosition().getY(), threat.blockPosition().getZ(),
-                    Math.round(position().distanceTo(threat.position()))), false);
-            if (threat.isNeutral()) {
-                player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.grazer_sample",
-                        (threat.getSampleCooldown() + 19) / 20), false);
-            }
-        }
-        if (Sable.HELPER.getContaining(this) instanceof ServerSubLevel ship) {
-            for (var actor : ship.getPlot().getBlockEntityActors()) {
-                BlockPos problem = null;
-                if (actor instanceof ProbeDriveBlockEntity drive && drive.isFaulted()) {
-                    problem = drive.getBlockPos();
-                } else if (actor instanceof CabinRegulatorBlockEntity cabin) {
-                    problem = cabin.getDamagedPlate();
-                }
-                if (problem != null) {
-                    var position = ship.logicalPose().transformPosition(Vec3.atCenterOf(problem));
-                    player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_fault",
-                            level.getBlockState(problem).isAir() ? Component.translatable("message.aeronautics_innerworld.hull_breach")
-                                    : level.getBlockState(problem).getBlock().getName(), Math.round(position.x),
-                            Math.round(position.y), Math.round(position.z)), false);
-                }
-            }
         }
     }
 
@@ -359,6 +368,7 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
             player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_route_saved"), false);
         }
         setChanged();
+        updateReadouts();
         player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.sonar_waypoint",
                 waypoint.getX(), waypoint.getY(), waypoint.getZ()), false);
     }
@@ -371,6 +381,16 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
         }
         if (waypoint != null) tag.putLong("Waypoint", waypoint.asLong());
         if (recoveryTarget != null) tag.put("RecoveryTarget", recoveryTarget.copy());
+        if (clientPacket) {
+            tag.putBoolean("HasScan", hasScan);
+            var data = new CompoundTag();
+            readouts.forEach((page, lines) -> {
+                var list = new ListTag();
+                for (var line : lines) list.add(StringTag.valueOf(Component.Serializer.toJson(line, registries)));
+                data.put(page.name(), list);
+            });
+            tag.put("Readouts", data);
+        }
     }
 
     @Override
@@ -381,5 +401,19 @@ public final class EchoSounderBlockEntity extends KineticBlockEntity implements 
         var target = tag.getCompound("RecoveryTarget");
         recoveryTarget = waypoint != null && target.hasUUID("Ship") ? target.copy() : null;
         recoveryLoaded = false;
+        hasScan = clientPacket && tag.getBoolean("HasScan");
+        readouts.clear();
+        if (clientPacket) {
+            var data = tag.getCompound("Readouts");
+            for (var page : Readout.values()) {
+                if (!data.contains(page.name())) continue;
+                var lines = new ArrayList<MutableComponent>();
+                for (var line : data.getList(page.name(), Tag.TAG_STRING)) {
+                    var text = Component.Serializer.fromJson(line.getAsString(), registries);
+                    if (text != null) lines.add(text);
+                }
+                readouts.put(page, lines);
+            }
+        }
     }
 }

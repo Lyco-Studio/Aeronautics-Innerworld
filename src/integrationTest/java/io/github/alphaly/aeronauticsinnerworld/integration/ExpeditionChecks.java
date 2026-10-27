@@ -28,7 +28,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class ExpeditionChecks {
     @GameTest(template = "empty", timeoutTicks = 200)
-    public static void tracksMovingWreckAndKeepsProbeHudsSeparate(GameTestHelper helper) {
+    public static void tracksMovingWreckAndKeepsInstrumentsSeparate(GameTestHelper helper) {
         var level = helper.getLevel().getServer().getLevel(Mantle.LEVEL);
         var wreck = new ProbeTestRig(level, new BlockPos(4096, 180, 1024));
         var rescue = new ProbeTestRig(level, new BlockPos(4103, 180, 1024));
@@ -52,22 +52,25 @@ public final class ExpeditionChecks {
                     wreck.motor(ProbeTestRig.SAMPLER, 0);rescue.motor(ProbeTestRig.SAMPLER, 0);
                 }).thenExecuteAfter(35, () -> {
                     player.setPos(wreck.world(new BlockPos(2, 1, 2)));
-                    helper.assertTrue(wreck.sounder().isHudFor(player) && !rescue.sounder().isHudFor(player),
-                            "A nearby probe claimed another probe's crew HUD");
+                    ((ProbeDriveBlockEntity) level.getBlockEntity(wreck.local(ProbeTestRig.LEFT_DRIVE))).fail();
+                    wreck.sounder().scan();rescue.sounder().scan();
+                    helper.assertTrue(!wreck.sounder().getReadout(io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity.Readout.DAMAGE)
+                            .equals(rescue.sounder().getReadout(io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity.Readout.DAMAGE)),
+                            "Nearby probes shared a damage readout");
                     death[0] = player.blockPosition();
                     anchor[0] = wreck.subLevel.logicalPose().transformPositionInverse(player.position());
                     ProbeRecovery.recordDeath(new net.neoforged.neoforge.event.entity.living.LivingDeathEvent(player, player.damageSources().generic()));
                     player.setLastDeathLocation(java.util.Optional.of(GlobalPos.of(Mantle.LEVEL, death[0])));
                     helper.assertTrue(ProbeRecovery.deathTarget(player) != null, "Ship death did not retain a recovery anchor");
                     player.setPos(rescue.world(new BlockPos(2, 1, 2)));
-                    helper.assertTrue(rescue.sounder().isHudFor(player) && !wreck.sounder().isHudFor(player),
-                            "Boarding the rescue probe retained the wreck HUD");
                     var extraPos = rescue.local(ProbeTestRig.SOUNDER.east());
                     level.setBlockAndUpdate(extraPos, AeronauticsInnerworld.ECHO_SOUNDER.get().defaultBlockState());
                     var extra = (io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity) level.getBlockEntity(extraPos);
                     extra.setSpeed(32);
-                    helper.assertTrue(rescue.sounder().isHudFor(player) && !extra.isHudFor(player),
-                            "Multiple sounders in one probe competed for the same HUD");
+                    extra.scan();rescue.sounder().scan();
+                    helper.assertTrue(extra.getReadout(io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity.Readout.SYSTEMS)
+                            .equals(rescue.sounder().getReadout(io.github.alphaly.aeronauticsinnerworld.content.probe.EchoSounderBlockEntity.Readout.SYSTEMS)),
+                            "Sounders on the same probe disagreed on system condition");
                     use(player, new ItemStack(Items.RECOVERY_COMPASS), rescue.local(ProbeTestRig.SOUNDER), Direction.UP);
                     wreck.ballast(-96);
                 }).thenExecuteAfter(70, () -> {

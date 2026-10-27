@@ -107,9 +107,6 @@ public final class ProbeDeviceBlock extends DirectionalKineticBlock implements I
         if (!level.isClientSide) {
             if (level.getBlockEntity(pos) instanceof ProbeDriveBlockEntity drive) {
                 if (player.isShiftKeyDown()) drive.cycleTrimMode(player);
-                else drive.showStatus(player);
-            } else if (level.getBlockEntity(pos) instanceof CabinRegulatorBlockEntity cabin) {
-                cabin.showStatus(player);
             } else if (level.getBlockEntity(pos) instanceof EchoSounderBlockEntity sounder) {
                 sounder.interact(player);
             } else if (level.getBlockEntity(pos) instanceof MantleSamplerBlockEntity sampler) {
