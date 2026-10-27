@@ -65,6 +65,10 @@ public final class ProbeClientCheck {
             return;
         }
         var client = Minecraft.getInstance();
+        if (Boolean.getBoolean("innerworld.machineArtReview")) {
+            MachineArtReview.tick(client);
+            return;
+        }
         if (!capturedPause) {oldPause = client.options.pauseOnLostFocus;capturedPause = true;client.options.pauseOnLostFocus = false;}
         if (client.screen instanceof PauseScreen) client.setScreen(null);
         if (++ticks > 1800 && failure == null && cleanup == null) {

@@ -212,6 +212,7 @@ neoForge.runs.create('probeTestClient') {
     gameDirectory = project.file('run/client')
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.probeClientCheck', 'true'
+    systemProperty 'innerworld.machineArtReview', providers.gradleProperty('machineArtReview').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -490,6 +491,7 @@ tasks.named('runSurvivalTestClient') {
 }
 tasks.named('runProbeTestClient') {
     def result = layout.projectDirectory.file('run/client/probe-check.result')
+    def expected = providers.gradleProperty('machineArtReview').getOrElse('false') == 'true' ? 'art-reviewed' : 'verified'
     doFirst {
         if (!file("run/client/saves/${clientCheckWorld}/level.dat").isFile()) {
             throw new GradleException('Create a development world first, then select it with -PcheckWorld=<world folder>.')
@@ -497,7 +499,7 @@ tasks.named('runProbeTestClient') {
         result.asFile.delete()
     }
     doLast {
-        if (!result.asFile.isFile() || result.asFile.text != 'verified') {
+        if (!result.asFile.isFile() || result.asFile.text != expected) {
             throw new GradleException('Probe client check failed; inspect the client diagnostics.')
         }
     }

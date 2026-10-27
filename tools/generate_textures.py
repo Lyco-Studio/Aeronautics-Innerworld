@@ -30,7 +30,9 @@ class Canvas:
     def grain(self):
         for y, row in enumerate(self.pixels):
             for x, rgba in enumerate(row):
-                delta = ((x * 43 + y * 29 + x * y * 7) % 7) - 3
+                value = (x * 374761393 + y * 668265263) & 0xffffffff
+                value = ((value ^ (value >> 13)) * 1274126177) & 0xffffffff
+                delta = (value ^ (value >> 16)) % 5 - 2
                 if rgba[3]:
                     row[x] = tuple(max(0, min(255, value + delta)) for value in rgba[:3]) + (rgba[3],)
 
@@ -46,18 +48,29 @@ class Canvas:
 
 
 def plate():
-    c = Canvas(16, STEEL)
-    c.rect(0, 0, 15, 0, EDGE)
-    c.rect(0, 1, 0, 14, EDGE)
-    c.rect(0, 15, 15, 15, DARK)
-    c.rect(15, 1, 15, 15, DARK)
+    c = Canvas(16, (70, 79, 79, 255))
+    c.rect(0, 0, 15, 0, (94, 104, 101, 255))
+    c.rect(0, 1, 0, 14, (86, 96, 94, 255))
+    c.rect(1, 1, 14, 1, (80, 89, 87, 255))
+    c.rect(0, 15, 15, 15, (43, 50, 51, 255))
+    c.rect(15, 1, 15, 15, (51, 59, 59, 255))
     for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
-        c.rect(x - 1, y - 1, x + 1, y + 1, DARK)
-        c.dot(x, y, EDGE)
+        c.dot(x, y, (44, 52, 52, 255))
+        c.dot(x, y - 1, (115, 122, 113, 255))
     return c
 
 
 def generate():
+    for name, color in (('steel_trim', (97, 108, 105)), ('copper_trim', (148, 104, 70)),
+                        ('brass_trim', (176, 149, 93)), ('dark_metal', (39, 48, 49))):
+        c = Canvas(16)
+        for y in range(16):
+            for x in range(16):
+                shift = (2 if y % 4 == 0 else 0) + (3 if x < 2 else -4 if x > 12 else 0)
+                c.dot(x, y, tuple(channel + shift for channel in color) + (255,))
+        c.grain()
+        c.save('block/' + name + '.png')
+
     c = Canvas(32)
     c.rect(5, 3, 26, 28, DARK)
     c.rect(6, 4, 25, 27, COPPER)
@@ -177,9 +190,15 @@ def generate():
     c.save('item/pressure_matrix.png')
 
     c = plate()
-    c.rect(4, 1, 5, 14, COPPER)
-    c.rect(5, 1, 5, 14, BRASS)
-    c.rect(10, 1, 11, 14, COPPER)
+    c.rect(3, 1, 4, 14, (57, 66, 66, 255))
+    c.rect(4, 1, 4, 14, (113, 122, 113, 255))
+    c.rect(11, 1, 12, 14, (57, 66, 66, 255))
+    c.rect(11, 1, 11, 14, (98, 109, 104, 255))
+    c.rect(6, 3, 9, 4, (137, 107, 70, 255))
+    c.rect(6, 5, 9, 5, (48, 57, 57, 255))
+    for y in (9, 11):
+        c.rect(6, y, 9, y, (49, 59, 59, 255))
+        c.rect(6, y - 1, 9, y - 1, (82, 92, 89, 255))
     c.grain()
     c.save('block/industrial_casing.png')
 
@@ -245,34 +264,41 @@ def generate():
     c.save('block/bore_station_front.png')
 
     c = plate()
-    for y in (3, 7, 11):
-        c.rect(3, y, 12, y + 1, (108, 94, 83, 255))
-        c.rect(3, y, 12, y, (144, 123, 98, 255))
-    c.rect(1, 5, 2, 10, COPPER)
-    c.rect(13, 5, 14, 10, COPPER)
+    c.rect(1, 1, 14, 14, (80, 87, 84, 255))
+    c.rect(1, 1, 14, 1, (104, 110, 100, 255))
+    c.rect(1, 2, 1, 13, (93, 101, 94, 255))
+    c.rect(2, 14, 14, 14, (60, 68, 66, 255))
+    c.rect(14, 2, 14, 13, (66, 74, 71, 255))
+    for x, y in ((2, 2), (13, 13)):
+        c.dot(x, y, (52, 60, 58, 255))
+        c.dot(x, y - 1, (137, 119, 88, 255))
+    c.rect(4, 5, 7, 5, (85, 93, 88, 255))
+    c.rect(9, 10, 11, 10, (74, 81, 78, 255))
     c.grain()
     c.save('block/refractory_hull.png')
+    hull = [row[:] for row in c.pixels]
 
     c = Canvas(16)
-    c.rect(0, 0, 15, 15, DARK)
-    c.rect(1, 1, 14, 14, COPPER)
-    c.rect(2, 2, 13, 13, BRASS)
+    c.rect(0, 0, 15, 15, (68, 77, 75, 255))
+    c.rect(1, 1, 14, 14, (136, 107, 75, 255))
+    c.rect(2, 2, 13, 13, (44, 58, 56, 255))
     c.rect(3, 3, 12, 12, (0, 0, 0, 0))
-    c.rect(3, 3, 12, 3, (98, 126, 117, 255))
-    c.rect(3, 4, 3, 12, (72, 94, 90, 255))
+    c.rect(3, 3, 12, 3, (114, 144, 134, 255))
+    c.rect(3, 4, 3, 12, (70, 100, 96, 255))
     for x,y in ((1,1),(14,1),(1,14),(14,14)):
         c.dot(x,y,EDGE)
-    for x,y in ((5,5),(6,6),(10,10),(11,11)):
-        c.dot(x,y,(158,192,173,255))
+    for x,y in ((4,4),(5,4),(4,5),(10,11),(11,11)):
+        c.dot(x,y,(131,163,153,255))
     c.save('block/mantle_viewport.png')
 
     c = plate()
-    c.rect(2, 2, 13, 13, COPPER)
-    c.rect(3, 3, 12, 12, DARK)
-    c.rect(4, 4, 11, 11, STEEL)
-    c.rect(5, 7, 10, 8, BRASS)
-    c.rect(7, 5, 8, 10, BRASS)
-    c.rect(7, 7, 8, 8, DARK)
+    c.rect(1, 1, 14, 14, (50, 60, 59, 255))
+    c.rect(2, 2, 13, 13, (96, 105, 99, 255))
+    c.rect(3, 3, 12, 12, (81, 92, 88, 255))
+    c.rect(3, 3, 12, 3, (120, 126, 113, 255))
+    c.rect(3, 12, 12, 12, (59, 70, 68, 255))
+    c.rect(6, 2, 9, 2, (162, 133, 84, 255))
+    c.rect(6, 13, 9, 13, (104, 83, 58, 255))
     c.grain()
     c.save('block/pressure_hatch.png')
 
@@ -289,12 +315,13 @@ def generate():
     c.save('block/molten_thruster.png')
 
     c = plate()
-    c.rect(3, 2, 12, 13, COPPER)
-    c.rect(4, 3, 11, 12, DARK)
-    c.rect(5, 4, 10, 11, (83, 113, 102, 255))
-    for y in (5,8,10):
-        c.rect(5,y,10,y,BRASS)
-    c.rect(7,2,8,13,EDGE)
+    for x in (2, 9):
+        c.rect(x, 2, x + 4, 13, (38, 53, 53, 255))
+        c.rect(x + 1, 3, x + 3, 12, (72, 107, 100, 255))
+        c.rect(x + 1, 4, x + 1, 11, (123, 153, 133, 255))
+        c.rect(x + 2, 10, x + 3, 12, (50, 76, 74, 255))
+        for y in (5, 8, 11):
+            c.dot(x + 3, y, (177, 165, 119, 255))
     c.grain()
     c.save('block/mantle_ballast.png')
 
@@ -342,12 +369,16 @@ def generate():
     c.grain()
     c.save('block/harmonic_ore.png')
 
-    c = plate()
-    for x, y in ((3, 2), (4, 3), (5, 4), (5, 5), (6, 6), (7, 7), (6, 8), (5, 9), (4, 10), (3, 11), (3, 12), (2, 13)):
-        c.dot(x, y, (229, 99, 39, 255))
-        c.dot(x + 1, y, DARK)
-    c.rect(10, 5, 12, 6, (25, 25, 27, 255))
-    c.grain()
+    c = Canvas(16)
+    c.pixels = [row[:] for row in hull]
+    for x, y in ((6, 0), (6, 1), (7, 2), (7, 3), (8, 4), (8, 5), (7, 6), (7, 7),
+                 (8, 8), (9, 9), (9, 10), (8, 11), (8, 12), (7, 13), (7, 14), (6, 15)):
+        c.dot(x, y, (23, 29, 29, 255))
+        c.dot(x + 1, y, (45, 47, 42, 255))
+        if y in (4, 5, 9, 10):
+            c.dot(x, y, (194, 91, 42, 255))
+    for x, y in ((10, 6), (11, 5), (12, 5), (5, 10), (4, 11)):
+        c.dot(x, y, (39, 46, 44, 255))
     c.save('block/damaged_hull.png')
 
     c = plate()
