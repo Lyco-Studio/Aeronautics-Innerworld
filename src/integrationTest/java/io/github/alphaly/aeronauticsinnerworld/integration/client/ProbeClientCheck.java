@@ -7,6 +7,7 @@ import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.integration.ProbeTestRig;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.ProbeDriveBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.CabinRegulatorBlockEntity;
 import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
@@ -129,6 +130,19 @@ public final class ProbeClientCheck {
             } else if (sample.isDone()) {
                 boolean finished = sample.join();
                 sample = null;
+                if (scene.ticks == 100 || scene.ticks == 220) {
+                    var cabin = client.level.getBlockEntity(scene.rig.local(ProbeTestRig.CABIN));
+                    if (!(cabin instanceof CabinRegulatorBlockEntity synced)
+                            || synced.getCoolant() <= 0 || Math.abs(synced.getCoolant() - scene.coolantSnapshot) > 1) {
+                        throw new IllegalStateException("Cabin coolant readout did not synchronize after supply or emergency cooling");
+                    }
+                    var tooltip = new java.util.ArrayList<net.minecraft.network.chat.Component>();
+                    synced.addToGoggleTooltip(tooltip, false);
+                    var sealed = net.minecraft.network.chat.Component.translatable("message.aeronautics_innerworld.cabin_sealed").getString();
+                    if (tooltip.stream().noneMatch(line -> line.getString().contains(sealed))) {
+                        throw new IllegalStateException("Goggle readout did not receive the sealed cabin state");
+                    }
+                }
                 if (scene.ticks == 182) {
                     Screenshot.grab(client.gameDirectory, "mantle-probe-service-check.png", client.getMainRenderTarget(),
                             message -> LogUtils.getLogger().info("Probe service screenshot: {}", message.getString()));
@@ -173,6 +187,7 @@ public final class ProbeClientCheck {
         private double startZ;
         private BlockPos ore;
         private float testHealth;
+        private int coolantSnapshot;
 
         private Scene(ServerPlayer player) {
             this.player = player;
@@ -313,6 +328,7 @@ public final class ProbeClientCheck {
                     throw new IllegalStateException("Real player sample unloading lost or duplicated cargo");
                 }
             }
+            coolantSnapshot = rig.cabin().getCoolant();
             return ticks >= 265;
         }
 

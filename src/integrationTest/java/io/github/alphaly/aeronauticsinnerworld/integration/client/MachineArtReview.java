@@ -6,12 +6,14 @@ import com.mojang.math.Axis;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlock;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -123,6 +125,10 @@ final class MachineArtReview {
             }
             if (viewTicks == 495) capture(client, "innerworld-heat-engine.png");
             if (viewTicks == 500) {
+                client.setScreen(new HeatEngineArtScreen());
+            }
+            if (viewTicks == 525) capture(client, "innerworld-heat-engine-states.png");
+            if (viewTicks == 530) {
                 client.setScreen(null);
                 cleanup = server.submit(gallery::restore);
             }
@@ -135,6 +141,46 @@ final class MachineArtReview {
     private static void capture(Minecraft client, String name) {
         Screenshot.grab(client.gameDirectory, name, client.getMainRenderTarget(),
                 message -> LogUtils.getLogger().info("Machine art review: {}", message.getString()));
+    }
+
+    private static final class HeatEngineArtScreen extends Screen {
+        HeatEngineArtScreen() {
+            super(Component.translatable("block.aeronautics_innerworld.heat_engine"));
+            var client = Minecraft.getInstance();
+            for (var state : AeronauticsInnerworld.HEAT_ENGINE.get().getStateDefinition().getPossibleStates()) {
+                if (client.getBlockRenderer().getBlockModel(state) == client.getModelManager().getMissingModel()) {
+                    throw new IllegalStateException("Missing heat engine model: " + state);
+                }
+            }
+        }
+
+        @Override
+        public boolean isPauseScreen() {return false;}
+
+        @Override
+        public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            graphics.fill(0,0,width,height,0xff2f363d);
+            int cardWidth = Math.min(186,(width-30)/2), top = (height-210)/2;
+            graphics.drawCenteredString(font,title,width/2,top,0xffd0d7db);
+            for (int i = 0; i < 2; i++) {
+                int x = width/2+(i-1)*cardWidth;
+                graphics.fill(x+3,top+20,x+cardWidth-3,top+202,0xff353e46);
+                var caption = Component.translatable("message.aeronautics_innerworld.heat_engine_" + (i == 0 ? "no_coolant" : "running"));
+                graphics.drawWordWrap(font,caption,x+12,top+178,cardWidth-24,0xffbcc5cb);
+                graphics.flush();
+                graphics.pose().pushPose();
+                graphics.pose().translate(x+cardWidth/2,top+100,150);
+                graphics.pose().scale(100,-100,100);
+                graphics.pose().mulPose(Axis.XP.rotationDegrees(25));
+                graphics.pose().mulPose(Axis.YP.rotationDegrees(210));
+                graphics.pose().translate(-.5,-.5,-.5);
+                Lighting.setupFor3DItems();
+                minecraft.getBlockRenderer().renderSingleBlock(AeronauticsInnerworld.HEAT_ENGINE.get().defaultBlockState()
+                        .setValue(HeatEngineBlock.ACTIVE,i == 1),graphics.pose(),graphics.bufferSource(),15728880,OverlayTexture.NO_OVERLAY);
+                graphics.flush();
+                graphics.pose().popPose();
+            }
+        }
     }
 
     private static final class ToolArtScreen extends Screen {

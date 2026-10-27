@@ -1,0 +1,6 @@
+{
+  "parent": "aeronautics_innerworld:block/heat_engine",
+  "textures": {
+    "front": "aeronautics_innerworld:block/heat_engine_active"
+  }
+}

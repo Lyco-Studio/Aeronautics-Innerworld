@@ -9,12 +9,26 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 public final class HeatEngineBlock extends DirectionalKineticBlock implements IBE<HeatEngineBlockEntity> {
-    public HeatEngineBlock(Properties properties) {super(properties);}
+    public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
+
+    public HeatEngineBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(ACTIVE, false));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(ACTIVE);
+    }
 
     @Override
     public Direction.Axis getRotationAxis(BlockState state) {return state.getValue(FACING).getAxis();}

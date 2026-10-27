@@ -3,10 +3,15 @@ package io.github.alphaly.aeronauticsinnerworld.content.probe;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.phys.Vec3;
 
 public final class ProbeServiceItem extends Item {
     private final int cooling;
@@ -68,8 +73,17 @@ public final class ProbeServiceItem extends Item {
         if (used && (context.getPlayer() == null || !context.getPlayer().getAbilities().instabuild)) {
             context.getItemInHand().shrink(1);
         }
+        if (used && cooling > 0) {
+            var ship = Sable.HELPER.getContaining(level, pos);
+            var soundPos = ship == null ? pos : BlockPos.containing(ship.logicalPose().transformPosition(Vec3.atCenterOf(pos)));
+            level.playSound(null, soundPos, SoundEvents.BOTTLE_EMPTY, SoundSource.BLOCKS, .6f, .85f);
+        }
         if (context.getPlayer() != null) {
-            context.getPlayer().displayClientMessage(Component.translatable("message.aeronautics_innerworld." + status), true);
+            var message = cooling > 0
+                    ? Component.translatable("message.aeronautics_innerworld." + status,
+                            ((CabinRegulatorBlockEntity) entity).getCoolant(), cooling)
+                    : Component.translatable("message.aeronautics_innerworld." + status);
+            context.getPlayer().displayClientMessage(message.withStyle(used ? ChatFormatting.AQUA : ChatFormatting.GOLD), true);
         }
         return InteractionResult.SUCCESS;
     }

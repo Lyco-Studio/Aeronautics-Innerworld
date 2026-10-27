@@ -10,7 +10,9 @@ import dev.ryanhcode.sable.util.BoundedBitVolume3i;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -36,6 +38,8 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
     private int hotSeconds;
     private BlockPos damagedOffset;
     private int thermalTicks;
+    private boolean statusDirty;
+    private boolean syncedSealed;
 
     public CabinRegulatorBlockEntity(BlockPos pos, BlockState state) {
         super(AeronauticsInnerworld.CABIN_REGULATOR_ENTITY.get(), pos, state);
@@ -68,6 +72,10 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
             }
             if (++thermalTicks % 20 == 0) {
                 tickHeat();
+                if (statusDirty) {
+                    sendData();
+                    statusDirty = false;
+                }
             }
         }
     }
@@ -108,6 +116,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         heat = net.minecraft.util.Mth.clamp(heat, 0, 100);
         if (previous != heat || work != 0) {
             setChanged();
+            statusDirty = true;
         }
         if (isSealed() && getCoolant() > 0) {
             for (var player : level.players()) {
@@ -165,6 +174,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
     public void addWorkHeat(float amount) {
         workHeat = Math.max(0, workHeat + amount);
         setChanged();
+        statusDirty = true;
     }
 
     public void recordHullDamage(BlockPos pos) {
@@ -184,6 +194,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         coolant = remaining / 20;
         coolantFraction = remaining % 20;
         setChanged();
+        statusDirty = true;
         return true;
     }
 
@@ -203,6 +214,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         }
         coolant += units;
         setChanged();
+        sendData();
         return true;
     }
 
@@ -243,6 +255,7 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
             region = container.addRegion(BoundedBitVolume3i.fromBlocks(interior));
             volume = interior.size();
             lastInterior = Set.copyOf(interior);
+            statusDirty = true;
         }
     }
 
@@ -252,12 +265,33 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
 
     public void showStatus(Player player) {
         player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.cabin_status",
-                Component.translatable("message.aeronautics_innerworld."
-                        + (isSealed() ? "cabin_sealed" : Math.abs(getSpeed()) < 16 ? "cabin_unpowered" : "cabin_open")),
+                statusComponent(),
                 volume, Math.round(getHeat()), getCoolant()), true);
     }
 
+    private Component statusComponent() {
+        boolean sealed = level != null && level.isClientSide ? syncedSealed : isSealed();
+        return Component.translatable("message.aeronautics_innerworld."
+                + (sealed ? "cabin_sealed" : Math.abs(getSpeed()) < 16 ? "cabin_unpowered" : "cabin_open"));
+    }
+
+    @Override
+    public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {
+        super.addToGoggleTooltip(tooltip, sneaking);
+        tooltip.add(Component.empty());
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.cabin"))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("    ").append(statusComponent()).withStyle(
+                (level != null && level.isClientSide ? syncedSealed : isSealed()) ? ChatFormatting.AQUA : ChatFormatting.GOLD));
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.heat", Math.round(getHeat())))
+                .withStyle(getHeat() >= 80 ? ChatFormatting.RED : getHeat() >= 60 ? ChatFormatting.GOLD : ChatFormatting.GRAY));
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.coolant", getCoolant()))
+                .withStyle(getCoolant() <= 120 ? ChatFormatting.GOLD : ChatFormatting.AQUA));
+        return true;
+    }
+
     private void clearRegion() {
+        if (region != null) statusDirty = true;
         if (region != null && level != null) {
             var container = WaterOcclusionContainer.getContainer(level);
             if (container != null) {
@@ -282,6 +316,9 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         tag.putInt("Coolant", coolant);
         tag.putInt("CoolantFraction", coolantFraction);
         tag.putInt("HotSeconds", hotSeconds);
+        if (clientPacket) {
+            tag.putBoolean("CabinSealed", isSealed());
+        }
         if (damagedOffset != null) {
             tag.putLong("DamagedPlate", damagedOffset.asLong());
         }
@@ -295,6 +332,9 @@ public final class CabinRegulatorBlockEntity extends KineticBlockEntity implemen
         coolant = net.minecraft.util.Mth.clamp(tag.getInt("Coolant"), 0, 600);
         coolantFraction = coolant == 600 ? 0 : net.minecraft.util.Mth.clamp(tag.getInt("CoolantFraction"), 0, 19);
         hotSeconds = net.minecraft.util.Mth.clamp(tag.getInt("HotSeconds"), 0, 10);
+        if (clientPacket) {
+            syncedSealed = tag.getBoolean("CabinSealed");
+        }
         damagedOffset = tag.contains("DamagedPlate") ? BlockPos.of(tag.getLong("DamagedPlate")) : null;
     }
 }

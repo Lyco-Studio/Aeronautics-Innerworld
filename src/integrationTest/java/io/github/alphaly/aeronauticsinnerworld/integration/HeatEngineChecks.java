@@ -5,6 +5,7 @@ import com.mojang.logging.LogUtils;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlockEntity;
+import io.github.alphaly.aeronauticsinnerworld.content.probe.HeatEngineBlock;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -143,7 +144,8 @@ public final class HeatEngineChecks {
     private static void assertRunning(GameTestHelper helper,ProbeTestRig rig,boolean active) {
         helper.assertTrue(rig.heatEngines().size()==7,"Expected seven heat engines on the assembled probe");
         for (HeatEngineBlockEntity engine:rig.heatEngines())
-            helper.assertTrue(engine.isRunning()==active && (Math.abs(engine.getGeneratedSpeed())==32)==active,
+            helper.assertTrue(engine.isRunning()==active && (Math.abs(engine.getGeneratedSpeed())==32)==active
+                            && engine.getBlockState().getValue(HeatEngineBlock.ACTIVE)==active,
                     "Heat engine state mismatch: expected="+active+", status="+engine.getStatus()+", speed="+engine.getSpeed()
                     +", world="+rig.subLevel.logicalPose().transformPosition(Vec3.atCenterOf(engine.getBlockPos())));
     }

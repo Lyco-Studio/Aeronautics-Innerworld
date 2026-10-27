@@ -64,7 +64,7 @@
   "message.aeronautics_innerworld.ballast_status": "配平舱：%s RPM · 支承质量 %s · %s · %s",
   "message.aeronautics_innerworld.probe_in_lava": "地幔熔岩中",
   "message.aeronautics_innerworld.probe_dry": "未浸入地幔熔岩",
-  "message.aeronautics_innerworld.cabin_status": "舱室：%s · %s m³ · 热负荷 %s%% · 冷却储量 %s",
+  "message.aeronautics_innerworld.cabin_status": "舱室：%s · %s m³ · 热负荷 %s%% · 冷却 %s / 600",
   "message.aeronautics_innerworld.cabin_sealed": "密封",
   "message.aeronautics_innerworld.cabin_unpowered": "需要 16 RPM",
   "message.aeronautics_innerworld.cabin_open": "存在破口或积液",
@@ -92,8 +92,8 @@
   "message.aeronautics_innerworld.sampler_working": "采集中；空手右键卸货。",
   "message.aeronautics_innerworld.sampler_full": "货舱已满，采掘暂停。",
   "message.aeronautics_innerworld.probe_faulted": "设备故障——冷却后维修",
-  "message.aeronautics_innerworld.coolant_loaded": "已补充冷却储备。",
-  "message.aeronautics_innerworld.coolant_full": "冷却储备没有足够空间容纳该冷却芯。",
+  "message.aeronautics_innerworld.coolant_loaded": "已补充冷却：%s / 600。",
+  "message.aeronautics_innerworld.coolant_full": "冷却储备 %s / 600；该冷却芯需要 %s 单位空间。",
   "message.aeronautics_innerworld.repair_hot": "请先将热负荷降至 70%% 或以下再维修。",
   "message.aeronautics_innerworld.repair_done": "维修完成。",
   "message.aeronautics_innerworld.repair_unneeded": "设备无需维修。",
@@ -321,5 +321,9 @@
   "block.aeronautics_innerworld.heat_engine.tooltip": "熔岩换热发动机",
   "block.aeronautics_innerworld.heat_engine.tooltip.summary": "在_地幔熔岩_中输出_32 RPM_。通过同艇舱室调节器补充_冷却芯_，冷却不足时停机。",
   "book.aeronautics_innerworld.tasks.reference.heat_engine": "熔岩换热供能",
-  "book.aeronautics_innerworld.heat_engine.guide": "同艇机组共用调节器冷却储备。装配后浸入地幔熔岩即可输出32 RPM；离开热源或缺冷却时停机。$(br2)干坞先补冷却，再组装、关舱和灌流。停机仍可补充。七台发动机加一间舱室，120单位约供70秒。"
+  "book.aeronautics_innerworld.heat_engine.guide": "同艇机组共用调节器冷却储备。装配后浸入地幔熔岩即可输出32 RPM；离开热源或缺冷却时停机。$(br2)干坞先补冷却，再组装、关舱和灌流。停机仍可补充。七台发动机加一间舱室，120单位约供70秒。",
+  "goggle.aeronautics_innerworld.heat_exchange": "换热工况",
+  "goggle.aeronautics_innerworld.cabin": "舱室状态",
+  "goggle.aeronautics_innerworld.heat": "热负荷：%s%%",
+  "goggle.aeronautics_innerworld.coolant": "冷却储备：%s / 600"
 }

@@ -1,26 +1,49 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,active=false": {
       "model": "aeronautics_innerworld:block/heat_engine"
     },
-    "facing=east": {
+    "facing=east,active=false": {
       "model": "aeronautics_innerworld:block/heat_engine",
       "y": 90
     },
-    "facing=south": {
+    "facing=south,active=false": {
       "model": "aeronautics_innerworld:block/heat_engine",
       "y": 180
     },
-    "facing=west": {
+    "facing=west,active=false": {
       "model": "aeronautics_innerworld:block/heat_engine",
       "y": 270
     },
-    "facing=up": {
+    "facing=up,active=false": {
       "model": "aeronautics_innerworld:block/heat_engine",
       "x": 270
     },
-    "facing=down": {
+    "facing=down,active=false": {
       "model": "aeronautics_innerworld:block/heat_engine",
+      "x": 90
+    },
+    "facing=north,active=true": {
+      "model": "aeronautics_innerworld:block/heat_engine_active"
+    },
+    "facing=east,active=true": {
+      "model": "aeronautics_innerworld:block/heat_engine_active",
+      "y": 90
+    },
+    "facing=south,active=true": {
+      "model": "aeronautics_innerworld:block/heat_engine_active",
+      "y": 180
+    },
+    "facing=west,active=true": {
+      "model": "aeronautics_innerworld:block/heat_engine_active",
+      "y": 270
+    },
+    "facing=up,active=true": {
+      "model": "aeronautics_innerworld:block/heat_engine_active",
+      "x": 270
+    },
+    "facing=down,active=true": {
+      "model": "aeronautics_innerworld:block/heat_engine_active",
       "x": 90
     }
   }

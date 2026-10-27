@@ -64,7 +64,7 @@
   "message.aeronautics_innerworld.ballast_status": "Ballast: %s RPM · supports %s mass · %s · %s",
   "message.aeronautics_innerworld.probe_in_lava": "in mantle lava",
   "message.aeronautics_innerworld.probe_dry": "outside mantle lava",
-  "message.aeronautics_innerworld.cabin_status": "Cabin: %s · %s m³ · Heat %s%% · Coolant %s",
+  "message.aeronautics_innerworld.cabin_status": "Cabin: %s · %s m³ · Heat %s%% · Coolant %s / 600",
   "message.aeronautics_innerworld.cabin_sealed": "sealed",
   "message.aeronautics_innerworld.cabin_unpowered": "requires 16 RPM",
   "message.aeronautics_innerworld.cabin_open": "open or flooded",
@@ -92,8 +92,8 @@
   "message.aeronautics_innerworld.sampler_working": "Sampling; right-click empty-handed to unload.",
   "message.aeronautics_innerworld.sampler_full": "Cargo full; excavation paused.",
   "message.aeronautics_innerworld.probe_faulted": "mechanical fault — cool and repair",
-  "message.aeronautics_innerworld.coolant_loaded": "Coolant loaded.",
-  "message.aeronautics_innerworld.coolant_full": "Insufficient room for this coolant cell.",
+  "message.aeronautics_innerworld.coolant_loaded": "Coolant loaded: %s / 600.",
+  "message.aeronautics_innerworld.coolant_full": "Coolant %s / 600; this cell needs %s units of space.",
   "message.aeronautics_innerworld.repair_hot": "Cool the probe to 70%% heat or lower before repair.",
   "message.aeronautics_innerworld.repair_done": "Repair complete.",
   "message.aeronautics_innerworld.repair_unneeded": "No repair needed.",
@@ -321,5 +321,9 @@
   "block.aeronautics_innerworld.heat_engine.tooltip": "LAVA HEAT ENGINE",
   "block.aeronautics_innerworld.heat_engine.tooltip.summary": "Produces _32 RPM_ in _mantle lava_. Load _coolant cells_ into a cabin regulator on the same vessel. Stops when cooling is insufficient.",
   "book.aeronautics_innerworld.tasks.reference.heat_engine": "Lava Heat Power",
-  "book.aeronautics_innerworld.heat_engine.guide": "Share coolant through the vessel's cabin regulator. Assemble in mantle lava for 32 RPM. Missing heat or coolant stops power.$(br2)Load coolant before flooding; refill even with power off. Seven engines plus a cabin use 120 units in about 70 seconds."
+  "book.aeronautics_innerworld.heat_engine.guide": "Share coolant through the vessel's cabin regulator. Assemble in mantle lava for 32 RPM. Missing heat or coolant stops power.$(br2)Load coolant before flooding; refill even with power off. Seven engines plus a cabin use 120 units in about 70 seconds.",
+  "goggle.aeronautics_innerworld.heat_exchange": "Heat exchange",
+  "goggle.aeronautics_innerworld.cabin": "Cabin diagnostics",
+  "goggle.aeronautics_innerworld.heat": "Heat: %s%%",
+  "goggle.aeronautics_innerworld.coolant": "Coolant: %s / 600"
 }

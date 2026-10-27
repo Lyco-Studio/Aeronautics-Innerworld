@@ -7,12 +7,14 @@ import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import io.github.alphaly.aeronauticsinnerworld.world.Mantle;
 import java.util.List;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -48,6 +50,9 @@ public final class HeatEngineBlockEntity extends GeneratingKineticBlockEntity im
         if (level.isClientSide) return;
         var next = exchangeHeat();
         boolean active = next.equals("running");
+        if (getBlockState().getValue(HeatEngineBlock.ACTIVE) != active) {
+            level.setBlock(worldPosition, getBlockState().setValue(HeatEngineBlock.ACTIVE, active), Block.UPDATE_CLIENTS);
+        }
         if (active != running || !next.equals(status)) {
             running = active;
             status = next;
@@ -85,13 +90,17 @@ public final class HeatEngineBlockEntity extends GeneratingKineticBlockEntity im
 
     public void showStatus(Player player) {
         player.displayClientMessage(Component.translatable("message.aeronautics_innerworld.heat_engine_status",
-                Component.translatable("message.aeronautics_innerworld.heat_engine_" + status), Math.round(getSpeed())), true);
+                Component.translatable("message.aeronautics_innerworld.heat_engine_" + status), Math.round(Math.abs(getSpeed()))), true);
     }
 
     @Override
     public boolean addToGoggleTooltip(List<Component> tooltip, boolean sneaking) {
         super.addToGoggleTooltip(tooltip, sneaking);
-        tooltip.add(Component.translatable("message.aeronautics_innerworld.heat_engine_" + status));
+        tooltip.add(Component.empty());
+        tooltip.add(Component.literal("    ").append(Component.translatable("goggle.aeronautics_innerworld.heat_exchange"))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("    ").append(Component.translatable("message.aeronautics_innerworld.heat_engine_" + status))
+                .withStyle(running ? ChatFormatting.AQUA : ChatFormatting.GOLD));
         return true;
     }
 
