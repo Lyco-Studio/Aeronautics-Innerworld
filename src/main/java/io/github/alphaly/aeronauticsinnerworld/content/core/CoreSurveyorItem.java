@@ -7,16 +7,31 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 
 public final class CoreSurveyorItem extends Item {
     public CoreSurveyorItem(Properties properties) {super(properties);}
+
+    @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        if (!(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof CoreConsoleBlockEntity console)) {
+            return InteractionResult.PASS;
+        }
+        if (context.getPlayer() instanceof ServerPlayer player && !player.getCooldowns().isOnCooldown(this)) {
+            console.showStatus(player);
+            player.getCooldowns().addCooldown(this,20);
+        }
+        return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+    }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {

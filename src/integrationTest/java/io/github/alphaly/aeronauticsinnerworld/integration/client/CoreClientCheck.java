@@ -14,6 +14,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
@@ -33,6 +34,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
+import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 
 @EventBusSubscriber(modid = "aeronautics_innerworld_checks", value = Dist.CLIENT)
 public final class CoreClientCheck {
@@ -49,12 +52,42 @@ public final class CoreClientCheck {
     private static RuntimeException failure;
     private static boolean finished;
     private static boolean capturedPause, oldPause;
+    private static boolean sawBossStatus, sawCoolingStatus, sawExposureStatus, sawPermanentExposure;
+    private static volatile int inspectedNodes;
+
+    @SubscribeEvent
+    public static void diagnostics(ClientChatReceivedEvent.System event) {
+        if (Boolean.getBoolean("innerworld.coreClientCheck") && !finished
+                && event.getMessage().getContents() instanceof TranslatableContents message
+                && message.getKey().equals("message.aeronautics_innerworld.core_node_status")) inspectedNodes++;
+    }
+
+    @SubscribeEvent
+    public static void bossBar(CustomizeGuiOverlayEvent.BossEventProgress event) {
+        if (!Boolean.getBoolean("innerworld.coreClientCheck") || finished) return;
+        var title = event.getBossEvent().getName();
+        if (!(title.getContents() instanceof TranslatableContents translated)
+                || !translated.getKey().equals("message.aeronautics_innerworld.warden_status")) return;
+        sawBossStatus = true;
+        if (translated.getArgs()[1] instanceof net.minecraft.network.chat.Component condition
+                && condition.getContents() instanceof TranslatableContents state) {
+            if (state.getKey().endsWith("warden_exposure")) sawExposureStatus = true;
+            if (state.getKey().endsWith("warden_phase_3")) sawPermanentExposure = true;
+        }
+        for (var sibling : title.getSiblings()) if (sibling.getContents() instanceof TranslatableContents state
+                && state.getKey().startsWith("message.aeronautics_innerworld.core_cooling_")) sawCoolingStatus = true;
+        var client = Minecraft.getInstance();
+        if (client.font.width(title) > client.getWindow().getGuiScaledWidth() - 20) {
+            failure = new IllegalStateException("Rendered core status exceeds the GUI width");
+        }
+    }
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
         if (!Boolean.getBoolean("innerworld.coreClientCheck") || finished) return;
         var client = Minecraft.getInstance();
         try {
+            if (failure != null && cleanup == null) throw failure;
             if (!capturedPause) {oldPause = client.options.pauseOnLostFocus;capturedPause = true;client.options.pauseOnLostFocus = false;}
             if (cleanup == null && Boolean.getBoolean("innerworld.coreArtReview") && !CoreMazeArtReview.finished()) {
                 CoreMazeArtReview.tick(client);return;
@@ -90,11 +123,20 @@ public final class CoreClientCheck {
             }
             frames++;
             if (!checkedBooks && frames > 15) {
-                BookLayoutChecks.check(client, scene.manual);BookLayoutChecks.check(client, scene.record);checkedBooks = true;
+                BookLayoutChecks.check(client, scene.manual);BookLayoutChecks.check(client, scene.record);
+                BookLayoutChecks.checkCoreStatus(client);checkedBooks = true;
             }
             if (observedStage == 0 && !clicked && client.player.getMainHandItem().is(AeronauticsInnerworld.CORE_SURVEYOR.get())) {
                 client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);clicked = true;
             }
+            if (observedStage == -1 && !clicked && frames > 8) {
+                var pos = scene.console.getBlockPos();
+                client.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(pos));
+                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false));clicked = true;
+            }
+            if (observedStage == -1 && frames == 25) Screenshot.grab(client.gameDirectory, "core-console-diagnostics.png", client.getMainRenderTarget(),
+                    text -> LogUtils.getLogger().info("Core console diagnostics screenshot: {}", text.getString()));
             if (observedStage == 1 && frames == 20) {
                 if (client.getBlockRenderer().getBlockModel(AeronauticsInnerworld.CORE_CONSOLE.get().defaultBlockState()) == client.getModelManager().getMissingModel())
                     throw new IllegalStateException("Core console model is missing");
@@ -105,6 +147,8 @@ public final class CoreClientCheck {
                 client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                         new BlockHitResult(Vec3.atCenterOf(scene.valve), net.minecraft.core.Direction.UP, scene.valve, false));clicked = true;
             }
+            if (observedStage == 4 && frames == 20) Screenshot.grab(client.gameDirectory, "core-cooling-feedback.png", client.getMainRenderTarget(),
+                    text -> LogUtils.getLogger().info("Core cooling status screenshot: {}", text.getString()));
             if (observedStage == 5 && !clicked && frames > 10 && client.player.getMainHandItem().is(Items.DIAMOND_SWORD)
                     && client.player.getAttackStrengthScale(0) > .95f) {
                 for (var entity : client.level.entitiesForRendering()) {
@@ -120,7 +164,11 @@ public final class CoreClientCheck {
                 client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                         new BlockHitResult(Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false));clicked = true;
             }
-            if (observedStage == 9 && frames > 15) {releaseControls(client);cleanup = server.submit(scene::cleanUp);return;}
+            if (observedStage == 9 && frames > 15) {
+                if (!sawBossStatus || !sawCoolingStatus || !sawExposureStatus || !sawPermanentExposure || !FULL_COMBAT && inspectedNodes < 3)
+                    throw new IllegalStateException("Core client did not receive its console and encounter feedback");
+                releaseControls(client);cleanup = server.submit(scene::cleanUp);return;
+            }
             if (action != null) {
                 if (!action.isDone()) return;
                 action.join();action = null;
@@ -225,12 +273,27 @@ public final class CoreClientCheck {
             } else player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AeronauticsInnerworld.CORE_SURVEYOR.get()));
             player.teleportTo(level, entrance.getX() + .5, entrance.getY(), entrance.getZ() + .5, 0, 0);player.containerMenu.broadcastChanges();
             if (FULL_COMBAT) expedition = new CoreMazeExpedition(player, entrance);
+            else {
+                var approach = net.minecraft.core.Direction.Plane.HORIZONTAL.stream().map(console.getBlockPos()::relative)
+                        .filter(pos -> level.getBlockState(pos).getCollisionShape(level,pos).isEmpty()
+                                && level.getBlockState(pos.above()).getCollisionShape(level,pos.above()).isEmpty()
+                                && level.getBlockState(pos.below()).isFaceSturdy(level,pos.below(),net.minecraft.core.Direction.UP)).findFirst().orElseThrow();
+                player.teleportTo(level,approach.getX()+.5,approach.getY(),approach.getZ()+.5,0,0);stage = -1;
+            }
             since = level.getGameTime();
         }
 
         private void advance() {
             level.resetEmptyTime();
+            if (!FULL_COMBAT && stage == 5 && warden.isAlive() && level.getGameTime() - since >= 2) warden.setNoAi(true);
             if (level.getGameTime() - since > (FULL_COMBAT && stage == 0 ? 12000 : 240)) throw new IllegalStateException("Core scene stalled at stage " + stage + ", player=" + player.position());
+            if (stage == -1) {
+                if (inspectedNodes >= 3 && level.getGameTime() - since > 35) {
+                    if (console.getBossId() != null) throw new IllegalStateException("Network inspection accidentally started combat");
+                    player.teleportTo(level,entrance.getX()+.5,entrance.getY(),entrance.getZ()+.5,0,0);next(0);
+                }
+                return;
+            }
             if (FULL_COMBAT && stage == 0) {
                 if (expedition.advance()) {player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();next(6);}
                 return;
@@ -256,10 +319,10 @@ public final class CoreClientCheck {
                 if (player.getHealth() < safeHealth) throw new IllegalStateException("Telegraphed strike hit a player outside its warning circle");
                 player.teleportTo(level, arena.getX() + 4.5, arena.getY(), arena.getZ() + .5, 90, 0);next(3);
             } else if (stage == 3 && player.getHealth() < safeHealth) {
-                warden.setNoAi(true);player.setHealth(20);
+                player.setHealth(20);
                 player.teleportTo(level, valve.getX() - 1.5, valve.getY(), valve.getZ() + .5, -90, 35);
                 player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);player.containerMenu.broadcastChanges();next(4);
-            } else if (stage == 4 && warden.isCoreExposed()) {
+            } else if (stage == 4 && warden.isCoreExposed() && level.getGameTime() - since > 25) {
                 warden.setHealth(1);warden.invulnerableTime = 0;
                 player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));player.containerMenu.broadcastChanges();
                 player.teleportTo(level, warden.getX(), warden.getY(), warden.getZ() + 2, 180, 0);next(5);

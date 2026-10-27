@@ -37,6 +37,24 @@ final class BookLayoutChecks {
         }
     }
 
+    static void checkCoreStatus(Minecraft client) {
+        var original = Language.getInstance();
+        try {
+            for (var locale : List.of("en_us", "zh_cn")) {
+                Language.inject(ClientLanguage.loadFrom(client.getResourceManager(), List.of("en_us", locale), false));
+                for (var phase : List.of("warden_phase_1", "warden_phase_2", "warden_phase_3", "warden_exposure")) {
+                    for (var cooling : List.of("core_cooling_ready", "core_cooling_recharging", "core_cooling_queued")) {
+                        var title = net.minecraft.network.chat.Component.translatable("message.aeronautics_innerworld.warden_status",
+                                net.minecraft.network.chat.Component.translatable("entity.aeronautics_innerworld.core_warden"),
+                                net.minecraft.network.chat.Component.translatable("message.aeronautics_innerworld." + phase,8))
+                                .append(" · ").append(net.minecraft.network.chat.Component.translatable("message.aeronautics_innerworld." + cooling,15));
+                        if (client.font.width(title) > 300) throw new IllegalStateException("Core status exceeds narrow GUI width: " + locale + " / " + title.getString());
+                    }
+                }
+            }
+        } finally {Language.inject(original);}
+    }
+
     private BookLayoutChecks() {
     }
 }

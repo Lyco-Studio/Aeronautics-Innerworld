@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.UUID;
 import java.util.Optional;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.core.particles.ParticleTypes;
@@ -129,6 +130,14 @@ public final class CoreWarden extends Monster {
         entityData.set(EXPOSED, exposure > 0 || phase == 2);
         bar.setProgress(getHealth() / getMaxHealth());
         bar.setColor(phase == 2 ? BossEvent.BossBarColor.RED : BossEvent.BossBarColor.YELLOW);
+        var condition = exposure > 0 && phase != 2 ? Component.translatable("message.aeronautics_innerworld.warden_exposure", (exposure + 19) / 20)
+                .withStyle(ChatFormatting.AQUA) : Component.translatable("message.aeronautics_innerworld.warden_phase_" + (phase + 1));
+        var title = Component.translatable("message.aeronautics_innerworld.warden_status",
+                Component.translatable("entity.aeronautics_innerworld.core_warden"), condition);
+        if (console != null && server.hasChunkAt(console) && server.getBlockEntity(console) instanceof CoreConsoleBlockEntity control) {
+            title.append(" · ").append(control.coolingStatus());
+        }
+        bar.setName(title);
         var target = getTarget();
         if (target == null || !target.isAlive() || target.distanceToSqr(Vec3.atCenterOf(home)) > 32 * 32) {
             setTarget(null);getNavigation().moveTo(home.getX() + .5, home.getY(), home.getZ() + .5, .8);
