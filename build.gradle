@@ -312,6 +312,7 @@ neoForge.runs.create('coreTestClient') {
     gameDirectory = project.file('run/client')
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.coreClientCheck', 'true'
+    systemProperty 'innerworld.coreArtReview', providers.gradleProperty('coreArtReview').getOrElse('false')
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld
 }
@@ -347,6 +348,7 @@ neoForge.runs.create('coreCombatTestClient') {
     gameDirectory = project.file('run/client')
     loadedMods.add(integrationMod)
     systemProperty 'innerworld.coreClientCheck', 'true'
+    systemProperty 'innerworld.coreArtReview', providers.gradleProperty('coreArtReview').getOrElse('false')
     systemProperty 'innerworld.coreFullCombat', 'true'
     programArgument '--quickPlaySingleplayer'
     programArgument clientCheckWorld

@@ -5,6 +5,8 @@ import net.minecraft.util.RandomSource;
 
 final class CoreMazeLayout {
     static final int SIZE = 11;
+    private static final int[][] ROOMS = {{2, 2, 8, 8}, {38, 2, 44, 8}, {38, 38, 44, 44}, {2, 38, 8, 44},
+            {8, 8, 14, 14}, {32, 8, 38, 14}, {20, 20, 26, 26}};
 
     static boolean[][] passages(long seed) {
         var random = RandomSource.create(seed);
@@ -32,7 +34,15 @@ final class CoreMazeLayout {
             visited[next[0]][next[1]] = true;
             stack.add(next);
         }
+        for (var room : ROOMS) {
+            carve(open, room[0], room[1], room[2], room[3]);
+        }
         return open;
+    }
+
+    static boolean isRoom(int x, int z) {
+        for (var room : ROOMS) if (x >= room[0] && x <= room[2] && z >= room[1] && z <= room[3]) return true;
+        return false;
     }
 
     private static void carve(boolean[][] open, int x0, int z0, int x1, int z1) {

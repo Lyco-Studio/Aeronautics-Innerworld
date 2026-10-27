@@ -325,5 +325,19 @@
   "goggle.aeronautics_innerworld.heat_exchange": "Heat exchange",
   "goggle.aeronautics_innerworld.cabin": "Cabin diagnostics",
   "goggle.aeronautics_innerworld.heat": "Heat: %s%%",
-  "goggle.aeronautics_innerworld.coolant": "Coolant: %s / 600"
+  "goggle.aeronautics_innerworld.coolant": "Coolant: %s / 600",
+  "maze.aeronautics_innerworld.facility": "CORE WORKS",
+  "maze.aeronautics_innerworld.entry": "ENTRY / RETURN",
+  "maze.aeronautics_innerworld.node_1": "01 / RELAY",
+  "maze.aeronautics_innerworld.node_2": "02 / COOLING",
+  "maze.aeronautics_innerworld.node_3": "03 / ISOLATION",
+  "maze.aeronautics_innerworld.node_hint": "RESTORE CIRCUIT",
+  "maze.aeronautics_innerworld.control": "CORE CONTROL",
+  "maze.aeronautics_innerworld.control_hint": "3 NODES REQUIRED",
+  "maze.aeronautics_innerworld.exit": "SERVICE EXIT",
+  "maze.aeronautics_innerworld.exit_hint": "OUTER SHELF",
+  "maze.aeronautics_innerworld.workshop": "WORKSHOP",
+  "maze.aeronautics_innerworld.archive": "ARCHIVE",
+  "maze.aeronautics_innerworld.coolant_valve": "COOLANT VALVE",
+  "maze.aeronautics_innerworld.valve_hint": "EXPOSE CORE"
 }

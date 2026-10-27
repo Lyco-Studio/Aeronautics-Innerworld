@@ -325,5 +325,19 @@
   "goggle.aeronautics_innerworld.heat_exchange": "换热工况",
   "goggle.aeronautics_innerworld.cabin": "舱室状态",
   "goggle.aeronautics_innerworld.heat": "热负荷：%s%%",
-  "goggle.aeronautics_innerworld.coolant": "冷却储备：%s / 600"
+  "goggle.aeronautics_innerworld.coolant": "冷却储备：%s / 600",
+  "maze.aeronautics_innerworld.facility": "地核维护设施",
+  "maze.aeronautics_innerworld.entry": "入口 / 返回",
+  "maze.aeronautics_innerworld.node_1": "01 / 回路中继",
+  "maze.aeronautics_innerworld.node_2": "02 / 冷却回路",
+  "maze.aeronautics_innerworld.node_3": "03 / 隔离维护",
+  "maze.aeronautics_innerworld.node_hint": "恢复回路",
+  "maze.aeronautics_innerworld.control": "核心控制",
+  "maze.aeronautics_innerworld.control_hint": "需恢复三个节点",
+  "maze.aeronautics_innerworld.exit": "检修出口",
+  "maze.aeronautics_innerworld.exit_hint": "通往外围",
+  "maze.aeronautics_innerworld.workshop": "检修间",
+  "maze.aeronautics_innerworld.archive": "档案间",
+  "maze.aeronautics_innerworld.coolant_valve": "冷却阀",
+  "maze.aeronautics_innerworld.valve_hint": "开启核心冷却"
 }

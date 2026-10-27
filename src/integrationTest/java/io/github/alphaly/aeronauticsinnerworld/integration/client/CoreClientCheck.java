@@ -48,16 +48,22 @@ public final class CoreClientCheck {
     private static Scene scene;
     private static RuntimeException failure;
     private static boolean finished;
+    private static boolean capturedPause, oldPause;
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
         if (!Boolean.getBoolean("innerworld.coreClientCheck") || finished) return;
         var client = Minecraft.getInstance();
         try {
+            if (!capturedPause) {oldPause = client.options.pauseOnLostFocus;capturedPause = true;client.options.pauseOnLostFocus = false;}
+            if (cleanup == null && Boolean.getBoolean("innerworld.coreArtReview") && !CoreMazeArtReview.finished()) {
+                CoreMazeArtReview.tick(client);return;
+            }
             if (++ticks > (FULL_COMBAT ? 18000 : 2400) && cleanup == null) throw new IllegalStateException("Core client timed out at stage " + observedStage);
             if (cleanup != null) {
                 if (!cleanup.isDone()) return;
-                cleanup.join();finished = true;
+                try {cleanup.join();} finally {client.options.pauseOnLostFocus = oldPause;client.options.save();}
+                finished = true;
                 if (failure != null) throw failure;
                 Files.writeString(client.gameDirectory.toPath().resolve(FULL_COMBAT ? "core-combat-check.result" : "core-check.result"), "verified");
                 LogUtils.getLogger().info(FULL_COMBAT
@@ -124,7 +130,11 @@ public final class CoreClientCheck {
             if (finished || cleanup != null && cleanup.isDone()) {finished = true;throw new IllegalStateException("Core client check failed", e);}
             failure = new IllegalStateException("Core client check failed", e);
             releaseControls(client);
-            cleanup = client.getSingleplayerServer().submit(() -> {if (scene != null) scene.cleanUp();});
+            if (Boolean.getBoolean("innerworld.coreArtReview")) CoreMazeArtReview.restoreOptions(client);
+            cleanup = client.getSingleplayerServer().submit(() -> {
+                if (Boolean.getBoolean("innerworld.coreArtReview")) CoreMazeArtReview.restorePlayer();
+                if (scene != null) scene.cleanUp();
+            });
         }
     }
 
