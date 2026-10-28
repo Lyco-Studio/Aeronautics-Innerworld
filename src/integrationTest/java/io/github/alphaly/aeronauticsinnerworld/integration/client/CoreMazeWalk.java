@@ -8,6 +8,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -29,6 +30,10 @@ final class CoreMazeWalk {
     }
 
     CoreMazeWalk(ServerLevel level, BoundingBox bounds, BlockPos from, BlockPos control, boolean interact, boolean stepsAllowed) {
+        this(level,bounds,from,control,interact,stepsAllowed,false);
+    }
+
+    CoreMazeWalk(ServerLevel level, BoundingBox bounds, BlockPos from, BlockPos control, boolean interact, boolean stepsAllowed, boolean avoidHazards) {
         this.control = control;this.interact = interact;
         this.stepsAllowed = stepsAllowed;
         var parents = new HashMap<BlockPos, BlockPos>();
@@ -44,7 +49,9 @@ final class CoreMazeWalk {
                     if (!bounds.isInside(next) || parents.containsKey(next)
                             || !level.getBlockState(next).getCollisionShape(level, next).isEmpty()
                             || !level.getBlockState(next.above()).getCollisionShape(level, next.above()).isEmpty()
-                            || !level.getBlockState(next.below()).isFaceSturdy(level, next.below(), Direction.UP)) continue;
+                            || !level.getBlockState(next.below()).isFaceSturdy(level, next.below(), Direction.UP)
+                            || avoidHazards&&(!level.getFluidState(next).isEmpty()||!level.getFluidState(next.above()).isEmpty()
+                                    ||level.getBlockState(next.below()).is(Blocks.MAGMA_BLOCK))) continue;
                     if (height > 0 && !level.getBlockState(pos.above(2)).getCollisionShape(level, pos.above(2)).isEmpty()) continue;
                     if (height < 0 && !level.getBlockState(next.above(2)).getCollisionShape(level, next.above(2)).isEmpty()) continue;
                     parents.put(next, pos);queue.add(next);

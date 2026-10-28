@@ -10,11 +10,14 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.*;
 
@@ -26,6 +29,8 @@ final class AgentTasks {
     private static CompletableFuture<CoreMazeWalk> planning;
     private static CoreMazeWalk walk;
     private static net.minecraft.world.item.crafting.RecipeHolder<?> recipe;
+    private static net.minecraft.world.item.Item consuming;
+    private static int consumingCount, consumingSlot;
 
     static String status(){return report;}
     static boolean busy(){return request!=null;}
@@ -44,6 +49,7 @@ final class AgentTasks {
             if(age>24000)throw new IllegalStateException("Task exceeded 20 minutes");
             String action=request.get("action").getAsString();
             if(action.equals("fight")){fight(c);return;}
+            if(action.equals("consume")){consume(c);return;}
             if(action.equals("craft")){craft(c);return;}
             if(action.equals("assemble")){assemble(c);return;}
             if(planning!=null){if(!planning.isDone())return;walk=planning.join();planning=null;}
@@ -97,13 +103,15 @@ final class AgentTasks {
             var p=server.getPlayerList().getPlayer(id);var level=p.serverLevel();var candidates=new ArrayList<BlockPos>();
             for(var pos:BlockPos.betweenClosed(target.offset(-3,-3,-3),target.offset(3,1,3))) {
                 if(!level.getBlockState(pos).getCollisionShape(level,pos).isEmpty()||!level.getBlockState(pos.above()).getCollisionShape(level,pos.above()).isEmpty()
-                    ||!level.getBlockState(pos.below()).isFaceSturdy(level,pos.below(),Direction.UP))continue;
+                    ||!level.getBlockState(pos.below()).isFaceSturdy(level,pos.below(),Direction.UP)
+                    ||!level.getFluidState(pos).isEmpty()||!level.getFluidState(pos.above()).isEmpty()
+                    ||level.getBlockState(pos.below()).is(Blocks.MAGMA_BLOCK))continue;
                 if(pos.equals(target)||pos.distSqr(target)<1)continue;candidates.add(pos.immutable());
             }
             candidates.sort(Comparator.comparingDouble(pos->pos.distToCenterSqr(p.position())));
             if(candidates.isEmpty())throw new IllegalStateException("No standable approach to "+target);
             var bounds=BoundingBox.fromCorners(p.blockPosition().offset(-24,-16,-24),p.blockPosition().offset(24,16,24));
-            for(int i=0;i<candidates.size();i++)try{return new CoreMazeWalk(level,bounds,p.blockPosition(),candidates.get((i+skip)%candidates.size()),false,true);}catch(IllegalStateException ignored){}
+            for(int i=0;i<candidates.size();i++)try{return new CoreMazeWalk(level,bounds,p.blockPosition(),candidates.get((i+skip)%candidates.size()),false,true,true);}catch(IllegalStateException ignored){}
             throw new IllegalStateException("No walkable approach to "+target);
         });
     }
@@ -139,19 +147,43 @@ final class AgentTasks {
         }
         if(ticks>200)throw new IllegalStateException("Physics assembler did not finish");
     }
+    private static void consume(Minecraft c) {
+        if(ticks==1) {
+            if(request.has("item"))MinecraftAgent.equip(c,request.get("item").getAsString());
+            var stack=c.player.getMainHandItem();var animation=stack.getUseAnimation();
+            if(animation!=net.minecraft.world.item.UseAnim.EAT&&animation!=net.minecraft.world.item.UseAnim.DRINK)
+                throw new IllegalStateException("Select food or a drink first");
+            consuming=stack.getItem();consumingCount=stack.getCount();
+            consumingSlot=c.player.getInventory().selected;
+            c.options.keyUse.setDown(true);c.gameMode.useItem(c.player,InteractionHand.MAIN_HAND);
+            if(!c.player.isUsingItem())throw new IllegalStateException("Selected item cannot be consumed now");
+        } else {
+            if(c.player.getInventory().selected!=consumingSlot)throw new IllegalStateException("Selected item changed during use");
+            var stack=c.player.getMainHandItem();
+            if(!stack.is(consuming)||stack.getCount()<consumingCount){done(c);return;}
+            if(!c.player.isUsingItem())throw new IllegalStateException("Item use was interrupted");
+        }
+        if(ticks>200)throw new IllegalStateException("Item use did not finish");
+    }
+
     private static void fight(Minecraft c) {
-        Monster target=null;double nearest=48*48;
-        for(var e:c.level.entitiesForRendering())if(e instanceof Monster mob&&mob.isAlive()&&c.player.hasLineOfSight(mob)&&mob.distanceToSqr(c.player)<nearest){target=mob;nearest=mob.distanceToSqr(c.player);}
+        LivingEntity target=null;double nearest=48*48;
+        String entityType=request.has("entity_type")?request.get("entity_type").getAsString():null;
+        for(var e:c.level.entitiesForRendering())if(e instanceof LivingEntity mob&&mob instanceof Enemy&&mob.isAlive()
+                &&(entityType==null||BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).toString().equals(entityType))
+                &&c.player.hasLineOfSight(mob)&&mob.distanceToSqr(c.player)<nearest){target=mob;nearest=mob.distanceToSqr(c.player);}
         if(target==null){done(c);return;}
         if(target instanceof CoreWarden boss&&boss.getHeatZone()!=null) {
             var zone=Vec3.atBottomCenterOf(boss.getHeatZone());
             if(c.player.position().subtract(zone).horizontalDistanceSqr()<12.25) {
                 var away=c.player.position().subtract(zone).multiply(1,0,1);if(away.lengthSqr()<.1)away=new Vec3(1,0,0);
-                MinecraftAgent.look(c,c.player.getEyePosition().add(away.normalize()));c.options.keyUp.setDown(true);c.options.keyDown.setDown(false);return;
+                MinecraftAgent.look(c,c.player.getEyePosition().add(away.normalize()));c.options.keyUp.setDown(safeStep(c,away));c.options.keyDown.setDown(false);return;
             }
         }
         boolean eat=c.player.getFoodData().getFoodLevel()<=16;MinecraftAgent.look(c,target.getEyePosition());
-        c.options.keyUp.setDown(!eat&&nearest>5);c.options.keyDown.setDown(eat&&nearest<64);
+        var toward=target.position().subtract(c.player.position());
+        c.options.keyUp.setDown(!eat&&nearest>5&&safeStep(c,toward));
+        c.options.keyDown.setDown(eat&&nearest<64&&safeStep(c,toward.scale(-1)));
         String item=eat?"minecraft:cooked_beef":"minecraft:diamond_sword";
         if(!BuiltInRegistries.ITEM.getKey(c.player.getMainHandItem().getItem()).toString().equals(item)&&c.player.isUsingItem())c.gameMode.releaseUsingItem(c.player);
         MinecraftAgent.equip(c,item);
@@ -167,5 +199,14 @@ final class AgentTasks {
             } else if(c.player.isUsingItem())c.gameMode.releaseUsingItem(c.player);
         }
         if(ticks>(request.has("ticks")?request.get("ticks").getAsInt():400))done(c);
+    }
+
+    private static boolean safeStep(Minecraft c,Vec3 direction) {
+        var horizontal=direction.multiply(1,0,1);
+        if(horizontal.lengthSqr()<1.0e-4)return false;
+        var next=BlockPos.containing(c.player.position().add(horizontal.normalize().scale(.8)));
+        var floor=next.below();var state=c.level.getBlockState(floor);
+        return c.level.getFluidState(next).isEmpty()&&state.isFaceSturdy(c.level,floor,Direction.UP)
+                &&(!state.is(Blocks.MAGMA_BLOCK)||c.player.hasEffect(MobEffects.FIRE_RESISTANCE));
     }
 }

@@ -76,6 +76,7 @@ public final class MinecraftAgent {
             ticks++;
             if(!c.player.isAlive()) {
                 release(c);walk=null;planning=null;inputTicks=0;AgentTasks.cancel();
+                action="dead";
                 if(AgentBaritone.busy())AgentBaritone.execute("cancel");
             }
             if(planning!=null && planning.isDone()) {walk=planning.join();planning=null;}
@@ -102,7 +103,10 @@ public final class MinecraftAgent {
             if(ticks%10==0) write(directory.resolve("state.json"),state(c));
             boolean busy = walk!=null || planning!=null || pending!=null || inputTicks>0 || AgentTasks.busy() || AgentBaritone.busy();
             if(busy) idleTicks=0;
-            else if(++idleTicks>8 && (c.screen==null || c.screen instanceof net.minecraft.client.gui.screens.DeathScreen)) c.pauseGame(false);
+            else if(++idleTicks>8 && (c.screen==null || c.screen instanceof net.minecraft.client.gui.screens.DeathScreen)) {
+                if(c.screen instanceof net.minecraft.client.gui.screens.DeathScreen)c.setScreen(null);
+                c.pauseGame(false);
+            }
         } catch(Exception e) {action="error: "+e.getMessage();release(c);walk=null;planning=null;AgentTasks.cancel();}
     }
 
@@ -148,7 +152,7 @@ public final class MinecraftAgent {
                     if(ship==null) {
                         var hit=c.level.clip(new ClipContext(c.player.getEyePosition(),target,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,c.player));
                         if(hit.getType()!=HitResult.Type.BLOCK || !hit.getBlockPos().equals(pos) || hit.getLocation().distanceTo(c.player.getEyePosition())>4.6)
-                            throw new IllegalStateException("Target is out of reach or occluded: "+hit);
+                            throw new IllegalStateException("Target is out of reach or occluded: hit="+hit.getType()+" "+hit.getBlockPos()+", expected="+pos);
                         c.gameMode.useItemOn(c.player,InteractionHand.MAIN_HAND,hit);
                     } else {
                         if(target.distanceTo(c.player.getEyePosition())>4.6) throw new IllegalStateException("Ship device is out of reach");
@@ -161,7 +165,7 @@ public final class MinecraftAgent {
             case "click": c.gameMode.handleInventoryMouseClick(c.player.containerMenu.containerId,integer(o,"slot",0),integer(o,"button",0),ClickType.valueOf(string(o,"type","QUICK_MOVE")),c.player);return true;
             case "walk": {
                 release(c);AgentTasks.cancel();var target=block(o);var server=c.getSingleplayerServer();var id=c.player.getUUID();
-                planning=server.submit(()-> {var p=server.getPlayerList().getPlayer(id);return new CoreMazeWalk(p.serverLevel(),BoundingBox.fromCorners(p.blockPosition().offset(-40,-24,-40),p.blockPosition().offset(40,24,40)),p.blockPosition(),target,false,true);});
+                planning=server.submit(()-> {var p=server.getPlayerList().getPlayer(id);return new CoreMazeWalk(p.serverLevel(),BoundingBox.fromCorners(p.blockPosition().offset(-40,-24,-40),p.blockPosition().offset(40,24,40)),p.blockPosition(),target,false,true,true);});
                 action="walking";return true;
             }
             case "keys": {
@@ -173,7 +177,7 @@ public final class MinecraftAgent {
                 if(o.has("yaw"))c.player.setYRot(o.get("yaw").getAsFloat());if(o.has("pitch"))c.player.setXRot(o.get("pitch").getAsFloat());action="input";return true;
             }
             case "stop": release(c);walk=null;planning=null;inputTicks=0;AgentTasks.cancel();action="idle";return true;
-            case "mine", "place", "build", "craft", "fight", "assemble": release(c);walk=null;planning=null;AgentTasks.start(c,o);action=op;return true;
+            case "mine", "place", "build", "craft", "fight", "assemble", "consume": release(c);walk=null;planning=null;inputTicks=0;AgentTasks.start(c,o);action=op;return true;
             case "blocks": {
                 var out=new JsonArray();int radius=Math.min(20,integer(o,"radius",8));var center=o.has("x")?block(o):c.player.blockPosition();
                 for(var p:BlockPos.betweenClosed(center.offset(-radius,-radius,-radius),center.offset(radius,radius,radius))) {
