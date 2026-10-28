@@ -140,6 +140,7 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             DrillLayerTravel.resetActors((DrillHeadEntity) movedContraption);
         }
         movementDirection = direction;
+        if (movedContraption instanceof DrillHeadEntity head) head.setTravelDirection(direction);
         offset = getInitialOffset();
         clientOffsetDiff = 0;
         waitingForSpeedChange = false;
@@ -180,6 +181,7 @@ public final class DrillControllerBlockEntity extends LinearActuatorBlockEntity 
             pauseImmediately("paused");
         }
         if (movedContraption instanceof DrillHeadEntity head) {
+            head.setTravelDirection(movementDirection);
             head.setWorking(canWork());
             if (canWork() && isGridAligned() && DrillLayerTravel.tryCross(this, head)) {
                 return;

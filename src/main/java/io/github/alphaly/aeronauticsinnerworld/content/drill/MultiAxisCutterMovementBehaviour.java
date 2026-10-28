@@ -17,6 +17,10 @@ public final class MultiAxisCutterMovementBehaviour extends BlockBreakingMovemen
 
     @Override
     public Vec3 getActiveAreaOffset(MovementContext context) {
+        if (context.contraption.entity instanceof DrillHeadEntity head) {
+            // Create derives actor motion from this offset; feeding it back can reverse the cutting area.
+            return Vec3.atLowerCornerOf(head.getTravelDirection().getNormal()).scale(0.65);
+        }
         var motion = context.relativeMotion;
         if (motion.lengthSqr() < 1.0e-8) {
             return Vec3.ZERO;

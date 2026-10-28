@@ -30,6 +30,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class DrillHeadEntity extends ControlledContraptionEntity implements IControlContraption {
     private static final EntityDataAccessor<Boolean> WORKING = SynchedEntityData.defineId(DrillHeadEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Direction> TRAVEL_DIRECTION = SynchedEntityData.defineId(DrillHeadEntity.class, EntityDataSerializers.DIRECTION);
     private ResourceKey<Level> controllerDimension;
     private BlockPos returnPosition;
     private BlockPos mantleReturnPosition;
@@ -44,6 +45,7 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     public static DrillHeadEntity create(Level level, DrillControllerBlockEntity controller, DrillContraption contraption) {
         var entity = new DrillHeadEntity(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get(), level);
         entity.controllerPos = controller.getBlockPos();
+        entity.setTravelDirection(controller.getMovementDirection());
         entity.setContraption(contraption);
         return entity;
     }
@@ -107,6 +109,13 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
         entityData.set(WORKING, working);
     }
 
+    void setTravelDirection(Direction direction) {entityData.set(TRAVEL_DIRECTION, direction);}
+
+    Direction getTravelDirection() {
+        return !level().isClientSide && getController() instanceof DrillControllerBlockEntity controller
+                ? controller.getMovementDirection() : entityData.get(TRAVEL_DIRECTION);
+    }
+
     public boolean isRemote() {
         return !level().dimension().equals(controllerDimension);
     }
@@ -115,6 +124,7 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(WORKING, false);
+        builder.define(TRAVEL_DIRECTION, Direction.DOWN);
     }
 
     @Override
@@ -176,6 +186,7 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
     protected void writeAdditional(CompoundTag tag, HolderLookup.Provider registries, boolean spawnPacket) {
         super.writeAdditional(tag, registries, spawnPacket);
         tag.putString("ControllerDimension", controllerDimension.location().toString());
+        tag.putString("TravelDirection", getTravelDirection().getName());
         if (returnPosition != null) {
             tag.putLong("LayerReturnPosition", returnPosition.asLong());
         }
@@ -189,6 +200,8 @@ public final class DrillHeadEntity extends ControlledContraptionEntity implement
         super.readAdditional(tag, spawnPacket);
         var id = ResourceLocation.tryParse(tag.getString("ControllerDimension"));
         controllerDimension = id == null ? level().dimension() : ResourceKey.create(Registries.DIMENSION, id);
+        var direction = Direction.byName(tag.getString("TravelDirection"));
+        setTravelDirection(direction == null ? Direction.DOWN : direction);
         returnPosition = tag.contains("LayerReturnPosition") ? BlockPos.of(tag.getLong("LayerReturnPosition")) : null;
         mantleReturnPosition = tag.contains("MantleReturnPosition") ? BlockPos.of(tag.getLong("MantleReturnPosition")) : null;
     }
