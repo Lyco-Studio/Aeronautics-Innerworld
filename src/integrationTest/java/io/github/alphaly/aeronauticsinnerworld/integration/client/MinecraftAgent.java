@@ -142,7 +142,10 @@ public final class MinecraftAgent {
             case "look": look(c,point(o));return true;
             case "select": c.player.getInventory().selected=integer(o,"slot",0);return true;
             case "equip": return equip(c,o.get("item").getAsString());
-            case "close": c.player.closeContainer();c.setScreen(null);return true;
+            case "close":
+                if(c.player.isSleeping())c.player.connection.send(new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(
+                        c.player,net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.STOP_SLEEPING));
+                c.player.closeContainer();c.setScreen(null);return true;
             case "use": {
                 if(o.has("x")) {
                     var pos=block(o);var ship=Sable.HELPER.getContaining(c.level,pos);var target=Vec3.atCenterOf(pos);
