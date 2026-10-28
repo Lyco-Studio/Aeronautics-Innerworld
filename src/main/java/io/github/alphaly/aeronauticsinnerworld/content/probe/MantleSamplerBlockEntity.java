@@ -30,6 +30,7 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 public final class MantleSamplerBlockEntity extends KineticBlockEntity implements Clearable {
+    private static final int REACH = 6;
     private static final TagKey<Block> MINEABLE = TagKey.create(Registries.BLOCK,
             ResourceLocation.fromNamespaceAndPath(AeronauticsInnerworld.MOD_ID, "probe_mineable"));
     public final ItemStackHandler inventory = new ItemStackHandler(9) {
@@ -93,8 +94,8 @@ public final class MantleSamplerBlockEntity extends KineticBlockEntity implement
         var direction = ship.logicalPose().transformNormal(
                 Vec3.atLowerCornerOf(getBlockState().getValue(ProbeDeviceBlock.FACING).getNormal()));
         BlockPos found = null;
-        int clearDistance = 4;
-        for (int i = 1; i <= 4; i++) {
+        int clearDistance = REACH;
+        for (int i = 1; i <= REACH; i++) {
             var pos = BlockPos.containing(origin.add(direction.scale(i)));
             if (!level.hasChunkAt(pos)) {
                 clearDistance = i - 1;
