@@ -7,6 +7,8 @@ import com.simibubi.create.foundation.item.TooltipModifier;
 import dev.engine_room.flywheel.lib.visualization.SimpleEntityVisualizer;
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer;
 import net.createmod.catnip.lang.FontHelper;
+import net.createmod.ponder.foundation.PonderIndex;
+import io.github.alphaly.aeronauticsinnerworld.client.ponder.InnerworldPonderPlugin;
 import io.github.alphaly.aeronauticsinnerworld.AeronauticsInnerworld;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.api.distmarker.Dist;
@@ -20,6 +22,7 @@ import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 public final class InnerworldClient {
     @SubscribeEvent
     public static void clientSetup(FMLClientSetupEvent event) {
+        PonderIndex.addPlugin(new InnerworldPonderPlugin());
         event.enqueueWork(() -> {
             SimpleEntityVisualizer.builder(AeronauticsInnerworld.DRILL_HEAD_ENTITY.get())
                     .factory(ContraptionVisual::new).neverSkipVanillaRender().apply();

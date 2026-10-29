@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "io.github.alphaly.aeronauticsinnerworld.integration.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["PonderKeyInputMixin"],
+  "injectors": {"defaultRequire": 1}
+}

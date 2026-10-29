@@ -7,6 +7,9 @@ modId = "aeronautics_innerworld_checks"
 version = "1.0"
 displayName = "Innerworld Runtime Checks"
 
+[[mixins]]
+config = "innerworld_checks.mixins.json"
+
 [[dependencies.aeronautics_innerworld_checks]]
 modId = "aeronautics_innerworld"
 type = "required"

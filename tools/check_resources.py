@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check resource syntax, translations, recipe unlocks and generated textures."""
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -50,6 +51,23 @@ def check():
         for text in (en[key], zh[key]):
             assert '%' not in re.sub(r'%%|%(?:[1-9]\d*\$)?s', '', text), f'Invalid translation format: {key}'
         assert len(re.findall(r'%(?:\d+\$)?[sdf]', en[key])) == len(re.findall(r'%(?:\d+\$)?[sdf]', zh[key])), key
+    ponder_source = ROOT / 'src/main/java/io/github/alphaly/aeronauticsinnerworld/client/ponder'
+    plugin = (ponder_source / 'InnerworldPonderPlugin.java').read_text()
+    layouts = set(re.findall(r'addStoryBoard\("([^"]+)"', plugin))
+    assert layouts == {path.stem for path in (assets / 'ponder').glob('*.nbt')}, 'Missing or unused Ponder layout'
+    storyboards = (ponder_source / 'InnerworldPonderScenes.java').read_text()
+    for part in re.split(r'public static void \w+\(SceneBuilder builder, SceneBuildingUtil util\)', storyboards)[1:]:
+        name, title = re.search(r'begin\(builder, "([^"]+)", "([^"]+)"\)', part).groups()
+        prefix = 'aeronautics_innerworld.ponder.' + name + '.'
+        assert name in layouts and en[prefix + 'header'] == title, f'Untranslated Ponder title: {name}'
+        for index, text in enumerate(re.findall(r'narrate\(scene, "([^"]+)"', part), 1):
+            assert en[prefix + 'text_' + str(index)] == text, f'Ponder caption order changed: {name} #{index}'
+    with tempfile.TemporaryDirectory(prefix='innerworld-ponder-') as directory:
+        generator = runpy.run_path(str(ROOT / 'tools/generate_ponder_structures.py'))['generate']
+        generator.__globals__['ROOT'] = Path(directory)
+        generator()
+        for path in (assets / 'ponder').glob('*.nbt'):
+            assert gzip.decompress(path.read_bytes()) == gzip.decompress((Path(directory) / path.name).read_bytes()), f'Ponder layout needs regeneration: {path.stem}'
     data = RESOURCES / 'data/aeronautics_innerworld'
     unlocks = {recipe for path in (data / 'advancement/recipes').glob('*.json')
                for recipe in documents[path].get('rewards', {}).get('recipes', [])}
